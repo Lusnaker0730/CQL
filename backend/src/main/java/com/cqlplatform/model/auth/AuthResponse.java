@@ -13,4 +13,5 @@ public class AuthResponse {
     private String role;
     private long expiresIn;
     private boolean forcePasswordChange;
+    private boolean platformOperator;
 }

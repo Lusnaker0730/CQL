@@ -218,7 +218,13 @@ export default function EhrImportForTestCase({
             </Box>
 
             {searchTriggered && searchResults.length === 0 && !searching && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 2
+                }}>
                 {t('ehr.noResults')}
               </Typography>
             )}
@@ -264,7 +270,9 @@ export default function EhrImportForTestCase({
         {step === 2 && selectedPatient && (
           <Stack spacing={2}>
             <Box>
-              <Typography variant="subtitle2" color="text.secondary">
+              <Typography variant="subtitle2" sx={{
+                color: "text.secondary"
+              }}>
                 {t('ehr.patientName')}
               </Typography>
               <Typography variant="body1" sx={{ fontWeight: 500 }}>
@@ -318,5 +326,5 @@ export default function EhrImportForTestCase({
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

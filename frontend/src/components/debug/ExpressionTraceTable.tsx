@@ -40,7 +40,12 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTrace; maxExprTime: 
               {open ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
             </IconButton>
           ) : (
-            <Typography variant="caption" color="text.secondary" sx={{ pl: 1.5 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                pl: 1.5
+              }}>
               {et.order + 1}
             </Typography>
           )}
@@ -102,13 +107,24 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTrace; maxExprTime: 
               <Box sx={{ py: 1, pl: 4 }}>
                 <Stack spacing={0.5}>
                   {et.sourceLocator && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {t('debug.sourceLine', { line: et.sourceLocator })}
                     </Typography>
                   )}
                   {et.dependencies && et.dependencies.length > 0 && (
-                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
-                      <Typography variant="caption" color="text.secondary">
+                    <Stack
+                      direction="row"
+                      spacing={0.5}
+                      useFlexGap
+                      sx={{
+                        alignItems: "center",
+                        flexWrap: "wrap"
+                      }}>
+                      <Typography variant="caption" sx={{
+                        color: "text.secondary"
+                      }}>
                         {t('debug.dependsOn')}
                       </Typography>
                       {et.dependencies.map((dep) => (
@@ -129,7 +145,7 @@ function ExpressionRow({ et, maxExprTime }: { et: ExpressionTrace; maxExprTime: 
         </TableRow>
       )}
     </>
-  )
+  );
 }
 
 /**

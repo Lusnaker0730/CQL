@@ -113,10 +113,20 @@ export default function ResetPasswordPage() {
             >
               <MedicalIcon sx={{ fontSize: 32, color: 'common.white' }} />
             </Box>
-            <Typography variant="h5" fontWeight={700} color="text.primary">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                color: "text.primary"
+              }}>
               {t('auth.setNewPassword')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 0.5
+              }}>
               {t('auth.enterNewPassword')}
             </Typography>
           </Box>
@@ -198,5 +208,5 @@ export default function ResetPasswordPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

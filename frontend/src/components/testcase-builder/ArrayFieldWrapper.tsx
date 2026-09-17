@@ -23,7 +23,12 @@ export default function ArrayFieldWrapper({
   return (
     <Box sx={{ mb: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {label}
         </Typography>
         <Button size="small" startIcon={<AddIcon />} onClick={onAdd} sx={{ textTransform: 'none', fontSize: '0.75rem' }}>
@@ -40,5 +45,5 @@ export default function ArrayFieldWrapper({
       ))}
       {items.length > 0 && <Divider sx={{ mt: 0.5 }} />}
     </Box>
-  )
+  );
 }

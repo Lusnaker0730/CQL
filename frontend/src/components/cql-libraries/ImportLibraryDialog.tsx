@@ -115,7 +115,12 @@ export default function ImportLibraryDialog({
               {t('import.uploadFile')}
               <input type="file" accept=".json" hidden onChange={handleFileUpload} />
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                ml: 1
+              }}>
               {t('import.uploadHint')}
             </Typography>
             <TextField
@@ -126,7 +131,9 @@ export default function ImportLibraryDialog({
               placeholder={t('import.pasteJson')}
               value={jsonText}
               onChange={(e) => { setJsonText(e.target.value); setError(null) }}
-              InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+              slotProps={{
+                input: { sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }
+              }}
             />
           </Box>
         )}
@@ -141,8 +148,10 @@ export default function ImportLibraryDialog({
               placeholder={t('import.pasteCql')}
               value={cqlText}
               onChange={(e) => { setCqlText(e.target.value); setError(null) }}
-              InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
               sx={{ mb: 2 }}
+              slotProps={{
+                input: { sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }
+              }}
             />
             <TextField
               fullWidth
@@ -174,5 +183,5 @@ export default function ImportLibraryDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

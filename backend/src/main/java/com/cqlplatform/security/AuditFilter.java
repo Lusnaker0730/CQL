@@ -26,6 +26,24 @@ import java.util.regex.Pattern;
 public class AuditFilter extends OncePerRequestFilter {
 
     private final AuditLogRepository auditLogRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /**
+     * Caller's tenant ?? default. This filter runs synchronously on the request thread,
+     * NESTED inside JwtAuthenticationFilter's try/finally — TenantContext is still set
+     * when we save (the finally-clear runs only after this filter returns). The fallback
+     * covers the paths that never set a tenant: anonymous/failed auth, the SSE-ticket
+     * branch, per-user CDS API-key auth, and legacy JWTs without a tenant claim.
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElse(null);
+    }
 
     private static final Set<String> AUDITED_PREFIXES = Set.of("/api/");
 
@@ -159,6 +177,7 @@ public class AuditFilter extends OncePerRequestFilter {
                     .connectionId(connectionId)
                     .patientFhirId(StringUtils.truncate(patientFhirId, 200))
                     .connectionName(StringUtils.truncate(connectionName, 200))
+                    .tenantId(effectiveTenantId())
                     .build();
 
             auditLogRepository.save(auditLog);
@@ -197,45 +216,12 @@ public class AuditFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Resolve the real client IP address.
-     *
-     * <p>Security (H9): X-Forwarded-For is only trusted when the direct TCP peer
-     * ({@code remoteAddr}) is a private / loopback address — i.e. a trusted reverse
-     * proxy running on the same host or internal network.  If the request arrives
-     * directly from a public IP we use {@code remoteAddr} as-is, preventing an
-     * attacker from spoofing their IP by injecting an arbitrary XFF header.
-     *
-     * <p>When XFF is trusted we take the <em>last</em> non-private IP in the list,
-     * which is the entry appended by our own reverse proxy and therefore the most
-     * reliable indication of the real client address.
+     * Resolve the real client IP address. Delegates to {@link ClientIpResolver}
+     * (shared with {@link RateLimitFilter}) so audit records and rate-limit buckets
+     * always agree on client identity. See ClientIpResolver for the XFF trust model.
      */
     private String getClientIp(HttpServletRequest request) {
-        String remoteAddr = request.getRemoteAddr();
-        // Only trust X-Forwarded-For from private network (reverse proxy)
-        if (isPrivateAddress(remoteAddr)) {
-            String xff = request.getHeader("X-Forwarded-For");
-            if (xff != null && !xff.isBlank()) {
-                // Take the LAST non-private IP (rightmost entry added by trusted proxy)
-                String[] ips = xff.split(",");
-                for (int i = ips.length - 1; i >= 0; i--) {
-                    String ip = ips[i].trim();
-                    if (!ip.isEmpty() && !isPrivateAddress(ip)) {
-                        return ip;
-                    }
-                }
-                return ips[0].trim(); // all private, use first
-            }
-        }
-        return remoteAddr;
-    }
-
-    private boolean isPrivateAddress(String ip) {
-        try {
-            java.net.InetAddress addr = java.net.InetAddress.getByName(ip);
-            return addr.isLoopbackAddress() || addr.isSiteLocalAddress() || addr.isLinkLocalAddress();
-        } catch (Exception e) {
-            return false;
-        }
+        return ClientIpResolver.resolve(request);
     }
 
 }

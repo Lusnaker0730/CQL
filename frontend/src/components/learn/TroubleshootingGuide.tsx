@@ -1,6 +1,7 @@
 import { Box, Typography, Paper, Grid, Alert } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const ERROR_FIXES: Record<string, string> = {
   resolveType: `library MyLibrary version '1.0.0'
@@ -103,18 +104,34 @@ export default function TroubleshootingGuide() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.troubleshooting.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.troubleshooting.subtitle')}
       </Typography>
-
       <Grid container spacing={3}>
         {ERROR_KEYS.map((key) => (
           <Grid key={key} size={12}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 700,
+                  color: "primary.main"
+                }}>
                 {t(`learn.troubleshooting.errors.${key}.title`)}
               </Typography>
 
@@ -123,7 +140,9 @@ export default function TroubleshootingGuide() {
               </Alert>
 
               <Alert severity="success" sx={{ mb: 2 }}>
-                <Typography variant="body2" fontWeight={600} gutterBottom>
+                <Typography variant="body2" gutterBottom sx={{
+                  fontWeight: 600
+                }}>
                   {t(`learn.troubleshooting.errors.${key}.fix`)}
                 </Typography>
                 <Typography variant="body2">
@@ -137,5 +156,5 @@ export default function TroubleshootingGuide() {
         ))}
       </Grid>
     </Box>
-  )
+  );
 }

@@ -146,12 +146,17 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
         {t('chooseCode.title')}
         <IconButton onClick={handleClose} size="small" aria-label="Close dialog"><CloseIcon /></IconButton>
       </DialogTitle>
-
       <DialogContent>
         {/* Quick select for resource-specific codes */}
         {suggestedCodes && suggestedCodes.length > 0 && (
           <>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1, mb: 1 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                color: "text.secondary",
+                mt: 1,
+                mb: 1
+              }}>
               {t('chooseCode.quickSelect')}
             </Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 1 }}>
@@ -173,7 +178,13 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
         )}
 
         {/* Manual code entry */}
-        <Stack direction="row" spacing={1} alignItems="flex-start" sx={{ mt: 1 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "flex-start",
+            mt: 1
+          }}>
           <TextField
             label={t('chooseCode.codeLabel')}
             size="small"
@@ -228,17 +239,19 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
               placeholder={t('chooseCode.searchCodesPlaceholder', { system: systemLabel || t('chooseCode.selectedSystemFallback') })}
               value={searchText}
               onChange={(e) => setSearchText(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon fontSize="small" />
-                  </InputAdornment>
-                ),
-                endAdornment: isSearching ? (
-                  <InputAdornment position="end">
-                    <CircularProgress size={18} />
-                  </InputAdornment>
-                ) : null,
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: isSearching ? (
+                    <InputAdornment position="end">
+                      <CircularProgress size={18} />
+                    </InputAdornment>
+                  ) : null,
+                }
               }}
             />
 
@@ -264,7 +277,9 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
                         onClick={() => handleSelectFromSearch(r)}
                       >
                         <TableCell>
-                          <Typography variant="body2" fontWeight={600}>{r.code}</Typography>
+                          <Typography variant="body2" sx={{
+                            fontWeight: 600
+                          }}>{r.code}</Typography>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">{r.display}</Typography>
@@ -280,7 +295,13 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
             )}
 
             {searchText.length >= 2 && !isSearching && searchResults && searchResults.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 2
+                }}>
                 {t('chooseCode.noCodesFound', { text: searchText })}
               </Typography>
             )}
@@ -316,7 +337,12 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
             {!lookupMutation.isError && (
               <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ValidIcon color="success" fontSize="small" />
-                <Typography variant="body2" color="success.main" fontWeight={600}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "success.main",
+                    fontWeight: 600
+                  }}>
                   {t('chooseCode.validationSuccess')}
                 </Typography>
               </Box>
@@ -324,7 +350,6 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
         <Button onClick={handleClose}>{t('actions.cancel', { ns: 'common' })}</Button>
         <Button variant="contained" onClick={handleSelect} disabled={!validated || !validationResult}>
@@ -332,5 +357,5 @@ export default function ChooseCodeDialog({ open, onClose, onSelect, resourceType
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

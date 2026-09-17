@@ -1,4 +1,5 @@
-import { createTheme, alpha } from '@mui/material/styles'
+import { createTheme, alpha, type Theme } from '@mui/material/styles'
+import { alertClasses } from '@mui/material/Alert'
 import { zhTW } from '@mui/material/locale'
 
 type PaletteMode = 'light' | 'dark'
@@ -78,6 +79,17 @@ const darkPalette = {
     secondary: '#A0A0A0',
   },
 }
+
+/**
+ * Fill for the public pages' header bar (see `components/common/PublicLayout`).
+ *
+ * LandingPage's hero extends the same two stops with a third (`secondary.dark`) because it is a
+ * tall hero rather than a bar — keeping the opening stops identical is what makes the transition
+ * from the landing page into a content page read as one site instead of two. Lives here, beside
+ * the palette it is derived from, so the five public pages can't drift apart again.
+ */
+export const publicHeaderGradient = (theme: Theme) =>
+  `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.secondary.main} 100%)`
 
 export function createAppTheme(mode: PaletteMode, language?: string) {
   const palette = mode === 'dark' ? darkPalette : lightPalette
@@ -301,21 +313,23 @@ export function createAppTheme(mode: PaletteMode, language?: string) {
           root: {
             borderRadius: 10,
           },
-          standardError: {
-            backgroundColor: alpha(palette.error.main, 0.08),
-            border: `1px solid ${alpha(palette.error.main, 0.2)}`,
-          },
-          standardWarning: {
-            backgroundColor: alpha(palette.warning.main, 0.08),
-            border: `1px solid ${alpha(palette.warning.main, 0.2)}`,
-          },
-          standardInfo: {
-            backgroundColor: alpha(palette.primary.main, 0.08),
-            border: `1px solid ${alpha(palette.primary.main, 0.2)}`,
-          },
-          standardSuccess: {
-            backgroundColor: alpha(palette.success.main, 0.08),
-            border: `1px solid ${alpha(palette.success.main, 0.2)}`,
+          standard: {
+            [`&.${alertClasses.colorError}`]: {
+              backgroundColor: alpha(palette.error.main, 0.08),
+              border: `1px solid ${alpha(palette.error.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorWarning}`]: {
+              backgroundColor: alpha(palette.warning.main, 0.08),
+              border: `1px solid ${alpha(palette.warning.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorInfo}`]: {
+              backgroundColor: alpha(palette.primary.main, 0.08),
+              border: `1px solid ${alpha(palette.primary.main, 0.2)}`,
+            },
+            [`&.${alertClasses.colorSuccess}`]: {
+              backgroundColor: alpha(palette.success.main, 0.08),
+              border: `1px solid ${alpha(palette.success.main, 0.2)}`,
+            },
           },
         },
       },

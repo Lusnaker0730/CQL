@@ -1,4 +1,74 @@
 {
+  "tenantUsers": {
+    "title": "員工管理",
+    "subtitle": "管理貴診所的員工帳號 —— 建立帳號、設定角色、啟用或停用存取、重設密碼。你只會看到並管理自己診所的使用者。",
+    "createUser": "新增員工",
+    "youChip": "你",
+    "noUsersFound": "尚無員工帳號。",
+    "resetPasswordButton": "重設密碼",
+    "roles": {
+      "admin": "管理員",
+      "departmentAdmin": "部門管理員",
+      "user": "一般使用者"
+    },
+    "columns": {
+      "username": "帳號",
+      "email": "電子郵件",
+      "role": "角色",
+      "status": "狀態",
+      "created": "建立時間",
+      "actions": "操作"
+    },
+    "status": {
+      "forceChange": "須變更密碼",
+      "active": "使用中",
+      "disabled": "已停用"
+    },
+    "tooltips": {
+      "cannotDisableSelf": "無法停用自己的帳號",
+      "disableUser": "停用此帳號",
+      "enableUser": "啟用此帳號",
+      "resetPassword": "為此員工產生密碼設定連結"
+    },
+    "success": {
+      "userCreated": "員工帳號已建立。",
+      "roleUpdated": "{{username}} 的角色已變更為 {{role}}。",
+      "userDisabled": "{{username}} 已停用。",
+      "userEnabled": "{{username}} 已啟用。"
+    },
+    "errors": {
+      "usernameExists": "此帳號已被使用。",
+      "createFailed": "建立員工帳號失敗。",
+      "resetFailed": "重設密碼失敗。",
+      "updateRoleFailed": "變更角色失敗。",
+      "toggleFailed": "更新帳號失敗。"
+    },
+    "confirmDialog": {
+      "changeRoleTitle": "變更角色",
+      "changeRoleMessage": "確定將 {{username}} 的角色改為 {{role}} 嗎？其現有工作階段將結束，需以新角色重新登入。",
+      "disableUserTitle": "停用帳號",
+      "enableUserTitle": "啟用帳號",
+      "disableMessage": "確定要停用 {{username}} 嗎？其工作階段與 API 金鑰將立即被撤銷。",
+      "enableMessage": "確定要啟用 {{username}} 嗎？"
+    },
+    "createDialog": {
+      "title": "新增員工帳號",
+      "usernameLabel": "帳號",
+      "passwordLabel": "初始密碼",
+      "passwordHelperText": "至少 8 碼，須含大寫、小寫與數字。員工首次登入時須自行變更。",
+      "emailLabel": "電子郵件（選填）",
+      "roleLabel": "角色",
+      "createButton": "建立"
+    },
+    "resetDialog": {
+      "title": "密碼設定連結",
+      "info": "將這個一次性連結交給員工，讓他們設定新密碼。",
+      "copyTooltip": "複製連結",
+      "copiedTooltip": "已複製",
+      "copyAriaLabel": "複製設定連結",
+      "shareWarning": "此連結只顯示這一次。請透過可信管道轉交；任何取得連結者皆可設定此帳號密碼。"
+    }
+  },
   "users": {
     "title": "使用者管理",
     "createUser": "建立使用者",
@@ -109,5 +179,55 @@
       "timeMs": "時間 (毫秒)",
       "noEntries": "未找到稽核日誌記錄"
     }
+  },
+  "tenants": {
+    "title": "診所租戶",
+    "create": "新增租戶",
+    "createTitle": "開通診所租戶",
+    "code": "代碼",
+    "codeHelp": "小寫代碼(a-z、0-9、-),建立後不可變更",
+    "name": "名稱",
+    "status": "狀態",
+    "statusActive": "啟用中",
+    "statusInactive": "已停用",
+    "active": "啟用",
+    "defaultProtected": "預設租戶不可停用",
+    "members": "成員",
+    "viewMembers": "成員",
+    "membersTitle": "{{name}} 的成員",
+    "username": "使用者名稱",
+    "role": "角色",
+    "enabled": "啟用",
+    "userEnabled": "啟用",
+    "userDisabled": "停用",
+    "assignUser": "指派使用者",
+    "assign": "指派",
+    "assignNote": "指派後該使用者的現有登入將立即失效,需重新登入。",
+    "createFailed": "建立租戶失敗",
+    "updateFailed": "更新租戶失敗",
+    "assignFailed": "指派使用者失敗"
+  },
+  "applications": {
+    "title": "診所申請審核",
+    "clinicName": "診所",
+    "tenantCode": "代碼",
+    "adminUsername": "管理員帳號",
+    "adminEmail": "Email",
+    "status": "狀態",
+    "statusPending": "待審核",
+    "statusApproved": "已核准",
+    "statusRejected": "已婉拒",
+    "filterAll": "全部",
+    "actions": "操作",
+    "approve": "核准",
+    "reject": "婉拒",
+    "rejectTitle": "婉拒 {{name}} 的申請",
+    "rejectReason": "原因(將記錄於審核軌跡)",
+    "approvedTitle": "診所已開通",
+    "approvedMessage": "租戶「{{tenant}}」與管理員帳號「{{username}}」已建立完成。",
+    "setupLinkHelp": "一次性密碼設定連結(7 天有效)。若已設定郵件服務會同步寄出;否則請透過可信管道轉交給診所。此連結僅顯示這一次。",
+    "copyLink": "複製連結",
+    "approveFailed": "核准失敗",
+    "rejectFailed": "婉拒失敗"
   }
 }

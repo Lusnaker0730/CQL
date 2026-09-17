@@ -147,11 +147,13 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
   if (!activeEntry) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('testCaseBuilder.selectResource')}
         </Typography>
       </Box>
-    )
+    );
   }
 
   if (isLoading) {
@@ -210,117 +212,118 @@ export default function ResourceForm({ onDirty }: ResourceFormProps) {
 
   return (
     <ResourceTypeProvider value={activeEntry.resourceType}>
-    <Box>
-      <ResourceFormHeader
-        resourceType={activeEntry.resourceType}
-        resourceId={(activeEntry.resourceData.id as string) || activeEntry.id}
-        onIdChange={handleIdChange}
-      />
+      <Box>
+        <ResourceFormHeader
+          resourceType={activeEntry.resourceType}
+          resourceId={(activeEntry.resourceData.id as string) || activeEntry.id}
+          onIdChange={handleIdChange}
+        />
 
-      {requiredElements.length > 0 && (
-        <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">
-              {t('testCaseBuilder.requiredFields')}
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            {requiredElements.map((el) => (
-              <ElementField
-                key={el.name}
-                element={el}
-                path={`${activeEntry.resourceType}.${el.name}`}
-                value={getFieldValue(el)}
-                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
-                initialChoiceType={getSelectedChoiceType(el)}
-                depth={0}
-              />
-            ))}
-          </AccordionDetails>
-        </Accordion>
-      )}
-
-      {visibleOptional.length > 0 && (
-        <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
-          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="subtitle2">
-              {t('testCaseBuilder.optionalFields')}
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0 }}>
-            {visibleOptional.map((el) => (
-              <ElementField
-                key={el.name}
-                element={el}
-                path={`${activeEntry.resourceType}.${el.name}`}
-                value={getFieldValue(el)}
-                onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
-                initialChoiceType={getSelectedChoiceType(el)}
-                depth={0}
-              />
-            ))}
-          </AccordionDetails>
-        </Accordion>
-      )}
-
-      <Box sx={{ mt: 1 }}>
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => setAddAttrOpen(true)}
-          disabled={hiddenOptional.length === 0}
-          sx={{ textTransform: 'none' }}
-          aria-label={t('testCaseBuilder.addAttributeAria', { count: hiddenOptional.length })}
-        >
-          {t('testCaseBuilder.addAttribute')} {t('testCaseBuilder.available', { count: hiddenOptional.length })}
-        </Button>
-      </Box>
-
-      <Dialog open={addAttrOpen} onClose={() => setAddAttrOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{t('testCaseBuilder.addAttributes')}</DialogTitle>
-        <DialogContent>
-          <List dense>
-            {hiddenOptional.map((el) => (
-              <ListItemButton
-                key={el.name}
-                onClick={() => {
-                  const next = new Set(selectedAttrs)
-                  if (next.has(el.name)) next.delete(el.name)
-                  else next.add(el.name)
-                  setSelectedAttrs(next)
-                }}
-              >
-                <Checkbox
-                  checked={selectedAttrs.has(el.name)}
-                  size="small"
-                  sx={{ p: 0.5, mr: 1 }}
+        {requiredElements.length > 0 && (
+          <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2">
+                {t('testCaseBuilder.requiredFields')}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              {requiredElements.map((el) => (
+                <ElementField
+                  key={el.name}
+                  element={el}
+                  path={`${activeEntry.resourceType}.${el.name}`}
+                  value={getFieldValue(el)}
+                  onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                  initialChoiceType={getSelectedChoiceType(el)}
+                  depth={0}
                 />
-                <ListItemText
-                  primary={el.name}
-                  secondary={
-                    [el.type, el.isArray ? t('testCaseBuilder.array') : '', el.description || '']
-                      .filter(Boolean)
-                      .join(' ')
-                  }
-                  primaryTypographyProps={{ variant: 'body2' }}
-                  secondaryTypographyProps={{ variant: 'caption' }}
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        )}
+
+        {visibleOptional.length > 0 && (
+          <Accordion defaultExpanded disableGutters sx={{ '&:before': { display: 'none' } }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="subtitle2">
+                {t('testCaseBuilder.optionalFields')}
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ pt: 0 }}>
+              {visibleOptional.map((el) => (
+                <ElementField
+                  key={el.name}
+                  element={el}
+                  path={`${activeEntry.resourceType}.${el.name}`}
+                  value={getFieldValue(el)}
+                  onChange={(val, choiceFieldName) => handleFieldChange(`${activeEntry.resourceType}.${el.name}`, val, choiceFieldName)}
+                  initialChoiceType={getSelectedChoiceType(el)}
+                  depth={0}
                 />
-              </ListItemButton>
-            ))}
-          </List>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAddAttrOpen(false)}>{t('testCaseBuilder.cancel')}</Button>
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        )}
+
+        <Box sx={{ mt: 1 }}>
           <Button
-            variant="contained"
-            disabled={selectedAttrs.size === 0}
-            onClick={handleAddAttributes}
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => setAddAttrOpen(true)}
+            disabled={hiddenOptional.length === 0}
+            sx={{ textTransform: 'none' }}
+            aria-label={t('testCaseBuilder.addAttributeAria', { count: hiddenOptional.length })}
           >
-            {t('testCaseBuilder.addCount', { count: selectedAttrs.size })}
+            {t('testCaseBuilder.addAttribute')} {t('testCaseBuilder.available', { count: hiddenOptional.length })}
           </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        </Box>
+
+        <Dialog open={addAttrOpen} onClose={() => setAddAttrOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>{t('testCaseBuilder.addAttributes')}</DialogTitle>
+          <DialogContent>
+            <List dense>
+              {hiddenOptional.map((el) => (
+                <ListItemButton
+                  key={el.name}
+                  onClick={() => {
+                    const next = new Set(selectedAttrs)
+                    if (next.has(el.name)) next.delete(el.name)
+                    else next.add(el.name)
+                    setSelectedAttrs(next)
+                  }}
+                >
+                  <Checkbox
+                    checked={selectedAttrs.has(el.name)}
+                    size="small"
+                    sx={{ p: 0.5, mr: 1 }}
+                  />
+                  <ListItemText
+                    primary={el.name}
+                    secondary={
+                      [el.type, el.isArray ? t('testCaseBuilder.array') : '', el.description || '']
+                        .filter(Boolean)
+                        .join(' ')
+                    }
+                    slotProps={{
+                      primary: { variant: 'body2' },
+                      secondary: { variant: 'caption' }
+                    }} />
+                </ListItemButton>
+              ))}
+            </List>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setAddAttrOpen(false)}>{t('testCaseBuilder.cancel')}</Button>
+            <Button
+              variant="contained"
+              disabled={selectedAttrs.size === 0}
+              onClick={handleAddAttributes}
+            >
+              {t('testCaseBuilder.addCount', { count: selectedAttrs.size })}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
     </ResourceTypeProvider>
-  )
+  );
 }

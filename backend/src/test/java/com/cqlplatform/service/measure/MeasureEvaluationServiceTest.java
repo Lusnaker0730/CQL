@@ -1,7 +1,9 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.exception.MeasureNotEvaluableException;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
+import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationRequest;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.service.cql.CqlExecutionService;
@@ -339,5 +341,45 @@ class MeasureEvaluationServiceTest {
         assertThat(result.getStatus()).isEqualTo("complete");
         assertThat(result.getErrorCount()).isEqualTo(0);
         assertThat(result.getEvaluatedPatientCount()).isEqualTo(2);
+    }
+
+    // ===== PAT-219: lifecycle guard on the stored-definition entry point =====
+
+    @Test
+    void evaluateMeasure_storedDefinitionNotActive_shouldRefuseBeforeAnyFhirOrCqlWork() {
+        MeasureDefinition draft = MeasureDefinition.builder()
+                .id(42L).name("Draft measure").status("draft")
+                .cqlContent("library Test version '1.0'").build();
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("42");
+        request.setMeasureCql(draft.getCqlContent());
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        assertThatThrownBy(() -> measureService.evaluateMeasure(request, 42L, draft))
+                .isInstanceOf(MeasureNotEvaluableException.class)
+                .hasMessageContaining("Measure 42")
+                .hasMessageContaining("'draft'");
+
+        // The whole point: unreviewed logic must never reach the FHIR server or the engine.
+        verifyNoInteractions(cqlExecutionService, fhirDataProviderService);
+    }
+
+    @Test
+    void evaluateMeasure_storedDefinitionActive_shouldProceedToEvaluation() {
+        MeasureDefinition active = MeasureDefinition.builder()
+                .id(42L).name("Active measure").status("active").scoringType("proportion")
+                .cqlContent("library Test version '1.0'").build();
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("42");
+        request.setMeasureCql(active.getCqlContent());
+        request.setPatientId("patient-1");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+                "Initial Population", true, "Denominator", true, "Numerator", true)));
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request, 42L, active);
+
+        assertThat(result.getStatus()).isEqualTo("complete");
+        assertThat(result.getGroups()).isNotEmpty();
     }
 }

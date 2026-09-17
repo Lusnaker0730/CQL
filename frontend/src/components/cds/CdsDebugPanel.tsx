@@ -92,7 +92,13 @@ function PrefetchSection({ statuses }: PrefetchSectionProps) {
                     </Typography>
                   )}
                   {s.resolvedUrl && !s.error && (
-                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "text.secondary",
+                        fontFamily: 'monospace',
+                        wordBreak: 'break-all'
+                      }}>
                       {s.resolvedUrl}
                     </Typography>
                   )}
@@ -103,7 +109,7 @@ function PrefetchSection({ statuses }: PrefetchSectionProps) {
         </Table>
       </TableContainer>
     </Box>
-  )
+  );
 }
 
 interface FhirDiagProps {
@@ -115,7 +121,9 @@ function FhirServerSection({ diag }: FhirDiagProps) {
   return (
     <Alert severity={fhirServerSeverity(diag.status)} icon={false}>
       <AlertTitle>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Chip size="small" color={fhirServerSeverity(diag.status)} label={t(`debug.fhirStatus.${diag.status}`, { defaultValue: diag.status })} />
           <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
             {diag.url}
@@ -123,7 +131,13 @@ function FhirServerSection({ diag }: FhirDiagProps) {
         </Stack>
       </AlertTitle>
       {diag.errorCategory && (
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mt: 0.5
+          }}>
           <Chip size="small" variant="outlined" label={t(`debug.fhirCategory.${diag.errorCategory}`, { defaultValue: diag.errorCategory })} />
           {diag.httpStatus && <Chip size="small" variant="outlined" label={`HTTP ${diag.httpStatus}`} />}
           {diag.elapsedMs != null && <Typography variant="caption">{diag.elapsedMs}ms</Typography>}
@@ -135,7 +149,7 @@ function FhirServerSection({ diag }: FhirDiagProps) {
         </Typography>
       )}
     </Alert>
-  )
+  );
 }
 
 /**
@@ -152,35 +166,35 @@ export default function CdsDebugPanel({ debug }: Props) {
 
   return (
     <Stack spacing={2} sx={{ mt: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <DebugIcon fontSize="small" color="secondary" />
         <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'secondary.main' }}>
           {t('debug.title')}
         </Typography>
       </Stack>
-
       {error && <ExecutionErrorAlert errorInfo={error} />}
-
       {dryRun && (
         <Alert severity="warning" icon={false}>
           <AlertTitle>{t('debug.dryRunTitle')}</AlertTitle>
           <Typography variant="body2">{t('debug.dryRunDescription')}</Typography>
         </Alert>
       )}
-
       {resourcesByType && Object.keys(resourcesByType).length > 0 && (
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: 'secondary.main' }}>
             {t('debug.resourcesByType')}
           </Typography>
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{
+            flexWrap: "wrap"
+          }}>
             {Object.entries(resourcesByType).map(([type, count]) => (
               <Chip key={type} size="small" variant="outlined" label={`${type}: ${count}`} />
             ))}
           </Stack>
         </Box>
       )}
-
       {contextWarnings && contextWarnings.length > 0 && (
         <Alert severity="warning" icon={false}>
           <AlertTitle>{t('debug.contextWarnings')}</AlertTitle>
@@ -193,18 +207,19 @@ export default function CdsDebugPanel({ debug }: Props) {
           </Box>
         </Alert>
       )}
-
       {fhirServerDiagnostics && <FhirServerSection diag={fhirServerDiagnostics} />}
-
       {prefetchStatus && prefetchStatus.length > 0 && <PrefetchSection statuses={prefetchStatus} />}
-
       {invocationContext && Object.keys(invocationContext).length > 0 && (
         <Box>
-          <Stack direction="row" alignItems="center" spacing={0.5}>
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <IconButton size="small" onClick={() => setContextOpen(!contextOpen)}>
               {contextOpen ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
             </IconButton>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {t('debug.invocationContext')}
             </Typography>
           </Stack>
@@ -217,16 +232,13 @@ export default function CdsDebugPanel({ debug }: Props) {
           </Collapse>
         </Box>
       )}
-
       {debugTrace && debugTrace.expressionTraces.length > 0 && (
         <ExpressionTraceTable traces={debugTrace.expressionTraces} />
       )}
-
       {debugTrace && debugTrace.retrieveTraces.length > 0 && (
         <RetrieveTraceTable traces={debugTrace.retrieveTraces} />
       )}
-
       {debugTrace?.elmJson && <ElmJsonViewer elmJson={debugTrace.elmJson} />}
     </Stack>
-  )
+  );
 }

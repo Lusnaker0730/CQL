@@ -60,7 +60,7 @@ describe('ResourceEditorDialog — PAT-134 editor remount per resource (P1)', ()
         resourceType="Patient"
         resourceId="123"
         initialJson='{"resourceType":"Patient","id":"123"}'
-        fhirServer="s"
+        connectionId={null}
         onClose={() => {}}
         onSaved={() => {}}
       />,
@@ -78,7 +78,7 @@ describe('ResourceEditorDialog — PAT-134 editor remount per resource (P1)', ()
         resourceType="Patient"
         resourceId="456"
         initialJson='{"resourceType":"Patient","id":"456"}'
-        fhirServer="s"
+        connectionId={null}
         onClose={() => {}}
         onSaved={() => {}}
       />,

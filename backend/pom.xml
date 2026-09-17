@@ -6,8 +6,13 @@
 
     <parent>
         <groupId>org.springframework.boot</groupId>
+        <!-- 4.1.x: 4.0.x OSS support ends 2026-12 — moved off it ahead of the next CVE wave
+             (PAT-218). Same spring-framework (7.0.8) as 4.0.7; bumps micrometer to 1.17 and
+             spring-data-bom to 2026.0.0. micrometer 1.17 dropped its transitive LatencyUtils
+             dependency, so we declare it directly below — without it every Timer bean in
+             MetricsConfig dies at context startup (NoClassDefFoundError: PauseDetector). -->
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>4.0.6</version>
+        <version>4.1.0</version>
         <relativePath/>
     </parent>
 
@@ -20,58 +25,86 @@
     <description>CQL Platform with CDS Hooks and eCQM Support</description>
 
     <properties>
-        <java.version>21</java.version>
-        <cql.version>4.5.0</cql.version>
+        <java.version>25</java.version>
+        <cql.version>4.8.0</cql.version>
         <hapi.fhir.version>8.8.1</hapi.fhir.version>
         <mockito.version>5.23.0</mockito.version>
         <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.4.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
-        <jackson-bom.version>3.1.1</jackson-bom.version>
-        <!-- CVE overrides above the versions shipped with Spring Boot 3.5.12 -->
-        <tomcat.version>10.1.54</tomcat.version>
-        <thymeleaf.version>3.1.4.RELEASE</thymeleaf.version>
+        <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization) -->
+        <jackson-bom.version>3.1.4</jackson-bom.version>
+        <!-- CVE overrides above the versions shipped with Spring Boot 4.1.0 -->
+        <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513
+             tomcat 10.1.60: CVE-2026-65182 (CRITICAL, security constraint bypass) + 65905/68525 (PAT-221).
+             Fixed in 10.1.58 per the advisory, but that vote never shipped to Maven Central (10.1.57 -> 10.1.59);
+             10.1.60 is the current 10.1.x release. -->
+        <tomcat.version>10.1.60</tomcat.version>
+        <!-- PAT-221: httpcore5 / httpcore5-h2 5.4.2 -> 5.4.3: CVE-2026-54399 / 54428 (HIGH, DoS).
+             Transitive via hapi-fhir-structures-r4 -> org.hl7.fhir.utilities -> Saxon-HE -> xmlresolver
+             -> httpclient5 5.6.1. Overrides the Spring Boot 4.1 BOM property, which manages both artifacts. -->
+        <httpcore5.version>5.4.3</httpcore5.version>
+        <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
+        <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
         <spring-security.version>6.5.9</spring-security.version>
-        <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10. Fixed in 42.7.11. -->
-        <postgresql.version>42.7.11</postgresql.version>
+        <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10 (fixed 42.7.11).
+             CVE-2026-54291: scram-client auth vuln in pgjdbc 42.7.11 (fixed 42.7.12). -->
+        <postgresql.version>42.7.12</postgresql.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <!--
-              Override transitive org.hl7.fhir.* at 6.7.9 to fix CVE-2026-33180 (auth leak in redirects).
-              Only override packages that Trivy flags AND are ABI-compatible with hapi-fhir 8.6.6.
-              Do NOT override r4/r5/validation/utilities (6.6.7) — they are tightly coupled to hapi-fhir core.
+              Override transitive org.hl7.fhir.* to pick up CVE fixes ahead of HAPI releases.
+              Only the standalone model libs (dstu2/dstu2016may/dstu3/r4b + convertors) can be
+              bumped independently. Do NOT bump r4/r5/validation past the HAPI-bundled version
+              (6.9.7 on hapi-fhir 8.8.1): javap check (BUG-124 method, re-run for BUG-130) shows
+              6.9.9's IValidationPolicyAdvisor adds abstract isSuppressMessageId(String,String,
+              Object...) and relativeDatePlaceHolder() that 8.8.1's FhirDefaultPolicyAdvisor does
+              not implement -> AbstractMethodError at runtime. Those stay VEX'd in .trivyignore
+              until a HAPI release bundles fhir core >= 6.9.9.
+              Current pins: 6.9.9 fixes CVE-2026-49485 (FHIRPath matches()/replaceMatches() ReDoS).
             -->
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.convertors</artifactId>
-                <version>6.9.7</version>
+                <!-- 6.9.10: CVE-2026-55470 (incomplete fix for CVE-2026-45367, DSTU2). convertors is
+                     ABI-compatible with hapi-fhir 8.8.1 and already overridden, so we bump it; the same
+                     CVE on org.hl7.fhir.validation (coupled to core, no independent fix) is VEX'd in .trivyignore. -->
+                <version>6.9.10</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu2016may</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.dstu3.support</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
             </dependency>
             <dependency>
                 <groupId>ca.uhn.hapi.fhir</groupId>
                 <artifactId>org.hl7.fhir.r4b</artifactId>
-                <version>6.9.7</version>
+                <version>6.9.9</version>
+            </dependency>
+            <!-- PAT-221: libthrift 0.22.0 -> 0.24.0: CVE-2026-43871 (HIGH, DoS via infinite loop).
+                 Transitive via hapi-fhir-structures-r4 -> jena-shex 5.5.0 -> jena-arq; the platform never
+                 parses RDF Thrift, but the artifact ships in the jar and a fixed version exists. -->
+            <dependency>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>libthrift</artifactId>
+                <version>0.24.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -125,7 +158,7 @@
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>0.12.6</version>
+            <version>0.13.0</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -144,6 +177,17 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- micrometer-core 1.17 (Spring Boot 4.1 BOM) no longer pulls LatencyUtils
+             transitively, but AbstractTimer still references org.LatencyUtils.PauseDetector —
+             without this jar every Timer bean in MetricsConfig fails at context startup
+             (PAT-218 / the reason dependabot's bare 4.1.0 bump failed CI for a month). -->
+        <dependency>
+            <groupId>org.latencyutils</groupId>
+            <artifactId>LatencyUtils</artifactId>
+            <version>2.0.3</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -256,9 +300,20 @@
         </dependency>
 
         <!-- Jackson -->
+        <!-- 2.21.4: CVE-2026-54512 / CVE-2026-54513 — pins the Jackson 2.x (com.fasterxml)
+             jackson-databind pulled transitively above the 2.21.2 shipped by Spring Boot 4.0.6. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>2.21.4</version>
+        </dependency>
+        <!-- 2.21.4: GHSA-r7wm-3cxj-wff9 (jackson-core Async parser maxNumberLength
+             bypass). The Spring Boot 4.0.6 BOM holds jackson-core (2.x) at 2.21.2 and
+             the databind pin above does not lift core, so pin it directly. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>2.21.4</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
@@ -321,16 +376,17 @@
             <artifactId>logstash-logback-encoder</artifactId>
             <version>9.0</version>
         </dependency>
-        <!-- Override Jackson 3.x transitive from logstash-logback-encoder (CVE-2026-29062 + GHSA-2m67-wjpj-xhg9) -->
+        <!-- Override Jackson 3.x transitive from logstash-logback-encoder (CVE-2026-29062 + GHSA-2m67-wjpj-xhg9)
+             3.1.4: also clears CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization). -->
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>3.1.1</version>
+            <version>3.1.4</version>
         </dependency>
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>3.1.1</version>
+            <version>3.1.4</version>
         </dependency>
 
         <!-- Observability: Prometheus Metrics -->
@@ -430,7 +486,7 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.12</version>
+                <version>0.8.14</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>

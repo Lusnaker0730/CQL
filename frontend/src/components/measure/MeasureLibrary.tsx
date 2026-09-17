@@ -232,9 +232,21 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
   return (
     <Paper sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={0.5}>
-        <Typography variant="subtitle1" fontWeight={700}>{t('library.title')}</Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+          flexWrap: "wrap",
+          gap: 0.5
+        }}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 700
+        }}>{t('library.title')}</Typography>
+        <Stack direction="row" spacing={0.5} sx={{
+          flexWrap: "wrap"
+        }}>
           {selectedMeasureIds.size > 0 && (
             <Button
               size="small"
@@ -254,7 +266,6 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </GradientButton>
         </Stack>
       </Stack>
-
       <Stack direction="row" spacing={1} sx={{ mb: 0.5 }}>
         <TextField
           size="small"
@@ -262,7 +273,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           placeholder={t('library.searchPlaceholder')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
+          slotProps={{
+            input: { startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }
+          }}
         />
         <Box sx={{ minWidth: 120 }}>
           <DepartmentSelector
@@ -274,7 +287,6 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           />
         </Box>
       </Stack>
-
       <Tabs
         value={filterTab}
         onChange={(_, v) => setFilterTab(v)}
@@ -285,9 +297,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         <Tab label={t('library.tabs.sharedWithMe')} />
         <Tab label={t('library.tabs.public')} />
       </Tabs>
-
       {isLoading && <TableSkeleton columns={6} hasCheckbox />}
-
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" sx={{ minWidth: TABLE_MIN_WIDTH, ...TABLE_LAYOUT }}>
           <TableHead>
@@ -332,12 +342,17 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           )}
         </Table>
         {!isLoading && measures.length === 0 && (
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: 'center',
+              py: 2
+            }}>
             {t('library.emptyState')}
           </Typography>
         )}
       </Box>
-
       {/* Create Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('library.createDialog.title')}</DialogTitle>
@@ -357,7 +372,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
               ))}
             </TextField>
-            <Stack direction="row" justifyContent="flex-end">
+            <Stack direction="row" sx={{
+              justifyContent: "flex-end"
+            }}>
               <Button size="small" startIcon={<LibraryBooksIcon />}
                 onClick={() => { setLibraryPickerTarget('create'); setLibraryPickerOpen(true) }}
                 sx={{ color: 'primary.main' }}>
@@ -378,7 +395,6 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Edit Dialog */}
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{t('library.editDialog.title')}</DialogTitle>
@@ -391,8 +407,11 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 <Stack direction="row" spacing={2}>
                   <TextField label={t('library.editDialog.version')} size="small" fullWidth
                     value={editMeasure.version} onChange={(e) => setEditMeasure({ ...editMeasure, version: e.target.value })} />
+                  {/* PAT-222: lifecycle status is read-only here — the backend refuses a
+                      status change on PUT; it moves only via submit / approve / reject / retire. */}
                   <TextField label={t('library.editDialog.status')} select size="small" fullWidth
-                    value={editMeasure.status} onChange={(e) => setEditMeasure({ ...editMeasure, status: e.target.value })}>
+                    value={editMeasure.status} disabled
+                    helperText={t('library.editDialog.statusReadOnly')}>
                     {MEASURE_STATUS_OPTIONS.map((opt) => (
                       <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                     ))}
@@ -408,7 +427,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                     <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
                   ))}
                 </TextField>
-                <Stack direction="row" justifyContent="flex-end">
+                <Stack direction="row" sx={{
+                  justifyContent: "flex-end"
+                }}>
                   <Button size="small" startIcon={<LibraryBooksIcon />}
                     onClick={() => { setLibraryPickerTarget('edit'); setLibraryPickerOpen(true) }}
                     sx={{ color: 'primary.main' }}>
@@ -417,7 +438,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                 </Stack>
                 <TextField label={t('library.editDialog.cqlContent')} size="small" fullWidth multiline rows={12}
                   value={editMeasure.cqlContent || ''} onChange={(e) => setEditMeasure({ ...editMeasure, cqlContent: e.target.value })}
-                  InputProps={{ sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }} />
+                  slotProps={{
+                    input: { sx: { fontFamily: '"Consolas", "Monaco", monospace', fontSize: '0.85rem' } }
+                  }} />
                 {updateMutation.isError && (
                   <Alert severity="error">{extractApiError(updateMutation.error)}</Alert>
                 )}
@@ -432,7 +455,6 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </>
         )}
       </Dialog>
-
       {/* Import Dialog */}
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{t('library.importDialog.title')}</DialogTitle>
@@ -458,7 +480,12 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             >
               {t('library.importDialog.uploadFile')}
             </Button>
-            <Typography variant="caption" color="text.secondary" sx={{ alignSelf: 'center' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                alignSelf: 'center'
+              }}>
               {t('library.importDialog.orPaste')}
             </Typography>
             <input
@@ -510,7 +537,6 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </Button>
         </DialogActions>
       </Dialog>
-
       <LibraryPicker
         open={libraryPickerOpen}
         onClose={() => setLibraryPickerOpen(false)}
@@ -522,14 +548,13 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           }
         }}
       />
-
       <BatchEvaluationDialog
         open={batchDialogOpen}
         onClose={() => setBatchDialogOpen(false)}
         measureIds={batchMeasureIds}
       />
     </Paper>
-  )
+  );
 }
 
 const TABLE_MIN_WIDTH = 560
@@ -575,20 +600,36 @@ const MeasureRow = React.memo(function MeasureRow({
         />
       </TableCell>
       <TableCell sx={{ width: COL_W.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ minWidth: 0 }}>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            alignItems: "center",
+            minWidth: 0
+          }}>
           <Tooltip title={m.accessLevel || 'private'}>
             {ACCESS_ICONS[m.accessLevel || 'private'] || ACCESS_ICONS.private}
           </Tooltip>
           <Box sx={{ minWidth: 0, overflow: 'hidden' }}>
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              <Typography variant="body2" fontWeight={500} noWrap>{m.title || m.name}</Typography>
+            <Stack direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
+              <Typography variant="body2" noWrap sx={{
+                fontWeight: 500
+              }}>{m.title || m.name}</Typography>
               {m.lockedBy && (
                 <Tooltip title={t('library.lockedBy', { user: m.lockedBy })}>
                   <LockClockIcon sx={{ fontSize: 14, color: 'warning.main' }} />
                 </Tooltip>
               )}
             </Stack>
-            <Typography variant="caption" color="text.secondary" noWrap display="block">
+            <Typography
+              variant="caption"
+              noWrap
+              sx={{
+                color: "text.secondary",
+                display: "block"
+              }}>
               {m.name}{m.version ? ` v${m.version}` : ''}{m.ownerUsername ? ` · ${m.ownerUsername}` : ''}
             </Typography>
           </Box>
@@ -602,11 +643,19 @@ const MeasureRow = React.memo(function MeasureRow({
         {m.department ? (
           <Chip label={m.department} size="small" variant="outlined" sx={{ fontSize: '0.7rem', height: 20 }} />
         ) : (
-          <Typography variant="caption" color="text.secondary">{t('library.noValue')}</Typography>
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>{t('library.noValue')}</Typography>
         )}
       </TableCell>
       <TableCell align="right" sx={{ width: COL_W.actions }}>
-        <Stack direction="row" spacing={0} justifyContent="flex-end" flexWrap="nowrap">
+        <Stack
+          direction="row"
+          spacing={0}
+          sx={{
+            justifyContent: "flex-end",
+            flexWrap: "nowrap"
+          }}>
           <IconButton size="small" aria-label={t('library.editMeasure')} onClick={(e) => onEdit(m.id!, e)}>
             <EditIcon fontSize="small" />
           </IconButton>
@@ -619,5 +668,5 @@ const MeasureRow = React.memo(function MeasureRow({
         </Stack>
       </TableCell>
     </TableRow>
-  )
+  );
 })

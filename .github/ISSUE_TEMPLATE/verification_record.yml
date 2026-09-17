@@ -81,7 +81,7 @@ body:
       description: 測試執行的環境資訊
       placeholder: |
         - OS: Ubuntu 22.04
-        - Java: 21
+        - Java: 25
         - Node.js: 20
         - 瀏覽器: Chrome 120
     validations:

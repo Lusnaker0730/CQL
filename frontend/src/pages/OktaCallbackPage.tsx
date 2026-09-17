@@ -103,11 +103,13 @@ export default function OktaCallbackPage() {
       <Card sx={{ maxWidth: 420, width: '100%', mx: 2, borderRadius: 3 }}>
         <CardContent sx={{ p: 4, textAlign: 'center' }}>
           <CircularProgress sx={{ mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
+          <Typography variant="body1" sx={{
+            color: "text.secondary"
+          }}>
             {t('auth.ssoProcessing')}
           </Typography>
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

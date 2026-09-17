@@ -1,6 +1,7 @@
 package com.cqlplatform.entity;
 
 import com.cqlplatform.model.authoring.AuthoringConstants;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +31,17 @@ public class CdsArtifactEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * Tenant (clinic) that owns this artifact — the isolation boundary (BUG-134). Assigned
+     * server-side; existing rows were backfilled to their owner's tenant (default for legacy
+     * accounts) in V68. Every lookup must filter on it: OwnershipVerifier's ROLE_ADMIN bypass
+     * does not consult TenantContext, so this column is what keeps a clinic ADMIN inside
+     * their own tenant.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
 
     @Column(name = "name", nullable = false, length = 255)
     private String name;

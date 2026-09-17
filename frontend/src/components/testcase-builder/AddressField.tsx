@@ -111,7 +111,6 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
           {typeOptions.map((opt) => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
         </TextField>
       </Box>
-
       <Box sx={{ mb: 1 }}>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 0.5 }}>
           {(addr.line || []).map((l, i) => (
@@ -127,7 +126,6 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
           sx={{ width: 250 }}
         />
       </Box>
-
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
         <TextField label={t('testCaseBuilder.fields.city')} size="small" value={addr.city || ''} onChange={(e) => onChange({ ...addr, city: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
         <TextField label={t('testCaseBuilder.fields.district')} size="small" value={addr.district || ''} onChange={(e) => onChange({ ...addr, district: e.target.value || undefined })} sx={{ flex: 1, minWidth: 120 }} />
@@ -135,13 +133,18 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
         <TextField label={t('testCaseBuilder.fields.postalCode')} size="small" value={addr.postalCode || ''} onChange={(e) => onChange({ ...addr, postalCode: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
         <TextField label={t('testCaseBuilder.fields.country')} size="small" value={addr.country || ''} onChange={(e) => onChange({ ...addr, country: e.target.value || undefined })} sx={{ flex: 1, minWidth: 80 }} />
       </Box>
-
       <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, px: 1, py: 0.5 }}>
         <Box
           sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
           onClick={() => setTwExpanded(!twExpanded)}
         >
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ flex: 1 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              flex: 1
+            }}>
             {t('testCaseBuilder.twAddress.title')}
           </Typography>
           <IconButton size="small">
@@ -164,5 +167,5 @@ export default function AddressField({ element, value, onChange }: AddressFieldP
         </Collapse>
       </Box>
     </FieldWrapper>
-  )
+  );
 }

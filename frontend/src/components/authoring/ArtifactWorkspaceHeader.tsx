@@ -211,7 +211,13 @@ export default function ArtifactWorkspaceHeader({
           </Typography>
         )}
 
-        <Stack direction="row" spacing={1} sx={{ ml: 'auto' }} alignItems="center">
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            ml: 'auto'
+          }}>
           {/* VIEW CQL - prominent button */}
           <Button
             variant="outlined"
@@ -296,13 +302,19 @@ export default function ArtifactWorkspaceHeader({
           </Menu>
         </Stack>
       </Box>
-
       {saveError && (
         <Alert severity="error" onClose={() => { setSaveError(null); setSaveErrorDetails([]) }} sx={{ mx: 2, mt: 1 }}>
           <Typography variant="subtitle2">{t('header.saveFailed')}</Typography>
           <Typography variant="body2">{saveError}</Typography>
           {saveErrorDetails.map((detail, i) => (
-            <Typography key={i} variant="caption" display="block" sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+            <Typography
+              key={i}
+              variant="caption"
+              sx={{
+                display: "block",
+                mt: 0.5,
+                fontFamily: 'monospace'
+              }}>
               • {detail}
             </Typography>
           ))}
@@ -324,7 +336,9 @@ export default function ArtifactWorkspaceHeader({
           <Typography variant="body2">
             {(deployMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('header.deployHint')}
           </Typography>
         </Alert>
@@ -335,7 +349,9 @@ export default function ArtifactWorkspaceHeader({
           <Typography variant="body2">
             {(saveLibMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('header.saveLibHint')}
           </Typography>
         </Alert>
@@ -354,12 +370,13 @@ export default function ArtifactWorkspaceHeader({
           <Typography variant="body2">
             {(generateCqlMutation.error as Error)?.message || 'Unknown error'}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('header.cqlGenHint')}
           </Typography>
         </Alert>
       )}
-
       {/* View CQL Dialog */}
       <Dialog open={viewCqlDialog} onClose={() => setViewCqlDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -367,7 +384,12 @@ export default function ArtifactWorkspaceHeader({
           <IconButton onClick={() => setViewCqlDialog(false)} size="small" aria-label={tc('actions.close')}><CloseIcon /></IconButton>
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 2
+            }}>
             {t('header.fhirVersionLine', { version: artifact.fhirVersion || 'R4 (4.0.1)' })}
           </Typography>
           {viewCqlContent ? (
@@ -383,7 +405,9 @@ export default function ArtifactWorkspaceHeader({
               {viewCqlContent}
             </Box>
           ) : (
-            <Typography color="text.secondary">{t('header.noCqlGenerated')}</Typography>
+            <Typography sx={{
+              color: "text.secondary"
+            }}>{t('header.noCqlGenerated')}</Typography>
           )}
         </DialogContent>
         <DialogActions>
@@ -401,7 +425,6 @@ export default function ArtifactWorkspaceHeader({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* CPG Metadata Dialog */}
       <CpgMetadataEditor
         open={cpgDialogOpen}
@@ -409,13 +432,14 @@ export default function ArtifactWorkspaceHeader({
         artifact={artifact}
         onUpdate={onUpdate}
       />
-
       {/* Deploy Dialog */}
       <Dialog open={deployDialog} onClose={() => setDeployDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('header.deployTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('header.deployDescription')}
             </Typography>
             <TextField
@@ -424,8 +448,10 @@ export default function ArtifactWorkspaceHeader({
               onChange={(e) => setDeployHook(e.target.value)}
               size="small"
               select
-              SelectProps={{ native: true }}
               helperText={getHookDescription(deployHook)}
+              slotProps={{
+                select: { native: true }
+              }}
             >
               {CDS_HOOK_TYPES.map((hook) => (
                 <option key={hook.id} value={hook.id}>{hook.id}</option>
@@ -441,5 +467,5 @@ export default function ArtifactWorkspaceHeader({
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }

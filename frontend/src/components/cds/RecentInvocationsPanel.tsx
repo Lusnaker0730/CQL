@@ -49,7 +49,12 @@ export default function RecentInvocationsPanel() {
 
   return (
     <Stack spacing={1}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Typography variant="subtitle2">
           {t('recentInvocations.total', { count: records.length })}
         </Typography>
@@ -62,7 +67,6 @@ export default function RecentInvocationsPanel() {
           {t('recentInvocations.refresh')}
         </Button>
       </Stack>
-
       <TableContainer component={Paper} variant="outlined">
         <Table size="small">
           <TableHead>
@@ -116,7 +120,9 @@ export default function RecentInvocationsPanel() {
             {records.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{
+                    color: "text.secondary"
+                  }}>
                     {t('recentInvocations.empty')}
                   </Typography>
                 </TableCell>
@@ -126,5 +132,5 @@ export default function RecentInvocationsPanel() {
         </Table>
       </TableContainer>
     </Stack>
-  )
+  );
 }

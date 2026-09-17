@@ -2,6 +2,7 @@ package com.cqlplatform.service.fhir;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.rest.client.api.IGenericClient;
+import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
 import com.cqlplatform.exception.FhirServerUnavailableException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import io.github.resilience4j.retry.annotation.Retry;
@@ -316,11 +317,42 @@ public class FhirTerminologyService {
                 }
             }
 
-            return new CodeLookupResult(system, code, name, display, designations);
+            return CodeLookupResult.found(system, code, name, display, designations);
+        } catch (BaseServerResponseException re) {
+            // BUG-124: a 4xx from the terminology server means it understood the
+            // request and is telling us the code/system is not recognised (or the
+            // input is invalid) — a normal NEGATIVE result, NOT a server outage.
+            // Return a cacheable not-found (so the same unknown code is not looked
+            // up remotely again for the cache TTL) instead of throwing a 503.
+            // Only genuine upstream failures (5xx, or status 0 = connection/timeout
+            // with no HTTP response) become FhirServerUnavailableException.
+            if (isClientError(re)) {
+                log.debug("Code {} from {} not found on {} (HTTP {})",
+                        code, system, defaultTerminologyServerUrl, re.getStatusCode());
+                return CodeLookupResult.notFound(system, code);
+            }
+            log.error("Terminology server error during $lookup (HTTP {})", re.getStatusCode(), re);
+            throw new FhirServerUnavailableException("Code lookup failed: " + re.getMessage(), re);
         } catch (Exception e) {
+            // Connection refused / timeout / unknown cause — upstream genuinely
+            // unavailable (Reason auto-classified from the cause chain).
             log.error("Failed to lookup code", e);
             throw new FhirServerUnavailableException("Code lookup failed: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * BUG-124: classify a HAPI client exception thrown by a terminology
+     * operation. A 4xx status means the server understood the request and
+     * reported the code/system as not found or the input as invalid — a
+     * negative result that must NOT be treated as a server outage. A 5xx, or
+     * status {@code 0} (which HAPI uses for connection/timeout failures with no
+     * HTTP response), is a genuine upstream failure. Package-private + static so
+     * it can be unit-tested without a live terminology server.
+     */
+    static boolean isClientError(BaseServerResponseException ex) {
+        int status = ex.getStatusCode();
+        return status >= 400 && status < 500;
     }
 
     private CodeLookupResult lookupCodeFromLocalIg(String system, String code) {
@@ -345,7 +377,7 @@ public class FhirTerminologyService {
                                 if (code.equals(conceptRef.getCode())) {
                                     String display = conceptRef.getDisplay();
                                     if (display != null && !display.isBlank()) {
-                                        return new CodeLookupResult(system, code, null,
+                                        return CodeLookupResult.found(system, code, null,
                                                 display, new ArrayList<>());
                                     }
                                     // display is empty — skip, let remote server provide it
@@ -379,7 +411,7 @@ public class FhirTerminologyService {
                     if (d.getValue() != null) designations.add(d.getValue());
                 }
             }
-            return new CodeLookupResult(system, code, csName, concept.getDisplay(), designations);
+            return CodeLookupResult.found(system, code, csName, concept.getDisplay(), designations);
         }
         if (concept.hasConcept()) {
             for (var child : concept.getConcept()) {
@@ -702,7 +734,7 @@ public class FhirTerminologyService {
 
     public Map<String, Map<String, Object>> getCacheStats() {
         Map<String, Map<String, Object>> stats = new HashMap<>();
-        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "vsacValueSets", "codeSearch")) {
+        for (String name : List.of("valueSets", "codeValidation", "codeLookup", "cqlValidation", "cqlTranslation", "vsacValueSets", "codeSearch")) {
             Cache cache = cacheManager.getCache(name);
             if (cache instanceof CaffeineCache caffeineCache) {
                 com.github.benmanes.caffeine.cache.Cache<Object, Object> nativeCache = caffeineCache.getNativeCache();
@@ -740,13 +772,33 @@ public class FhirTerminologyService {
                 .toList();
     }
 
+    /**
+     * Result of a CodeSystem {@code $lookup}. {@code found=false} means no
+     * source (local IG or terminology server) recognises the code — a normal
+     * negative result, NOT a server error. The service RETURNS this (rather
+     * than throwing) so the {@code codeLookup} cache stores it, preventing
+     * repeat remote calls for the same unknown code (BUG-124). The controller
+     * maps {@code found=false} to HTTP 404, never a 5xx.
+     */
     public record CodeLookupResult(
             String system,
             String code,
             String name,
             String display,
-            List<String> designations
-    ) {}
+            List<String> designations,
+            boolean found
+    ) {
+        /** A successful lookup — the code exists in some source. */
+        public static CodeLookupResult found(String system, String code, String name,
+                                             String display, List<String> designations) {
+            return new CodeLookupResult(system, code, name, display, designations, true);
+        }
+
+        /** A negative result — the code is not recognised by any source. */
+        public static CodeLookupResult notFound(String system, String code) {
+            return new CodeLookupResult(system, code, null, null, List.of(), false);
+        }
+    }
 
     public record CodeSearchResult(
             String system,

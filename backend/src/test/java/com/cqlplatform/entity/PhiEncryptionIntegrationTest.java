@@ -56,6 +56,7 @@ class PhiEncryptionIntegrationTest {
                 .periodEnd(LocalDate.of(2026, 6, 30))
                 .scoringType("proportion")
                 .resultJson(PLAINTEXT_JSON)
+                .tenantId(1L)  // tenant_id NOT NULL since V63
                 .build();
 
         MeasureReportEntity saved = measureReportRepository.save(entity);
@@ -78,14 +79,16 @@ class PhiEncryptionIntegrationTest {
         // Simulate a row that was written before PAT-100 deployed: raw plaintext
         // bypassing the converter. The converter's convertToEntityAttribute
         // fallback must still return it successfully.
+        // tenant_id included: post-V63 even legacy rows carry a tenant (backfilled by V60/V63).
         jdbcTemplate.update(
                 "INSERT INTO measure_report (measure_name, status, report_type, period_start, period_end, " +
-                "scoring_type, result_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "scoring_type, result_json, created_at, tenant_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 "Legacy", "complete", "summary",
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30),
                 "proportion",
                 PLAINTEXT_JSON,
-                java.time.LocalDateTime.now());
+                java.time.LocalDateTime.now(),
+                1L);
 
         // Read via JPA — converter sees no ENC: prefix and returns as-is.
         MeasureReportEntity legacy = measureReportRepository.findAll().stream()
@@ -104,6 +107,7 @@ class PhiEncryptionIntegrationTest {
         entity.setResourceCount(10);
         entity.setBundleJson("{\"resourceType\":\"Bundle\",\"entry\":[{\"name\":\"王小明\"}]}");
         entity.setImportedBy("test-user");
+        entity.setTenantId(1L);  // tenant_id NOT NULL since V66
 
         PatientImportEntity saved = patientImportRepository.saveAndFlush(entity);
 
@@ -131,6 +135,7 @@ class PhiEncryptionIntegrationTest {
         SandboxPresetEntity entity = SandboxPresetEntity.builder()
                 .name("Diabetes Preset")
                 .ownerUsername("clinician-a")
+                .tenantId(1L)   // BUG-134: tenant_id is NOT NULL on sandbox_preset
                 .serviceId("svc-1")
                 .patientId("pid-diabetes-001")
                 .prefetchJson("{\"Condition\":{\"resourceType\":\"Condition\",\"code\":\"E11\"}}")

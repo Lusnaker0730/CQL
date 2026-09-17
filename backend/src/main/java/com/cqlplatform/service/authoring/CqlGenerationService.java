@@ -21,6 +21,18 @@ public class CqlGenerationService {
     private final CdsArtifactRepository artifactRepository;
     private final CqlArtifactBuilder cqlBuilder;
     private final CqlTranslationService translationService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional(readOnly = true)
     public String generateCql(Long artifactId) {
@@ -38,7 +50,10 @@ public class CqlGenerationService {
     }
 
     private CqlBuildResult doBuildCql(Long artifactId, String fhirVersion) {
-        CdsArtifactEntity entity = artifactRepository.findById(artifactId)
+        // Tenant-scoped (BUG-134): generating CQL reads the artifact's full clinical logic, so
+        // an artifact in another tenant must read as not-found here too — not just via
+        // ArtifactService.getById.
+        CdsArtifactEntity entity = artifactRepository.findByIdAndTenantId(artifactId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Artifact", artifactId));
 
         // Authoring currently supports R4 only — ignore fhirVersion override

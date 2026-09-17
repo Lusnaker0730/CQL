@@ -35,21 +35,22 @@ const feedbackMock = vi.fn()
 
 vi.mock('../../../hooks/useCdsHooks', () => {
   return {
-    useCdsServices: () => ({
-      data: {
-        services: [
-          {
-            id: 'svc-1',
-            hook: 'patient-view',
-            title: 'Test Service',
-            description: 'desc',
-          },
-        ],
-      },
+    // BUG-141: the dropdown is now sourced from the tenant-scoped
+    // /cds/services list (useCdsServiceConfigs), not the retired discovery
+    // endpoint. Only enabled services are listed, so the fixture is enabled.
+    useCdsServiceConfigs: () => ({
+      data: [
+        {
+          id: 'svc-1',
+          hook: 'patient-view',
+          title: 'Test Service',
+          description: 'desc',
+          enabled: true,
+        },
+      ],
       isLoading: false,
       isError: false,
     }),
-    useCdsServiceConfigs: () => ({ data: [] }),
     useInvokeCdsService: () => ({
       mutateAsync: invokeMock,
       isPending: false,
@@ -187,5 +188,35 @@ describe('InvokeServicePanel — PAT-132 critical-card feedback (P0)', () => {
     // The submit button is disabled when customReason.trim() is empty.
     const submit = screen.getByRole('button', { name: 'critical.submitOverride' })
     expect(submit).toBeDisabled()
+  })
+})
+
+describe('InvokeServicePanel — BUG-141 service dropdown source', () => {
+  beforeEach(() => {
+    invokeMock.mockReset()
+    feedbackMock.mockReset()
+  })
+
+  it('populates the service selector from the tenant-scoped configs (not the retired discovery endpoint)', () => {
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
+    // The closed MUI Select renders the selected option's label; seeing it means
+    // the option resolved from useCdsServiceConfigs. Before the fix the dropdown
+    // was fed by the emptied discovery endpoint and svc-1 could never resolve.
+    expect(screen.getByText('Test Service (patient-view)')).toBeInTheDocument()
+  })
+
+  it('can invoke a config-sourced service (proves handleInvoke resolves it)', async () => {
+    invokeMock.mockResolvedValue({ cards: [] })
+    render(<InvokeServicePanel initialService="svc-1" />, { preloadedState: baseAuth })
+
+    await selectServiceAndInvoke()
+
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledTimes(1))
+    expect(invokeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        serviceId: 'svc-1',
+        request: expect.objectContaining({ hook: 'patient-view' }),
+      })
+    )
   })
 })

@@ -22,13 +22,21 @@ import java.util.List;
 public class FhirBulkExportService {
 
     private final FhirContext fhirContext;
+    private final FhirClientFactory fhirClientFactory;
 
+    @org.springframework.beans.factory.annotation.Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
+    private String defaultFhirServerUrl;
+
+    // PAT-212 — connection-aware: authenticated client for the caller's own tenant-scoped
+    // connection, or the sandbox when no connection is given. No arbitrary URL is accepted.
     @CircuitBreaker(name = "fhirDataProvider", fallbackMethod = "kickOffExportFallback")
     @Retry(name = "fhirDataProvider")
-    public BulkExportKickOffResult kickOffExport(String fhirServerUrl, String exportType,
+    public BulkExportKickOffResult kickOffExport(com.cqlplatform.entity.EhrConnectionEntity connection, String exportType,
                                                   String outputFormat, String since, String typeFilter) {
-        log.info("Kicking off bulk export: type={}, server={}", exportType, fhirServerUrl);
-        IGenericClient client = fhirContext.newRestfulGenericClient(fhirServerUrl);
+        log.info("Kicking off bulk export: type={}, authenticated={}", exportType, connection != null);
+        IGenericClient client = connection != null
+                ? fhirClientFactory.createAuthenticatedClient(connection)
+                : fhirClientFactory.createClient(defaultFhirServerUrl);
 
         try {
             Parameters params = new Parameters();
@@ -63,7 +71,7 @@ public class FhirBulkExportService {
     }
 
     @SuppressWarnings("unused")
-    private BulkExportKickOffResult kickOffExportFallback(String fhirServerUrl, String exportType,
+    private BulkExportKickOffResult kickOffExportFallback(com.cqlplatform.entity.EhrConnectionEntity connection, String exportType,
                                                           String outputFormat, String since, String typeFilter, Throwable t) {
         log.warn("Circuit breaker fallback for kickOffExport: {}", t.getMessage());
         throw new FhirServerUnavailableException("FHIR server unavailable for bulk export: " + t.getMessage(), t);

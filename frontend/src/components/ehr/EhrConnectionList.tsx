@@ -143,8 +143,13 @@ export default function EhrConnectionList() {
           {feedback.msg}
         </Alert>
       )}
-
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
           {t('ehr.tabTitle')}
         </Typography>
@@ -152,10 +157,11 @@ export default function EhrConnectionList() {
           {t('ehr.addConnection')}
         </GradientButton>
       </Stack>
-
       {connections.length === 0 && !isLoading ? (
         <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
-          <Typography color="text.secondary">
+          <Typography sx={{
+            color: "text.secondary"
+          }}>
             {t('ehr.noConnections')}
           </Typography>
         </Paper>
@@ -212,7 +218,9 @@ export default function EhrConnectionList() {
                     />
                   </TableCell>
                   <TableCell align="right">
-                    <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                    <Stack direction="row" spacing={0.5} sx={{
+                      justifyContent: "flex-end"
+                    }}>
                       <Tooltip title={t('ehr.testConnection')}>
                         <IconButton
                           size="small"
@@ -240,7 +248,6 @@ export default function EhrConnectionList() {
           </Table>
         </TableContainer>
       )}
-
       {/* Connection form dialog */}
       {formOpen && (
         <EhrConnectionForm
@@ -249,7 +256,6 @@ export default function EhrConnectionList() {
           onClose={handleFormClose}
         />
       )}
-
       {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
         <DialogTitle>{t('ehr.deleteConnection')}</DialogTitle>
@@ -270,7 +276,7 @@ export default function EhrConnectionList() {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }
 
 // PAT-111: one row's Live Health cell. When the overview hasn't loaded yet

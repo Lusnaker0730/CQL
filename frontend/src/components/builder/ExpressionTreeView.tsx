@@ -80,11 +80,16 @@ export default function ExpressionTreeView({ structure, onGoTo }: ExpressionTree
     return (
       <Box sx={{ p: 1.5, textAlign: 'center' }}>
         <TreeIcon sx={{ fontSize: 24, color: 'text.disabled', mb: 0.5 }} />
-        <Typography variant="caption" display="block" color="text.secondary">
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            color: "text.secondary"
+          }}>
           {t('expressionTree.noData')}
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (
@@ -147,16 +152,15 @@ function TreeNodeView({
       <Stack
         direction="row"
         spacing={0.5}
-        alignItems="center"
+        onClick={() => onGoTo?.(name)}
         sx={{
+          alignItems: "center",
           py: 0.25,
           px: 0.5,
           borderRadius: 0.5,
           cursor: onGoTo ? 'pointer' : 'default',
-          '&:hover': { bgcolor: 'rgba(13,115,119,0.06)' },
-        }}
-        onClick={() => onGoTo?.(name)}
-      >
+          '&:hover': { bgcolor: 'rgba(13,115,119,0.06)' }
+        }}>
         {depth > 0 && (
           <ArrowIcon sx={{ fontSize: 12, color: 'text.disabled', transform: 'rotate(0deg)' }} />
         )}
@@ -185,7 +189,6 @@ function TreeNodeView({
           />
         )}
       </Stack>
-
       {/* Render children (definitions this node depends on) */}
       {hasRefs && depth < 4 && node.references.map((ref) => (
         <TreeNodeView
@@ -198,5 +201,5 @@ function TreeNodeView({
         />
       ))}
     </Box>
-  )
+  );
 }

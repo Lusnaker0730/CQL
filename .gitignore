@@ -16,6 +16,11 @@ Thumbs.db
 # Docker volumes and data
 docker/postgres-backup/
 
+# Backend H2 dev database (local `spring-boot:run` with the dev profile writes here).
+# NEVER track: it's a binary that churns every dev run, and could capture PHI if real
+# data were ever loaded. Prod & dev use PostgreSQL; H2 is test-scope only.
+backend/data/
+
 # Regulatory doc snapshots (generated artifacts — stored as CI artifacts, not in git)
 regulatory_docs/snapshots/
 

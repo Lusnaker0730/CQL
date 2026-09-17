@@ -108,7 +108,13 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+      <Stack
+        direction="row"
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          mb: 1
+        }}>
         <Typography variant="subtitle2">{title || t('dashboard.scoreTrend')}</Typography>
         {showModeToggle && (
           <ToggleButtonGroup
@@ -129,7 +135,6 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
           </ToggleButtonGroup>
         )}
       </Stack>
-
       {hasProportion && (
         <ProportionSection
           points={grouped.proportion}
@@ -141,7 +146,6 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
           colorFor={(name) => CHART_COLORS[proportionMeasureNames.indexOf(name) % CHART_COLORS.length]}
         />
       )}
-
       {hasContinuous && (
         <>
           {hasProportion && <Divider sx={{ my: 2 }} />}
@@ -152,7 +156,6 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
           />
         </>
       )}
-
       {hasCohort && (
         <>
           {(hasProportion || hasContinuous) && <Divider sx={{ my: 2 }} />}
@@ -160,7 +163,7 @@ export default function ScoreTrendChart({ data, thresholds = [], title }: ScoreT
         </>
       )}
     </Paper>
-  )
+  );
 }
 
 interface ProportionSectionProps {
@@ -193,15 +196,26 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
 
   return (
     <Box>
-      <Stack direction="row" alignItems="baseline" spacing={1} mb={0.5}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "baseline",
+          mb: 0.5
+        }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {t('dashboard.trendSections.proportion')}
         </Typography>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          display: 'block',
+          mb: 1.5
+        }}>
         {t('dashboard.trendSections.proportionHint')}
       </Typography>
-
       {mode === 'multiples' ? (
         <Box
           sx={{
@@ -340,7 +354,7 @@ function ProportionSection({ points, mode, targetLines, warningLines, theme, t, 
         </>
       )}
     </Box>
-  )
+  );
 }
 
 interface PerMeasureSectionProps {
@@ -371,15 +385,26 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
 
   return (
     <Box>
-      <Stack direction="row" alignItems="baseline" spacing={1} mb={0.5}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "baseline",
+          mb: 0.5
+        }}>
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {t(`dashboard.trendSections.${family}`)}
         </Typography>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          display: 'block',
+          mb: 1.5
+        }}>
         {t(`dashboard.trendSections.${family}Hint`)}
       </Typography>
-
       <Box
         sx={{
           display: 'grid',
@@ -403,7 +428,13 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
               key={name}
               sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1 }}
             >
-              <Stack direction="row" justifyContent="space-between" alignItems="baseline" mb={0.5}>
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  mb: 0.5
+                }}>
                 <Typography
                   variant="caption"
                   sx={{ fontWeight: 600, color, flexShrink: 1, minWidth: 0 }}
@@ -412,7 +443,13 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
                 >
                   {name}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, ml: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    flexShrink: 0,
+                    ml: 1
+                  }}>
                   {unit}
                 </Typography>
               </Stack>
@@ -451,11 +488,11 @@ function PerMeasureSection({ family, points, t }: PerMeasureSectionProps) {
                 </SafeResponsiveContainer>
               </Box>
             </Box>
-          )
+          );
         })}
       </Box>
     </Box>
-  )
+  );
 }
 
 function formatRawValue(v: number): string {

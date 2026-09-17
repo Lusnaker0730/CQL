@@ -42,6 +42,18 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void getTenantId_shouldRoundTripTheTenantClaim() {
+        String token = jwtTokenProvider.generateToken("clinicUser", "USER", "cardiology", 7L, 0);
+        assertThat(jwtTokenProvider.getTenantId(token)).isEqualTo(7L);
+    }
+
+    @Test
+    void getTenantId_shouldBeNullWhenNoTenant() {
+        String token = jwtTokenProvider.generateToken("u", "USER");
+        assertThat(jwtTokenProvider.getTenantId(token)).isNull();
+    }
+
+    @Test
     void validateToken_shouldReturnTrueForValidToken() {
         String token = jwtTokenProvider.generateToken("testuser", "USER");
         assertThat(jwtTokenProvider.validateToken(token)).isTrue();

@@ -139,7 +139,13 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('baseElements.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
           {t('baseElements.add')}
@@ -159,11 +165,14 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
           </MenuItem>
         </Menu>
       </Stack>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         {t('baseElements.description')}
       </Typography>
-
       {baseElements.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -200,7 +209,13 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
             ) : (
               <Card key={be.uniqueId} variant="outlined">
                 <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: "center",
+                      mb: 2
+                    }}>
                     <TextField
                       value={be.name}
                       onChange={(e) => handleNameChange(be.uniqueId, e.target.value)}
@@ -245,7 +260,6 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
           )}
         </Stack>
       )}
-
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('baseElements.deleteTitle')}</DialogTitle>
         <DialogContent>
@@ -264,5 +278,5 @@ export default function BaseElements({ baseElements, templates, modifiers, dynam
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

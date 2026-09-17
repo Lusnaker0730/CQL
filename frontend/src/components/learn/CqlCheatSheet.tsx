@@ -45,17 +45,32 @@ export default function CqlCheatSheet() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.cheatSheet.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.cheatSheet.subtitle')}
       </Typography>
-
       {/* Basic Structure */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.basicStructure.title')}
           </Typography>
         </AccordionSummary>
@@ -72,7 +87,9 @@ export default function CqlCheatSheet() {
                 {BASIC_STRUCTURE_KEYS.map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.basicStructure.${key}`)}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>{t(`learn.cheatSheet.basicStructure.${key}`)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', whiteSpace: 'pre-wrap' }}>
@@ -86,11 +103,15 @@ export default function CqlCheatSheet() {
           </TableContainer>
         </AccordionDetails>
       </Accordion>
-
       {/* Data Access & Filtering */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.dataAccess.title')}
           </Typography>
         </AccordionSummary>
@@ -107,7 +128,9 @@ export default function CqlCheatSheet() {
                 {DATA_ACCESS_KEYS.map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.dataAccess.${key}`)}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>{t(`learn.cheatSheet.dataAccess.${key}`)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main', whiteSpace: 'pre-wrap' }}>
@@ -121,11 +144,15 @@ export default function CqlCheatSheet() {
           </TableContainer>
         </AccordionDetails>
       </Accordion>
-
       {/* Data Types */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.dataTypes.title')}
           </Typography>
         </AccordionSummary>
@@ -142,7 +169,9 @@ export default function CqlCheatSheet() {
                 {DATA_TYPE_KEYS.map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.dataTypes.${key}`)}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>{t(`learn.cheatSheet.dataTypes.${key}`)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>
@@ -156,11 +185,15 @@ export default function CqlCheatSheet() {
           </TableContainer>
         </AccordionDetails>
       </Accordion>
-
       {/* Operators */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.operators.title')}
           </Typography>
         </AccordionSummary>
@@ -177,7 +210,9 @@ export default function CqlCheatSheet() {
                 {OPERATOR_KEYS.map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.operators.${key}`)}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>{t(`learn.cheatSheet.operators.${key}`)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
@@ -191,11 +226,15 @@ export default function CqlCheatSheet() {
           </TableContainer>
         </AccordionDetails>
       </Accordion>
-
       {/* FHIR Retrieve Patterns */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.retrieve.title')}
           </Typography>
         </AccordionSummary>
@@ -212,7 +251,9 @@ export default function CqlCheatSheet() {
                 {RETRIEVE_KEYS.map((key) => (
                   <TableRow key={key}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>{t(`learn.cheatSheet.retrieve.${key}`)}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>{t(`learn.cheatSheet.retrieve.${key}`)}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" sx={{ fontFamily: 'monospace', color: 'primary.main' }}>
@@ -226,11 +267,15 @@ export default function CqlCheatSheet() {
           </TableContainer>
         </AccordionDetails>
       </Accordion>
-
       {/* Common Functions */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.cheatSheet.functions.title')}
           </Typography>
         </AccordionSummary>
@@ -252,7 +297,9 @@ export default function CqlCheatSheet() {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>
                         {t(`learn.cheatSheet.functions.${key}Desc`)}
                       </Typography>
                     </TableCell>
@@ -264,5 +311,5 @@ export default function CqlCheatSheet() {
         </AccordionDetails>
       </Accordion>
     </Box>
-  )
+  );
 }

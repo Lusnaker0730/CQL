@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Grid, Chip } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { CQL_SHOWCASE_EXAMPLE } from '../../constants/cqlExamples'
+import { CARD_RADIUS } from '../../constants/layout'
 
 export default function CqlShowcase() {
   const { t } = useTranslation('landing')
@@ -20,20 +21,34 @@ export default function CqlShowcase() {
         bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.08 : 0.03),
       })}
     >
-      <Typography variant="h4" fontWeight={700} textAlign="center" color="secondary.main" gutterBottom>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          textAlign: "center",
+          color: "secondary.main"
+        }}>
         {t('showcase.title')}
       </Typography>
-      <Typography variant="body1" textAlign="center" color="text.secondary" sx={{ mb: 5, maxWidth: 700, mx: 'auto' }}>
+      <Typography
+        variant="body1"
+        sx={{
+          textAlign: "center",
+          color: "text.secondary",
+          mb: 5,
+          maxWidth: 700,
+          mx: 'auto'
+        }}>
         {t('showcase.subtitle')}
       </Typography>
-
       <Grid container spacing={4} sx={{ maxWidth: 1100, mx: 'auto' }}>
         {/* CQL Code */}
         <Grid size={{ xs: 12, md: 7 }}>
           <Paper
             elevation={0}
             sx={{
-              borderRadius: 3,
+              borderRadius: CARD_RADIUS,
               overflow: 'hidden',
               border: '1px solid',
               borderColor: 'divider',
@@ -98,19 +113,41 @@ export default function CqlShowcase() {
         {/* Explanation */}
         <Grid size={{ xs: 12, md: 5 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, height: '100%' }}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom color="primary.main">
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+              <Typography
+                variant="subtitle1"
+                gutterBottom
+                sx={{
+                  fontWeight: 700,
+                  color: "primary.main"
+                }}>
                 {t('showcase.whatIsCql')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  lineHeight: 1.8
+                }}>
                 {t('showcase.whatIsCqlContent')}
               </Typography>
             </Paper>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom color="primary.main">
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+              <Typography
+                variant="subtitle1"
+                gutterBottom
+                sx={{
+                  fontWeight: 700,
+                  color: "primary.main"
+                }}>
                 {t('showcase.whyTwcore')}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  lineHeight: 1.8
+                }}>
                 {t('showcase.whyTwcoreContent')}
               </Typography>
             </Paper>
@@ -129,7 +166,6 @@ export default function CqlShowcase() {
                     bgcolor: `${stat.color}15`,
                     color: stat.color,
                     fontWeight: 600,
-                    borderRadius: 2,
                   }}
                 />
               ))}
@@ -138,7 +174,7 @@ export default function CqlShowcase() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }
 
 /** Simple syntax highlighting for CQL showcase (no Monaco dependency) */

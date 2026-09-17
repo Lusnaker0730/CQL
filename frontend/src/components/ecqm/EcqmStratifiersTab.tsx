@@ -59,7 +59,13 @@ export default function EcqmStratifiersTab({
 
   return (
     <Box sx={{ p: 3, maxWidth: 900 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('stratifiers.title')}</Typography>
         <Button
           startIcon={<AddIcon />}
@@ -70,25 +76,32 @@ export default function EcqmStratifiersTab({
           {t('stratifiers.addStratifier')}
         </Button>
       </Stack>
-
       {disabled && (
         <Alert severity="warning" sx={{ mb: 2 }} role="alert">
           {disabledReason}
         </Alert>
       )}
-
       {stratifiers.length === 0 && !disabled && (
-        <Typography color="text.secondary">{t('stratifiers.emptyState')}</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>{t('stratifiers.emptyState')}</Typography>
       )}
-
       {stratifiers.map((strat, idx) => (
         <Paper
           key={strat.stratifierId}
           variant="outlined"
           sx={{ p: 2, mb: 2, opacity: disabled ? 0.6 : 1 }}
         >
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="subtitle2" fontWeight={600}>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1
+            }}>
+            <Typography variant="subtitle2" sx={{
+              fontWeight: 600
+            }}>
               {t('stratifiers.label', { number: idx + 1 })}
             </Typography>
             <IconButton
@@ -119,5 +132,5 @@ export default function EcqmStratifiersTab({
         </Paper>
       ))}
     </Box>
-  )
+  );
 }

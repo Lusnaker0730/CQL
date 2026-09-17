@@ -120,6 +120,11 @@ public class ConnectionHealthService {
      */
     @Transactional(readOnly = true)
     public List<ConnectionHealthCheckEntity> getHistory(Long connectionId, int hours) {
+        // BUG-138: connection_health_check has no tenant_id — its tenant is its parent
+        // connection's, so the parent gate IS the boundary. getById is tenant-scoped
+        // (findByIdAndTenantId), so another tenant's connection reads as not-found. The
+        // endpoint itself has no @PreAuthorize at all, so this is the only check.
+        connectionService.getById(connectionId);
         LocalDateTime after = LocalDateTime.now().minusHours(hours);
         return healthCheckRepository.findRecentByConnectionId(connectionId, after);
     }

@@ -108,11 +108,15 @@ export default function ConceptsSection({
           />
         ))
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.concepts').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Concept' })}
@@ -131,7 +135,12 @@ export default function ConceptsSection({
             onChange={(e) => setConceptName(e.target.value)}
           />
 
-          <Typography variant="caption" fontWeight={500} color="text.secondary">
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 500,
+              color: "text.secondary"
+            }}>
             {t('concepts.selectCodes')}
           </Typography>
           {codeNames.length > 0 ? (
@@ -157,7 +166,13 @@ export default function ConceptsSection({
               ))}
             </Box>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                fontStyle: 'italic',
+                fontSize: '0.8rem'
+              }}>
               {t('concepts.noCodesAvailable')}
             </Typography>
           )}
@@ -187,7 +202,6 @@ export default function ConceptsSection({
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -197,5 +211,5 @@ export default function ConceptsSection({
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

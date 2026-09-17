@@ -84,11 +84,23 @@ export default function CodeLookupTab() {
   return (
     <Stack spacing={2}>
       <Box>
-        <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography
+          variant="subtitle2"
+          sx={{
+            color: "text.secondary",
+            mb: 1
+          }}>
           {t('codeLookup.twCoreSystems')}
         </Typography>
         {twcoreCodeSystems.length > 0 ? (
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+          <Stack
+            direction="row"
+            spacing={0.5}
+            useFlexGap
+            sx={{
+              flexWrap: "wrap",
+              mb: 1
+            }}>
             {twcoreCodeSystems.map((cs) => (
               <Chip
                 key={cs.url}
@@ -102,7 +114,13 @@ export default function CodeLookupTab() {
             ))}
           </Stack>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', mb: 1 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              fontStyle: 'italic',
+              mb: 1
+            }}>
             {t('codeLookup.loadingTwCore')}
           </Typography>
         )}
@@ -115,7 +133,9 @@ export default function CodeLookupTab() {
           {showIntlSystems ? t('codeLookup.hideIntlSystems') : t('codeLookup.showIntlSystems')}
         </Button>
         <Collapse in={showIntlSystems}>
-          <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+          <Stack direction="row" spacing={0.5} useFlexGap sx={{
+            flexWrap: "wrap"
+          }}>
             {COMMON_CODE_SYSTEMS.map((cs) => (
               <Chip
                 key={cs.url}
@@ -130,7 +150,6 @@ export default function CodeLookupTab() {
           </Stack>
         </Collapse>
       </Box>
-
       <TextField
         label={t('codeLookup.systemLabel')}
         value={system}
@@ -139,7 +158,6 @@ export default function CodeLookupTab() {
         fullWidth
         placeholder={t('codeLookup.systemPlaceholder')}
       />
-
       {/* Text Search Section */}
       <Box>
         <Button
@@ -161,8 +179,10 @@ export default function CodeLookupTab() {
               placeholder={t('codeLookup.searchTextPlaceholder')}
               disabled={!system}
               helperText={!system ? t('codeLookup.selectSystemFirst') : undefined}
-              InputProps={{
-                endAdornment: isSearching ? <CircularProgress size={18} /> : null,
+              slotProps={{
+                input: {
+                  endAdornment: isSearching ? <CircularProgress size={18} /> : null,
+                }
               }}
             />
             {searchResults && searchResults.length > 0 && (
@@ -211,16 +231,19 @@ export default function CodeLookupTab() {
               </TableContainer>
             )}
             {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && (
-              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  fontStyle: 'italic'
+                }}>
                 {t('codeLookup.noSearchResults', { query: debouncedSearch })}
               </Typography>
             )}
           </Stack>
         </Collapse>
       </Box>
-
       <Divider />
-
       <TextField
         label={t('codeLookup.codeLabel')}
         value={code}
@@ -230,7 +253,6 @@ export default function CodeLookupTab() {
         placeholder={t('codeLookup.codePlaceholder')}
         onKeyDown={(e) => { if (e.key === 'Enter') handleLookup() }}
       />
-
       <GradientButton
         onClick={handleLookup}
         disabled={lookupMutation.isPending || !system || !code}
@@ -241,13 +263,11 @@ export default function CodeLookupTab() {
       >
         {lookupMutation.isPending ? t('codeLookup.lookingUp') : t('codeLookup.lookupCode')}
       </GradientButton>
-
       {lookupMutation.isError && (
         <Alert severity="error">
           {t('codeLookup.lookupFailed', { error: extractApiError(lookupMutation.error) })}
         </Alert>
       )}
-
       {lookupMutation.data && (
         <Paper
           elevation={0}
@@ -259,39 +279,65 @@ export default function CodeLookupTab() {
           }}
         >
           <Stack spacing={1.5}>
-            <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography variant="subtitle2" color="primary.dark">{t('codeLookup.codeDetails')}</Typography>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}>
+              <Typography variant="subtitle2" sx={{
+                color: "primary.dark"
+              }}>{t('codeLookup.codeDetails')}</Typography>
               <Button size="small" startIcon={<CopyIcon />} onClick={handleCopyCql}>
                 {t('codeLookup.copyCql')}
               </Button>
             </Stack>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailSystem')}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailSystem')}</Typography>
               <Typography variant="body2">{lookupMutation.data.system}</Typography>
             </Box>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailCode')}</Typography>
-              <Typography variant="body2" fontWeight={600}>{lookupMutation.data.code}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailCode')}</Typography>
+              <Typography variant="body2" sx={{
+                fontWeight: 600
+              }}>{lookupMutation.data.code}</Typography>
             </Box>
 
             <Box>
-              <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDisplay')}</Typography>
+              <Typography variant="caption" sx={{
+                color: "text.secondary"
+              }}>{t('codeLookup.detailDisplay')}</Typography>
               <Typography variant="body2">{lookupMutation.data.display}</Typography>
             </Box>
 
             {lookupMutation.data.name && (
               <Box>
-                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailName')}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('codeLookup.detailName')}</Typography>
                 <Typography variant="body2">{lookupMutation.data.name}</Typography>
               </Box>
             )}
 
             {lookupMutation.data.designations?.length > 0 && (
               <Box>
-                <Typography variant="caption" color="text.secondary">{t('codeLookup.detailDesignations')}</Typography>
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('codeLookup.detailDesignations')}</Typography>
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  useFlexGap
+                  sx={{
+                    flexWrap: "wrap",
+                    mt: 0.5
+                  }}>
                   {lookupMutation.data.designations.map((d, i) => (
                     <Chip key={i} label={d} size="small" variant="outlined" />
                   ))}
@@ -302,5 +348,5 @@ export default function CodeLookupTab() {
         </Paper>
       )}
     </Stack>
-  )
+  );
 }

@@ -25,8 +25,20 @@ public class MeasureReportService {
     private final MeasureReportRepository repository;
     private final MeasureReportNormalizer normalizer;
     private final MeasureDefinitionRepository measureDefinitionRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional
     public MeasureReportEntity saveReport(MeasureEvaluationResult result, Long measureDefinitionId,
@@ -77,6 +89,7 @@ public class MeasureReportService {
                     .fhirServerUrl(fhirServerUrl)
                     .evaluatedBy(evaluatedBy)
                     .evaluationDurationMs(durationMs)
+                    .tenantId(effectiveTenantId())
                     .build();
 
             entity = repository.save(entity);
@@ -103,7 +116,7 @@ public class MeasureReportService {
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getRecentReports() {
-        return repository.findTop50ByOrderByCreatedAtDesc();
+        return repository.findTop50ByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
     }
 
     /**
@@ -118,52 +131,58 @@ public class MeasureReportService {
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsForMeasure(Long measureDefinitionId) {
-        return repository.findByMeasureDefinitionIdOrderByCreatedAtDesc(
+        return repository.findByTenantIdAndMeasureDefinitionIdOrderByCreatedAtDesc(
+                effectiveTenantId(),
                 measureDefinitionId,
                 org.springframework.data.domain.PageRequest.of(0, MAX_REPORTS_PER_MEASURE_RESPONSE));
     }
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsByMeasureName(String measureName) {
-        return repository.findByMeasureNameOrderByCreatedAtDesc(measureName);
+        return repository.findByTenantIdAndMeasureNameOrderByCreatedAtDesc(effectiveTenantId(), measureName);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsByMeasureNameOrderByPeriod(String measureName) {
-        return repository.findByMeasureNameOrderByPeriodStartAsc(measureName);
+        return repository.findByTenantIdAndMeasureNameOrderByPeriodStartAsc(effectiveTenantId(), measureName);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsForPeriod(String measureName, LocalDate periodStart, LocalDate periodEnd) {
-        List<MeasureReportEntity> exact = repository.findByMeasureNameAndPeriodStartAndPeriodEnd(measureName, periodStart, periodEnd);
+        Long tenantId = effectiveTenantId();
+        List<MeasureReportEntity> exact = repository.findByTenantIdAndMeasureNameAndPeriodStartAndPeriodEnd(tenantId, measureName, periodStart, periodEnd);
         if (!exact.isEmpty()) {
             return exact;
         }
-        return repository.findByMeasureNameAndPeriodOverlap(measureName, periodStart, periodEnd);
+        return repository.findByTenantIdAndMeasureNameAndPeriodOverlap(tenantId, measureName, periodStart, periodEnd);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsForPeriodById(Long measureDefinitionId, LocalDate periodStart, LocalDate periodEnd) {
-        List<MeasureReportEntity> exact = repository.findByMeasureDefinitionIdAndPeriodStartAndPeriodEnd(measureDefinitionId, periodStart, periodEnd);
+        Long tenantId = effectiveTenantId();
+        List<MeasureReportEntity> exact = repository.findByTenantIdAndMeasureDefinitionIdAndPeriodStartAndPeriodEnd(tenantId, measureDefinitionId, periodStart, periodEnd);
         if (!exact.isEmpty()) {
             return exact;
         }
-        return repository.findByMeasureDefinitionIdAndPeriodOverlap(measureDefinitionId, periodStart, periodEnd);
+        return repository.findByTenantIdAndMeasureDefinitionIdAndPeriodOverlap(tenantId, measureDefinitionId, periodStart, periodEnd);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureReportEntity> getReportsByMeasureIdOrderByPeriod(Long measureDefinitionId) {
-        return repository.findByMeasureDefinitionIdOrderByPeriodStartAsc(measureDefinitionId);
+        return repository.findByTenantIdAndMeasureDefinitionIdOrderByPeriodStartAsc(effectiveTenantId(), measureDefinitionId);
     }
 
     @Transactional(readOnly = true)
     public Optional<MeasureReportEntity> getReport(Long id) {
-        return repository.findById(id);
+        return repository.findByIdAndTenantId(id, effectiveTenantId());
     }
 
     @Transactional
     public void deleteReport(Long id) {
-        repository.deleteById(id);
-        log.info("Deleted measure report: {}", id);
+        // Tenant-scoped: only delete a report in the caller's tenant.
+        repository.findByIdAndTenantId(id, effectiveTenantId()).ifPresent(r -> {
+            repository.deleteById(id);
+            log.info("Deleted measure report: {}", id);
+        });
     }
 }

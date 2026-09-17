@@ -113,7 +113,7 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         return `'${escapeCqlString(value)}'`
       case 'integer':
       case 'decimal':
-        return /^-?\d+(\.\d+)?$/.test(value.trim()) ? value.trim() : `'${escapeCqlString(value)}'`
+        return /^-?\d+(\.\d+)?$/.test(value.trim()) ? value.trim() : `'${escapeCqlString(value)}'`;
       case 'boolean':
         return value === 'true' || value === 'false' ? value : `'${escapeCqlString(value)}'`
       default:
@@ -126,10 +126,14 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
   return (
     <Box>
       <Typography variant="h6" sx={{ mb: 2 }}>{t('queryBuilder.title')}</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         {t('queryBuilder.description')}
       </Typography>
-
       <Stack spacing={2}>
         {/* Resource Type */}
         <FormControl size="small" fullWidth>
@@ -164,7 +168,9 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         {/* Conditions */}
         {resourceType && (
           <>
-            <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
               <Typography variant="subtitle2">{t('queryBuilder.conditions')}</Typography>
               <GradientButton size="small" startIcon={<AddIcon />} onClick={handleAddCondition}>
                 {t('queryBuilder.addCondition')}
@@ -174,7 +180,9 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
             {conditions.map((cond) => (
               <Card key={cond.id} variant="outlined">
                 <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
-                  <Stack direction="row" spacing={1} alignItems="center">
+                  <Stack direction="row" spacing={1} sx={{
+                    alignItems: "center"
+                  }}>
                     {/* Property */}
                     <FormControl size="small" sx={{ minWidth: 160 }}>
                       <InputLabel>{t('queryBuilder.propertyLabel')}</InputLabel>
@@ -277,5 +285,5 @@ export default function QueryBuilder({ onInsertCql }: QueryBuilderProps) {
         )}
       </Stack>
     </Box>
-  )
+  );
 }

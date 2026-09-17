@@ -149,11 +149,14 @@ export default function ExpressionBuilder({
         value={name}
         onChange={(e) => { setName(e.target.value); setPreviewSnippet('') }}
       />
-
-      <Typography variant="caption" fontWeight={500} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 500,
+          color: "text.secondary"
+        }}>
         {t('expression.rows')}
       </Typography>
-
       {rows.map((row, idx) => (
         <Box
           key={row.id}
@@ -191,7 +194,9 @@ export default function ExpressionBuilder({
               label={t('expression.operandLabel')}
             />
 
-            <Stack direction="row" spacing={0.5} alignItems="center">
+            <Stack direction="row" spacing={0.5} sx={{
+              alignItems: "center"
+            }}>
               <TextField
                 select
                 size="small"
@@ -249,11 +254,9 @@ export default function ExpressionBuilder({
           </Stack>
         </Box>
       ))}
-
       <Button size="small" startIcon={<AddIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', fontSize: '0.75rem' }}>
         {t('expression.addRow')}
       </Button>
-
       <TextField
         select
         size="small"
@@ -265,7 +268,6 @@ export default function ExpressionBuilder({
           <MenuItem key={wf.value} value={wf.value}>{wf.label}</MenuItem>
         ))}
       </TextField>
-
       {previewSnippet ? (
         <SnippetPreview
           snippet={previewSnippet}
@@ -281,5 +283,5 @@ export default function ExpressionBuilder({
         </Stack>
       )}
     </Stack>
-  )
+  );
 }

@@ -339,7 +339,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 
 ## Prerequisites
 
-- Java 21+
+- Java 25+
 - Node.js 18+
 - Maven 3.9+
 - PostgreSQL 16 (or use the bundled `docker-compose.dev-pg.yml`)
@@ -665,7 +665,7 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 ## Key Dependencies
 
 ### Backend
-- Spring Boot 4.0.6 (Java 21, Tomcat 10.1.54)
+- Spring Boot 4.1.0 (Java 25, Tomcat 10.1.60)
 - CQL Framework (cql-to-elm, engine) 4.5.0
 - HAPI FHIR 8.8.1
 - CQF Clinical Reasoning

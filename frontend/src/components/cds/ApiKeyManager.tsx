@@ -106,7 +106,9 @@ export default function ApiKeyManager() {
         <Typography variant="subtitle2" gutterBottom>
           {t('apiKeys.endpointTitle')}
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Typography
             variant="body2"
             sx={(theme) => ({
@@ -125,12 +127,22 @@ export default function ApiKeyManager() {
             </IconButton>
           </Tooltip>
         </Stack>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            mt: 1,
+            display: 'block'
+          }}>
           {t('apiKeys.endpointHelp')}
         </Typography>
       </Alert>
-
-      <Box display="flex" justifyContent="space-between" alignItems="center">
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center"
+        }}>
         <Typography variant="subtitle1">{t('apiKeys.title')}</Typography>
         <GradientButton
           startIcon={<AddIcon />}
@@ -142,11 +154,9 @@ export default function ApiKeyManager() {
           {t('apiKeys.generateNew')}
         </GradientButton>
       </Box>
-
       {(!keys || keys.length === 0) && (
         <Alert severity="info">{t('apiKeys.noKeys')}</Alert>
       )}
-
       {keys && keys.length > 0 && (
         <TableContainer component={Paper} variant="outlined">
           <Table size="small">
@@ -201,7 +211,6 @@ export default function ApiKeyManager() {
           </Table>
         </TableContainer>
       )}
-
       <ConfirmDeleteDialog
         open={pendingRevokeId != null}
         title={t('apiKeys.revokeDialogTitle')}
@@ -211,7 +220,6 @@ export default function ApiKeyManager() {
         onConfirm={handleConfirmRevoke}
         isPending={revokeMutation.isPending}
       />
-
       <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('apiKeys.generateDialogTitle')}</DialogTitle>
         <DialogContent>
@@ -233,7 +241,13 @@ export default function ApiKeyManager() {
                 <Typography variant="subtitle2" gutterBottom>
                   {t('apiKeys.saveKeyWarning')}
                 </Typography>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mt: 1
+                  }}>
                   <Typography
                     variant="body2"
                     sx={(theme) => ({
@@ -273,5 +287,5 @@ export default function ApiKeyManager() {
         </DialogActions>
       </Dialog>
     </Stack>
-  )
+  );
 }

@@ -58,7 +58,6 @@ export default function OperandField({
           {modeQuantityLabel}
         </ToggleButton>
       </ToggleButtonGroup>
-
       {mode === 'element' && (
         <TextField
           select
@@ -66,23 +65,29 @@ export default function OperandField({
           label={label}
           value={elementId}
           onChange={(e) => onElementChange(e.target.value)}
-          SelectProps={{ displayEmpty: true }}
-          InputLabelProps={{ shrink: true }}
-        >
+          slotProps={{
+            select: { displayEmpty: true },
+            inputLabel: { shrink: true }
+          }}>
           <MenuItem value="" disabled>
             <em>{selectPlaceholder}</em>
           </MenuItem>
           {operands.map((op) => (
             <MenuItem key={op.uniqueId} value={op.uniqueId}>
               {op.name}
-              <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+              <Typography
+                component="span"
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  ml: 0.5
+                }}>
                 ({op.returnType})
               </Typography>
             </MenuItem>
           ))}
         </TextField>
       )}
-
       {mode === 'literal' && (
         <TextField
           size="small"
@@ -93,7 +98,6 @@ export default function OperandField({
           sx={{ '& input': { fontFamily: 'monospace', fontSize: '0.85rem' } }}
         />
       )}
-
       {mode === 'quantity' && (
         <Stack direction="row" spacing={0.5}>
           <TextField
@@ -114,5 +118,5 @@ export default function OperandField({
         </Stack>
       )}
     </Stack>
-  )
+  );
 }

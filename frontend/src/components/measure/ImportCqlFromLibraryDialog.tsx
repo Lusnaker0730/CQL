@@ -85,12 +85,14 @@ export default function ImportCqlFromLibraryDialog({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 1, mt: 1 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         {isLoading ? (
@@ -98,7 +100,13 @@ export default function ImportCqlFromLibraryDialog({
             <CircularProgress size={32} />
           </Box>
         ) : filteredLibraries.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             {t('cql.importDialog.noLibraries')}
           </Typography>
         ) : (
@@ -112,7 +120,9 @@ export default function ImportCqlFromLibraryDialog({
                 <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2" fontWeight="medium">
+                      <Typography variant="body2" sx={{
+                        fontWeight: "medium"
+                      }}>
                         {lib.name}
                       </Typography>
                       <Chip
@@ -137,5 +147,5 @@ export default function ImportCqlFromLibraryDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

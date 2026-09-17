@@ -195,11 +195,15 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
           )
         })
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.codes').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Code' })}
@@ -278,8 +282,10 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                 onChange={(e) => setSearchText(e.target.value)}
                 placeholder={t('codes.searchPlaceholder')}
                 disabled={!systemUrl}
-                InputProps={{
-                  endAdornment: isSearching ? <CircularProgress size={16} /> : null,
+                slotProps={{
+                  input: {
+                    endAdornment: isSearching ? <CircularProgress size={16} /> : null,
+                  }
                 }}
               />
               {searchResults && searchResults.length > 0 && (
@@ -312,7 +318,13 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                 </Alert>
               )}
               {searchResults && searchResults.length === 0 && debouncedSearch.length >= 2 && !isSearching && !isSearchError && (
-                <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic', fontSize: '0.8rem' }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "text.secondary",
+                    fontStyle: 'italic',
+                    fontSize: '0.8rem'
+                  }}>
                   {t('codes.noResults')}
                 </Typography>
               )}
@@ -356,7 +368,12 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
                           </Typography>
                         </AccordionSummary>
                         <AccordionDetails sx={{ pt: 0, pb: 0.5, pl: 1 }}>
-                          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                          <Stack
+                            direction="row"
+                            sx={{
+                              flexWrap: "wrap",
+                              gap: 0.5
+                            }}>
                             {sys.codes.map((c) => (
                               <Chip
                                 key={c.code}
@@ -404,7 +421,6 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -414,5 +430,5 @@ export default function CodesSection({ codes, onInsert, onDelete, onGoTo, onEdit
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

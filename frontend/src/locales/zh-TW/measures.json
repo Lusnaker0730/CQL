@@ -117,6 +117,7 @@
       "name": "名稱",
       "version": "版本",
       "status": "狀態",
+      "statusReadOnly": "狀態只能透過審核流程變更：提交審核、核准、駁回、停用。",
       "titleField": "標題",
       "description": "描述",
       "scoringType": "評分類型",
@@ -212,6 +213,7 @@
       "name": "名稱",
       "version": "版本",
       "status": "狀態",
+      "statusReadOnly": "狀態只能透過審核流程變更：提交審核、核准、駁回、停用。",
       "scoringType": "評分類型",
       "measureSet": "指標集",
       "measureSetPlaceholder": "例如 CMS Quality Reporting",
@@ -442,7 +444,8 @@
     "evaluateMeasure": "評估指標",
     "schedules": "排程",
     "evaluationFailed": "評估失敗：{{error}}",
-    "emptyState": "點擊「評估指標」以對病患資料執行指標評估。"
+    "emptyState": "點擊「評估指標」以對病患資料執行指標評估。",
+    "notActiveWarning": "只有「啟用」狀態的指標才能對病患資料執行評估。草稿邏輯請改用「測試案例」分頁驗證，或先將此指標送審並核准。"
   },
   "testCases": {
     "title": "測試案例",

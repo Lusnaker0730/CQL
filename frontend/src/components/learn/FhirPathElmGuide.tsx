@@ -2,6 +2,7 @@ import { Box, Typography, Paper, Accordion, AccordionSummary, AccordionDetails, 
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const FHIRPATH_TRAVERSAL_CODE = `// FHIRPath navigation in CQL
 // Dot notation traverses FHIR resource structure
@@ -212,69 +213,120 @@ export default function FhirPathElmGuide() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.fhirpathElm.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.fhirpathElm.subtitle')}
       </Typography>
-
       {/* Section 1: FHIRPath in CQL */}
       <Accordion defaultExpanded sx={{ mb: 2, borderRadius: '12px !important', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider' }} elevation={0}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.fhirpathElm.fhirpath.title')}
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 2,
+              lineHeight: 1.7
+            }}>
             {t('learn.fhirpathElm.fhirpath.description')}
           </Typography>
 
           <Grid container spacing={2}>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.traversal')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_TRAVERSAL_CODE} maxHeight={300} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.whereFiltering')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_WHERE_CODE} maxHeight={300} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.collectionFunctions')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_FUNCTIONS_CODE} maxHeight={400} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.resolveReferences')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_RESOLVE_CODE} maxHeight={260} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.cqlVsFhirpath')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_VS_CQL_CODE} maxHeight={360} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.fhirpath.clinicalExample')}
                 </Typography>
                 <CodeBlock code={FHIRPATH_CLINICAL_CODE} maxHeight={500} />
@@ -282,52 +334,82 @@ export default function FhirPathElmGuide() {
             </Grid>
           </Grid>
 
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+          <Alert severity="info" sx={{ mt: 2 }}>
             {t('learn.fhirpathElm.fhirpath.keyPoints')}
           </Alert>
         </AccordionDetails>
       </Accordion>
-
       {/* Section 2: Understanding ELM */}
       <Accordion defaultExpanded sx={{ mb: 2, borderRadius: '12px !important', '&:before': { display: 'none' }, border: '1px solid', borderColor: 'divider' }} elevation={0}>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography variant="h6" fontWeight={700} color="primary.main">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "primary.main"
+            }}>
             {t('learn.fhirpathElm.elm.title')}
           </Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mb: 2,
+              lineHeight: 1.7
+            }}>
             {t('learn.fhirpathElm.elm.description')}
           </Typography>
 
           <Grid container spacing={2}>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.elm.cqlSource')}
                 </Typography>
                 <CodeBlock code={ELM_INTRO_CODE} maxHeight={120} />
               </Paper>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.elm.elmOutput')}
                 </Typography>
                 <CodeBlock code={ELM_JSON_CODE} maxHeight={400} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.elm.keyNodeTypes')}
                 </Typography>
                 <CodeBlock code={ELM_NODES_CODE} maxHeight={360} />
               </Paper>
             </Grid>
             <Grid size={12}>
-              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
+              <Paper elevation={0} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: CARD_RADIUS }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{
+                    fontWeight: 600,
+                    mb: 1
+                  }}>
                   {t('learn.fhirpathElm.elm.debuggingErrors')}
                 </Typography>
                 <CodeBlock code={ELM_ERROR_CODE} maxHeight={400} />
@@ -335,11 +417,11 @@ export default function FhirPathElmGuide() {
             </Grid>
           </Grid>
 
-          <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
+          <Alert severity="info" sx={{ mt: 2 }}>
             {t('learn.fhirpathElm.elm.keyPoints')}
           </Alert>
         </AccordionDetails>
       </Accordion>
     </Box>
-  )
+  );
 }

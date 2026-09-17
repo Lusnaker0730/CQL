@@ -5,7 +5,8 @@
     "description": "整合 TWCORE IG 規範，提供視覺化 CQL 編輯、品質量測、CDS 決策支援等完整功能，協助醫療機構提升照護品質。",
     "learnMore": "開始學習",
     "tryDemo": "瀏覽教學",
-    "tutorialAttribution": "教學內容翻譯自 HL7 CQL 官方網站 (cql.hl7.org)"
+    "tutorialAttribution": "教學內容翻譯自 HL7 CQL 官方網站 (cql.hl7.org)",
+    "applyCta": "申請試用"
   },
   "features": {
     "title": "平台功能",
@@ -40,6 +41,190 @@
     "profiles": "TWCORE Profile",
     "codeSystems": "台灣術語系統",
     "templates": "CQL 範本"
+  },
+  "catalog": {
+    "pageTitle": "範本庫",
+    "title": "官方 CQL 範本庫",
+    "subtitle": "{{count}} 個現成的 TW Core CQL 範本，可直接複製套用。",
+    "copyCode": "複製 CQL",
+    "toggleCode": "顯示 / 隱藏 CQL"
+  },
+  "status": {
+    "pageTitle": "服務狀態",
+    "components": "各項元件",
+    "lastChecked": "最後檢查於 {{time}}",
+    "overall": {
+      "operational": "所有系統運作正常",
+      "degraded": "部分服務中斷",
+      "outage": "服務無法連線"
+    },
+    "component": {
+      "api": "API",
+      "database": "資料庫"
+    }
+  },
+  "docs": {
+    "pageTitle": "文件中心",
+    "title": "CQL Platform 使用文件",
+    "subtitle": "如何在平台上申請、開通、匯入資料、建立臨床品質指標與 CDS 服務。想學 CQL 語言本身,請見「學習中心」。",
+    "gettingStarted": {
+      "title": "快速開始",
+      "steps": {
+        "apply": {
+          "title": "申請診所帳號",
+          "desc": "在申請頁填寫診所資訊送出;審核通過後會收到一次性的設定連結來設定密碼。"
+        },
+        "onboard": {
+          "title": "登入並設定",
+          "desc": "以設定連結設定密碼後登入,即進入您診所專屬、與其他診所完全隔離的租戶。"
+        },
+        "import": {
+          "title": "匯入病人資料",
+          "desc": "透過 EHR 連線抓取,或直接上傳健康存摺匯出的 FHIR bundle 檔案,作為測試/評估用的病人資料。"
+        },
+        "build": {
+          "title": "建立指標與 CDS",
+          "desc": "用 CQL Builder 視覺化建立品質量測與 CDS Hooks 服務,對匯入的病人資料執行、檢視結果。"
+        }
+      }
+    },
+    "features": {
+      "title": "平台功能",
+      "items": {
+        "builder": {
+          "title": "CQL Builder",
+          "desc": "視覺化組裝 CQL 邏輯,即時翻譯與驗證,搭配 Monaco 編輯器。"
+        },
+        "measures": {
+          "title": "品質量測 eCQM",
+          "desc": "建立比例/比率/連續變數/世代型品質量測,對病人資料評分並檢視儀表板。"
+        },
+        "cds": {
+          "title": "CDS Hooks",
+          "desc": "建立臨床決策支援服務,可在院內共享;支援標準 CDS Hooks 呼叫。"
+        },
+        "fhirImport": {
+          "title": "FHIR 資料匯入",
+          "desc": "從 EHR 連線或上傳健康存摺 FHIR bundle 匯入病人資料。"
+        },
+        "patientGen": {
+          "title": "假病人產生器",
+          "desc": "依 TW Core IG 產生符合台灣核心規範的假病人資料,供測試使用。"
+        },
+        "terminology": {
+          "title": "術語瀏覽",
+          "desc": "瀏覽 ICD-10、LOINC、健保藥碼等 TW Core 術語與值集。"
+        }
+      }
+    },
+    "integration": {
+      "title": "整合",
+      "items": {
+        "cdsHooks": {
+          "title": "CDS Hooks 端點",
+          "desc": "外部 EHR 可透過已認證的 per-user 端點 /cds-services/u/{username} 探索與呼叫您診所的 CDS 服務(API Key 認證,租戶隔離)。"
+        },
+        "apiKey": {
+          "title": "API Key",
+          "desc": "在帳號設定產生 API Key,供程式化存取與 CDS Hooks 認證。"
+        },
+        "fhirBundle": {
+          "title": "FHIR bundle 上傳",
+          "desc": "在 FHIR 頁上傳健康存摺等 FHIR bundle 檔案匯入病人;可選擇驗證是否符合 TW Core。"
+        }
+      }
+    },
+    "resources": {
+      "title": "資源與連結",
+      "learn": "CQL 學習中心",
+      "templates": "官方範本庫",
+      "status": "服務狀態",
+      "cqlSpec": "CQL 規範",
+      "twcore": "TW Core IG",
+      "cdsHooks": "CDS Hooks"
+    },
+    "open": {
+      "learn": "前往學習中心",
+      "templates": "前往範本庫"
+    }
+  },
+  "legal": {
+    "draftBanner": "本文件為草稿,尚待法務審閱,不構成正式或具約束力的法律條款。正式版本公告前,請勿以本頁內容作為法律依據。",
+    "draftLabel": "草稿 — 待法務審閱",
+    "terms": {
+      "title": "服務條款",
+      "sections": {
+        "service": {
+          "heading": "服務說明",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "eligibility": {
+          "heading": "使用資格",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "responsibilities": {
+          "heading": "使用者責任",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "ip": {
+          "heading": "智慧財產權",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "disclaimer": {
+          "heading": "免責聲明",
+          "body": "（草稿佔位）本平台為臨床品質語言（CQL）之編輯與執行工具,不提供醫療診斷或治療建議;正式免責條款待法務審閱後補上。"
+        },
+        "liability": {
+          "heading": "責任限制",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "changes": {
+          "heading": "條款變更",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "governingLaw": {
+          "heading": "準據法與管轄",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        }
+      }
+    },
+    "privacy": {
+      "title": "隱私政策",
+      "sections": {
+        "dataCollected": {
+          "heading": "蒐集的資料",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "purpose": {
+          "heading": "使用目的",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "phi": {
+          "heading": "病人健康資訊（PHI）處理",
+          "body": "（草稿佔位）匯入之病人資料採租戶隔離,僅該診所可存取;正式 PHI 處理與保護條款待法務審閱後補上。"
+        },
+        "retention": {
+          "heading": "資料保存",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "sharing": {
+          "heading": "資料分享與第三方",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "security": {
+          "heading": "安全措施",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "rights": {
+          "heading": "使用者權利",
+          "body": "（草稿佔位）本節之正式內容待法務審閱後補上。"
+        },
+        "contact": {
+          "heading": "聯絡方式",
+          "body": "（草稿佔位）隱私相關詢問之正式聯絡窗口待補上。"
+        }
+      }
+    }
   },
   "learn": {
     "nav": {
@@ -264,63 +449,121 @@
       "needsWork": "還需要加油！建議先閱讀入門介紹和核心概念。",
       "correct": "正確！",
       "incorrect": "不正確。",
+      "reviewTopics": "需要複習的主題：",
+      "topics": {
+        "terminology": "術語系統",
+        "syntax": "語法",
+        "concepts": "核心概念",
+        "twcore": "TWCORE",
+        "standards": "標準規範"
+      },
       "q1": {
         "question": "CQL 的全稱是什麼？",
-        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
+        "options": [
+          "Clinical Query Language",
+          "Clinical Quality Language",
+          "Computer Query Language",
+          "Clinical Quantitative Language"
+        ],
         "answer": 1,
         "explanation": "CQL 全稱 Clinical Quality Language（臨床品質語言），由 HL7 International 制定。"
       },
       "q2": {
         "question": "CQL 使用哪個資料模型來存取臨床資料？",
-        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
+        "options": [
+          "HL7 V2",
+          "CDA",
+          "FHIR",
+          "DICOM"
+        ],
         "answer": 2,
         "explanation": "CQL 建立在 FHIR（Fast Healthcare Interoperability Resources）資料模型之上。"
       },
       "q3": {
         "question": "在 CQL 中，如何查詢所有的 Condition（診斷）資源？",
-        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
+        "options": [
+          "SELECT * FROM Condition",
+          "[Condition]",
+          "query Condition",
+          "get(Condition)"
+        ],
         "answer": 1,
         "explanation": "CQL 使用方括號語法 [ResourceType] 來查詢 FHIR 資源，例如 [Condition] 查詢所有診斷資源。"
       },
       "q4": {
         "question": "CQL 被編譯後產生的中間格式稱為什麼？",
-        "options": ["AST", "ELM", "XML", "JSON-LD"],
+        "options": [
+          "AST",
+          "ELM",
+          "XML",
+          "JSON-LD"
+        ],
         "answer": 1,
         "explanation": "CQL 被編譯為 ELM（Expression Logical Model），這是一種機器可執行的邏輯模型。"
       },
       "q5": {
         "question": "TWCORE IG 是由哪個機構制定的？",
-        "options": ["HL7 International", "WHO", "衛生福利部", "健保署"],
+        "options": [
+          "HL7 International",
+          "WHO",
+          "衛生福利部",
+          "健保署"
+        ],
         "answer": 2,
         "explanation": "TWCORE IG（台灣核心實作指引）是衛生福利部依 HL7 FHIR R4 規範制定的在地化標準。"
       },
       "q6": {
         "question": "在 CQL 中，'context Patient' 的作用是什麼？",
-        "options": ["宣告病患變數", "限定查詢範圍為目前評估的病患", "定義病患資料結構", "匯入病患資料庫"],
+        "options": [
+          "宣告病患變數",
+          "限定查詢範圍為目前評估的病患",
+          "定義病患資料結構",
+          "匯入病患資料庫"
+        ],
         "answer": 1,
         "explanation": "context Patient 將所有後續查詢的範圍限定為目前正在評估的病患。"
       },
       "q7": {
         "question": "台灣的診斷碼主要使用哪個術語系統？",
-        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
+        "options": [
+          "SNOMED CT",
+          "LOINC",
+          "ICD-10-CM-TW",
+          "RxNorm"
+        ],
         "answer": 2,
         "explanation": "台灣主要使用 ICD-10-CM-TW（台灣國際疾病分類）作為診斷編碼系統。"
       },
       "q8": {
         "question": "CQL 中 define 關鍵字的作用是什麼？",
-        "options": ["定義變數", "建立具名的可重用運算式", "宣告函式庫", "定義資料類型"],
+        "options": [
+          "定義變數",
+          "建立具名的可重用運算式",
+          "宣告函式庫",
+          "定義資料類型"
+        ],
         "answer": 1,
         "explanation": "define 建立具名的運算式，可被其他定義引用，是 CQL 的核心建構區塊。"
       },
       "q9": {
         "question": "LOINC 代碼 4548-4 對應的檢驗項目是什麼？",
-        "options": ["血糖（Glucose）", "肌酸酐（Creatinine）", "糖化血色素（HbA1c）", "膽固醇（Cholesterol）"],
+        "options": [
+          "血糖（Glucose）",
+          "肌酸酐（Creatinine）",
+          "糖化血色素（HbA1c）",
+          "膽固醇（Cholesterol）"
+        ],
         "answer": 2,
         "explanation": "LOINC 4548-4 對應 Hemoglobin A1c/Hemoglobin.total in Blood，即糖化血色素（HbA1c）。"
       },
       "q10": {
         "question": "eCQM 的全稱是什麼？",
-        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
+        "options": [
+          "electronic Clinical Quality Model",
+          "electronic Clinical Quality Measure",
+          "electronic Care Quality Metric",
+          "electronic Clinical Quantitative Measure"
+        ],
         "answer": 1,
         "explanation": "eCQM 全稱 electronic Clinical Quality Measure（電子臨床品質指標），使用 CQL 定義量測邏輯。"
       }
@@ -528,88 +771,6 @@
         "flattenDesc": "將巢狀列表展平為單一列表"
       }
     },
-    "quiz": {
-      "title": "CQL 自我測驗",
-      "subtitle": "測試您對 CQL 核心概念的理解",
-      "question": "第 {{current}} 題（共 {{total}} 題）",
-      "checkAnswer": "確認答案",
-      "next": "下一題",
-      "restart": "重新測驗",
-      "score": "您的得分：{{score}} / {{total}}",
-      "perfect": "滿分！您已掌握 CQL 的核心概念。",
-      "good": "做得不錯！建議再複習一下答錯的部分。",
-      "needsWork": "還需要加油！建議先閱讀入門介紹和核心概念。",
-      "correct": "正確！",
-      "incorrect": "不正確。",
-      "reviewTopics": "需要複習的主題：",
-      "topics": {
-        "terminology": "術語系統",
-        "syntax": "語法",
-        "concepts": "核心概念",
-        "twcore": "TWCORE",
-        "standards": "標準規範"
-      },
-      "q1": {
-        "question": "CQL 的全稱是什麼？",
-        "options": ["Clinical Query Language", "Clinical Quality Language", "Computer Query Language", "Clinical Quantitative Language"],
-        "answer": 1,
-        "explanation": "CQL 全稱 Clinical Quality Language（臨床品質語言），由 HL7 International 制定。"
-      },
-      "q2": {
-        "question": "CQL 使用哪個資料模型來存取臨床資料？",
-        "options": ["HL7 V2", "CDA", "FHIR", "DICOM"],
-        "answer": 2,
-        "explanation": "CQL 建立在 FHIR（Fast Healthcare Interoperability Resources）資料模型之上。"
-      },
-      "q3": {
-        "question": "在 CQL 中，如何查詢所有的 Condition（診斷）資源？",
-        "options": ["SELECT * FROM Condition", "[Condition]", "query Condition", "get(Condition)"],
-        "answer": 1,
-        "explanation": "CQL 使用方括號語法 [ResourceType] 來查詢 FHIR 資源，例如 [Condition] 查詢所有診斷資源。"
-      },
-      "q4": {
-        "question": "CQL 被編譯後產生的中間格式稱為什麼？",
-        "options": ["AST", "ELM", "XML", "JSON-LD"],
-        "answer": 1,
-        "explanation": "CQL 被編譯為 ELM（Expression Logical Model），這是一種機器可執行的邏輯模型。"
-      },
-      "q5": {
-        "question": "TWCORE IG 是由哪個機構制定的？",
-        "options": ["HL7 International", "WHO", "衛生福利部", "健保署"],
-        "answer": 2,
-        "explanation": "TWCORE IG（台灣核心實作指引）是衛生福利部依 HL7 FHIR R4 規範制定的在地化標準。"
-      },
-      "q6": {
-        "question": "在 CQL 中，'context Patient' 的作用是什麼？",
-        "options": ["宣告病患變數", "限定查詢範圍為目前評估的病患", "定義病患資料結構", "匯入病患資料庫"],
-        "answer": 1,
-        "explanation": "context Patient 將所有後續查詢的範圍限定為目前正在評估的病患。"
-      },
-      "q7": {
-        "question": "台灣的診斷碼主要使用哪個術語系統？",
-        "options": ["SNOMED CT", "LOINC", "ICD-10-CM-TW", "RxNorm"],
-        "answer": 2,
-        "explanation": "台灣主要使用 ICD-10-CM-TW（台灣國際疾病分類）作為診斷編碼系統。"
-      },
-      "q8": {
-        "question": "CQL 中 define 關鍵字的作用是什麼？",
-        "options": ["定義變數", "建立具名的可重用運算式", "宣告函式庫", "定義資料類型"],
-        "answer": 1,
-        "explanation": "define 建立具名的運算式，可被其他定義引用，是 CQL 的核心建構區塊。"
-      },
-      "q9": {
-        "question": "LOINC 代碼 4548-4 對應的檢驗項目是什麼？",
-        "options": ["血糖（Glucose）", "肌酸酐（Creatinine）", "糖化血色素（HbA1c）", "膽固醇（Cholesterol）"],
-        "answer": 2,
-        "explanation": "LOINC 4548-4 對應 Hemoglobin A1c/Hemoglobin.total in Blood，即糖化血色素（HbA1c）。"
-      },
-      "q10": {
-        "question": "eCQM 的全稱是什麼？",
-        "options": ["electronic Clinical Quality Model", "electronic Clinical Quality Measure", "electronic Care Quality Metric", "electronic Clinical Quantitative Measure"],
-        "answer": 1,
-        "explanation": "eCQM 全稱 electronic Clinical Quality Measure（電子臨床品質指標），使用 CQL 定義量測邏輯。"
-      }
-    },
     "languageRef": {
       "title": "CQL 語言參考",
       "subtitle": "涵蓋條件運算式、空值處理、型別系統、日期時間操作與字串處理的完整 CQL 語言特性參考。",
@@ -722,6 +883,21 @@
     }
   },
   "footer": {
-    "contactPrompt": "商業合作 / 錯誤回報："
+    "contactPrompt": "商業合作 / 錯誤回報：",
+    "learn": "CQL 教學"
+  },
+  "apply": {
+    "title": "申請診所帳號",
+    "subtitle": "填寫診所資料送出申請,平台團隊將逐件審核並以 email 與您聯繫。",
+    "clinicName": "診所名稱",
+    "tenantCode": "診所代碼",
+    "tenantCodeHelp": "診所的小寫識別碼(a-z、0-9、-)",
+    "adminUsername": "管理員帳號",
+    "adminUsernameHelp": "至少 3 個字元,將成為貴診所的管理員帳號",
+    "adminEmail": "聯絡 email",
+    "submit": "送出申請",
+    "successMessage": "已收到您的申請,平台團隊審核後將以 email 與您聯繫。",
+    "backToHome": "回首頁",
+    "failed": "申請送出失敗,請稍後再試。"
   }
 }

@@ -85,6 +85,34 @@ public class PasswordResetService {
     }
 
     /**
+     * Create a password-setup token for a freshly provisioned account (#700 clinic
+     * onboarding) and return the RAW token so the caller can build a setup link.
+     *
+     * <p>Deliberate deviation from the H8 "never return secrets" rule, scoped tightly:
+     * the caller is the platform operator who just CREATED this account — the link
+     * grants nothing the operator doesn't already have. It lets onboarding work when
+     * SMTP is not configured (the link is handed over out-of-band); when mail IS
+     * configured the same link is also emailed. Expiry is longer than the reset flow
+     * (7 days) to survive out-of-band handover.
+     */
+    @Transactional
+    public String generateSetupToken(UserEntity user) {
+        tokenRepository.deleteByUserId(user.getId());
+
+        byte[] tokenBytes = new byte[TOKEN_BYTES];
+        secureRandom.nextBytes(tokenBytes);
+        String rawToken = Base64.getUrlEncoder().withoutPadding().encodeToString(tokenBytes);
+
+        tokenRepository.save(PasswordResetTokenEntity.builder()
+                .userId(user.getId())
+                .tokenHash(sha256(rawToken))
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .used(false)
+                .build());
+        return rawToken;
+    }
+
+    /**
      * Reset password using a token from the email link.
      */
     @Transactional

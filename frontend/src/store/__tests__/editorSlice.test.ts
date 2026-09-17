@@ -3,6 +3,7 @@ import { configureStore } from '@reduxjs/toolkit'
 import editorReducer, {
   setCqlContent,
   setElmJson,
+  setElmSourceCql,
   setErrors,
   setWarnings,
   clearEditor,
@@ -30,6 +31,14 @@ describe('editorSlice', () => {
     expect(store.getState().editor.elmJson).toBe('{"library":{}}')
   })
 
+  it('setElmSourceCql should track the ELM source text', () => {
+    const store = createStore()
+    store.dispatch(setElmSourceCql('library X'))
+    expect(store.getState().editor.elmSourceCql).toBe('library X')
+    store.dispatch(setElmSourceCql(null))
+    expect(store.getState().editor.elmSourceCql).toBeNull()
+  })
+
   it('setErrors and setWarnings should update arrays', () => {
     const store = createStore()
     const errors = [{ severity: 'Error', message: 'test error' }]
@@ -46,6 +55,7 @@ describe('editorSlice', () => {
     const store = createStore()
     store.dispatch(setCqlContent('test'))
     store.dispatch(setElmJson('elm'))
+    store.dispatch(setElmSourceCql('test'))
     store.dispatch(setErrors([{ severity: 'Error', message: 'err' }]))
 
     store.dispatch(clearEditor())
@@ -53,6 +63,7 @@ describe('editorSlice', () => {
     const state = store.getState().editor
     expect(state.cqlContent).toBe('')
     expect(state.elmJson).toBeNull()
+    expect(state.elmSourceCql).toBeNull()
     expect(state.errors).toEqual([])
     expect(state.warnings).toEqual([])
   })

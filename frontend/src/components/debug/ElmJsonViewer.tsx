@@ -29,11 +29,15 @@ export default function ElmJsonViewer({ elmJson }: ElmJsonViewerProps) {
 
   return (
     <Box>
-      <Stack direction="row" alignItems="center" spacing={0.5}>
+      <Stack direction="row" spacing={0.5} sx={{
+        alignItems: "center"
+      }}>
         <IconButton size="small" onClick={() => setOpen(!open)}>
           {open ? <CollapseIcon fontSize="small" /> : <ExpandIcon fontSize="small" />}
         </IconButton>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {t('debug.compiledElm')}
         </Typography>
       </Stack>
@@ -45,5 +49,5 @@ export default function ElmJsonViewer({ elmJson }: ElmJsonViewerProps) {
         </Paper>
       </Collapse>
     </Box>
-  )
+  );
 }

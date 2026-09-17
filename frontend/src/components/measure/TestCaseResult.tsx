@@ -41,8 +41,16 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
 
   return (
     <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-        <Stack direction="row" spacing={1} alignItems="center">
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1
+        }}>
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "center"
+        }}>
           <Chip
             icon={config.icon}
             label={statusLabel}
@@ -51,23 +59,31 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
             variant="outlined"
             sx={{ fontWeight: 600 }}
           />
-          <Typography variant="body2" fontWeight={500}>
+          <Typography variant="body2" sx={{
+            fontWeight: 500
+          }}>
             {result.testCaseTitle}
           </Typography>
         </Stack>
         {result.executionTimeMs != null && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {result.executionTimeMs}{t('testCaseResult.ms')}
           </Typography>
         )}
       </Stack>
-
       {result.errorMessage && (
-        <Typography variant="body2" color="error.main" sx={{ mb: 1, fontSize: '0.8rem' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "error.main",
+            mb: 1,
+            fontSize: '0.8rem'
+          }}>
           {result.errorMessage}
         </Typography>
       )}
-
       {result.comparisons && result.comparisons.length > 0 && (
         <Table size="small">
           <TableHead>
@@ -103,5 +119,5 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
         </Table>
       )}
     </Box>
-  )
+  );
 }

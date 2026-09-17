@@ -22,11 +22,12 @@ export default function CdsPage() {
             mb: 1,
           })}
         />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('page.subtitle')}
         </Typography>
       </Box>
-
       <Grid container spacing={2} sx={{ height: 'calc(100% - 90px)' }}>
         <Grid size={{ xs: 12, md: 6 }}>
           <CqlEditor height="100%" />
@@ -36,5 +37,5 @@ export default function CdsPage() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

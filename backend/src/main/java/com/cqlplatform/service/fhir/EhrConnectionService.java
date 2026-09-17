@@ -22,19 +22,49 @@ public class EhrConnectionService {
     private final EhrConnectionRepository repository;
     private final FhirClientFactory fhirClientFactory;
     private final SmartBackendTokenService smartBackendTokenService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
     @Transactional(readOnly = true)
     public List<EhrConnectionEntity> list(String department) {
+        Long tenantId = effectiveTenantId();
         if (department != null && !department.isBlank()) {
-            return repository.findByDepartmentAndActiveTrue(department);
+            return repository.findByTenantIdAndDepartmentAndActiveTrue(tenantId, department);
         }
-        return repository.findByActiveTrue();
+        return repository.findByTenantIdAndActiveTrue(tenantId);
     }
 
+    /**
+     * Tenant-scoped lookup for MANAGEMENT operations (request thread). A connection in
+     * another tenant reads as not-found. Do NOT use from async execution paths — see
+     * {@link #getByIdUnscoped}.
+     */
     @Transactional(readOnly = true)
     public EhrConnectionEntity getById(Long id) {
+        return repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
+    }
+
+    /**
+     * Unscoped lookup — used only by the CQL/eCQM execution path, which may run on async
+     * executor threads where the request-thread TenantContext is not visible. That path is
+     * still gated by the interim ADMIN/DEPARTMENT_ADMIN guard; execute-path tenant scoping
+     * (with async tenant propagation) is a Phase 2 follow-up.
+     */
+    @Transactional(readOnly = true)
+    public EhrConnectionEntity getByIdUnscoped(Long id) {
         return repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
+    }
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
     }
 
     @Transactional
@@ -60,8 +90,10 @@ public class EhrConnectionService {
             connection.setHostnameVerification(request.getHostnameVerification());
         }
         connection.setStatus("untested");
+        // Assign the connection to the caller's tenant server-side (never client-supplied).
+        connection.setTenantId(effectiveTenantId());
         EhrConnectionEntity saved = repository.save(connection);
-        log.info("Created EHR connection '{}' (id={})", saved.getName(), saved.getId());
+        log.info("Created EHR connection '{}' (id={}, tenant={})", saved.getName(), saved.getId(), saved.getTenantId());
         return saved;
     }
 
@@ -112,8 +144,10 @@ public class EhrConnectionService {
         // setLastTestMessage → save) needs an explicit transactional boundary so the
         // success and failure paths atomically commit; same convention as the
         // create / update / delete methods in this class.
-        EhrConnectionEntity connection = repository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("EHR connection not found: " + id));
+        // BUG-138: tenant-scoped, matching update() / delete(). The raw findById let a clinic
+        // ADMIN/DEPARTMENT_ADMIN test ANY tenant's connection — which both mutates its status
+        // fields and hands back the entity, credentials and cert material included.
+        EhrConnectionEntity connection = getById(id);
         try {
             IGenericClient client = fhirClientFactory.createAuthenticatedClient(connection);
             CapabilityStatement capabilities = client.capabilities()

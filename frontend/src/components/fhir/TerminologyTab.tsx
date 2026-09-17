@@ -63,7 +63,6 @@ export default function TerminologyTab() {
       <Alert severity="info" sx={{ '& .MuiAlert-message': { fontSize: '0.8rem' } }}>
         {t('terminology.info')}
       </Alert>
-
       {/* ValueSet Expand */}
       <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -125,7 +124,6 @@ export default function TerminologyTab() {
           </Stack>
         </AccordionDetails>
       </Accordion>
-
       {/* Code Lookup */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -175,7 +173,9 @@ export default function TerminologyTab() {
                 <Typography variant="body2"><strong>{t('terminology.displayLabel')}</strong> {lookupData.display || '-'}</Typography>
                 {lookupData.designations && lookupData.designations.length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="text.secondary">{t('terminology.designations')}</Typography>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('terminology.designations')}</Typography>
                     {lookupData.designations.map((d, idx) => (
                       <Typography key={idx} variant="body2" sx={{ ml: 1, fontSize: '0.8rem' }}>
                         {d}
@@ -188,7 +188,6 @@ export default function TerminologyTab() {
           </Stack>
         </AccordionDetails>
       </Accordion>
-
       {/* Code Search */}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -251,5 +250,5 @@ export default function TerminologyTab() {
         </AccordionDetails>
       </Accordion>
     </Stack>
-  )
+  );
 }

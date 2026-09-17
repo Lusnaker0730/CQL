@@ -21,9 +21,21 @@ import java.util.Optional;
 @Slf4j
 public class UserApiKeyService {
 
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
+
     private final UserApiKeyRepository repository;
     private final UserRepository userRepository;
     private final EntityManager entityManager;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int LAST_USED_UPDATE_MINUTES = 15;
 
@@ -43,6 +55,7 @@ public class UserApiKeyService {
                 .keyPrefix(prefix)
                 .name(name)
                 .active(true)
+                .tenantId(effectiveTenantId())
                 .build();
 
         entity = repository.save(entity);
@@ -95,12 +108,12 @@ public class UserApiKeyService {
 
     @Transactional(readOnly = true)
     public List<UserApiKeyEntity> listKeys(String username) {
-        return repository.findByUsername(username);
+        return repository.findByTenantIdAndUsername(effectiveTenantId(), username);
     }
 
     @Transactional
     public boolean revokeKey(Long id, String username) {
-        Optional<UserApiKeyEntity> entity = repository.findById(id);
+        Optional<UserApiKeyEntity> entity = repository.findByIdAndTenantId(id, effectiveTenantId());
         if (entity.isPresent() && entity.get().getUsername().equals(username)) {
             UserApiKeyEntity key = entity.get();
             key.setActive(false);

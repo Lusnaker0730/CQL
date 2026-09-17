@@ -23,7 +23,7 @@ public class DepartmentEntity {
 
     @NotBlank
     @Size(max = 100)
-    @Column(name = "code", nullable = false, unique = true, length = 100)
+    @Column(name = "code", nullable = false, length = 100)  // uniqueness is tenant-scoped since V66: UNIQUE(tenant_id, code), migration-managed
     private String code;
 
     @NotBlank
@@ -50,6 +50,14 @@ public class DepartmentEntity {
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    /**
+     * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V64 / #698).
+     * NOT NULL since V66; assigned server-side on every write path (PAT-195..199).
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
 
     @PrePersist
     protected void onCreate() {

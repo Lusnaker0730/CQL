@@ -50,9 +50,23 @@ i18n
     },
   })
 
-// Persist language choice when user switches
+// Map an i18n language code to a valid html `lang` (BCP 47) value for SEO/a11y.
+const toHtmlLang = (lang: string | undefined): string =>
+  lang?.startsWith('zh') ? 'zh-Hant-TW' : 'en'
+
+// Keep <html lang> in sync with the active language (index.html ships zh-Hant-TW;
+// this updates it when the user switches, so crawlers/screen-readers see the
+// correct language for the rendered content).
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = toHtmlLang(i18n.language)
+}
+
+// Persist language choice + sync <html lang> when user switches
 i18n.on('languageChanged', (lang) => {
   localStorage.setItem('cql-platform-language', lang)
+  if (typeof document !== 'undefined') {
+    document.documentElement.lang = toHtmlLang(lang)
+  }
 })
 
 export default i18n

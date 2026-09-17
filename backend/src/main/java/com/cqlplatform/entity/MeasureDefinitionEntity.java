@@ -93,6 +93,15 @@ public class MeasureDefinitionEntity {
     @Builder.Default
     private String accessLevel = "private";
 
+    /**
+     * Tenant (clinic) that owns this measure — the isolation boundary (Phase 2).
+     * Assigned server-side; existing rows were backfilled to the default tenant. NOT NULL
+     * and part of the tenant-scoped unique key (tenant_id, name, version) since V61.
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Transient
     @Builder.Default
     private List<String> sharedWithList = new ArrayList<>();

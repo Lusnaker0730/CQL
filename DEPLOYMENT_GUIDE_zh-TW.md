@@ -43,7 +43,7 @@
 | 服務 | 技術 | 用途 |
 |------|------|------|
 | **Frontend** | React + TypeScript + Nginx | SPA 前端，透過 Nginx 反向代理 API |
-| **Backend** | Spring Boot 4.0 + Java 21 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
+| **Backend** | Spring Boot 4.0 + Java 25 | REST API、CQL 引擎、CDS Hooks、WebSocket 通知推送（PAT-167） |
 | **PostgreSQL** | PostgreSQL 16 Alpine | 使用者、CQL 程式庫、指標定義等資料儲存 |
 | **HAPI FHIR** | HAPI FHIR Server (R4) | FHIR 資料儲存與術語服務 |
 | **Ollama** | Ollama + qwen2.5-coder:7b | 本地 GPU AI — CQL 錯誤修正建議（選用） |
@@ -113,18 +113,87 @@ docker compose --profile twcore up -d
 docker compose --profile ollama --profile twcore up -d
 ```
 
-### 3.5 重新建置映像
+### 3.5 更新部署（從 GHCR pull CI 預建映像，推薦）
+
+`backend` / `frontend` 在 `docker-compose.yml` 同時有 `image:`（指向 GHCR）與 `build:`。
+**正式機請 pull CI 已建好的映像，不要在 VM 上 build**——VM 只有 2 核，本地
+`docker compose build` 會把 CPU 打滿、拖慢正在服務的容器（曾導致 backend 啟動被
+拖到 ~12 分鐘）。CI（`.github/workflows/deploy.yml`）會在每次 main CI 成功時把
+映像 push 到 `ghcr.io/lusnaker0730/cql/{backend,frontend}`（公開、可匿名 pull，VM
+不需 `docker login`）。
 
 ```bash
-# 單獨重建後端
-docker compose build backend
+cd /opt/CQL/docker
 
-# 單獨重建前端
-docker compose build frontend
+# 只更新程式碼（最常見）：pull 新映像 + 重啟，~30s，不需 git pull、不需 build
+docker compose pull backend frontend
+docker compose up -d --no-build backend frontend
 
-# 重建並重新啟動
-docker compose up -d --build
+# 若同時改了 compose / .env / prometheus 設定 / DB migration，才需要先：
+#   cd /opt/CQL && git pull
 ```
+
+**指定版本 / 回滾**：預設拉 `:latest`（會浮動）。要可重現部署或回滾，於 `docker/.env`
+釘住某次 build 的 sha tag（CI 每個 commit 各推一個 `sha-xxxxxxx`）：
+
+```bash
+# docker/.env
+BACKEND_IMAGE_TAG=sha-ca9ebf7
+FRONTEND_IMAGE_TAG=sha-ca9ebf7
+```
+回滾就把 tag 換成舊的 sha 再 `docker compose up -d --no-build backend frontend`。
+
+**本地 dev 仍可自行 build**（`build:` 保留）：
+
+```bash
+docker compose build backend        # 本地建置並以同名 image tag 標記
+docker compose up -d --build         # 建置 + 重啟
+```
+
+### 3.6 啟用 Row-Level Security 的應用角色（PAT-223）
+
+從 migration V70 起，PHI 相關表（`measure_report` 及其 `_group` / `_population` /
+`_stratifier`、`test_case`、`patient_import`、`ehr_connection`）有 PostgreSQL
+**Row-Level Security** 政策：一條連線只看得到 `app.tenant_id` 那個租戶的列（backend
+每次取連線都會設定），忘了加 tenant 條件的 query 也漏不出去。
+
+但 **`POSTGRES_USER` 是 superuser，superuser 無條件繞過 RLS**。所以 backend 必須改用一個
+NOSUPERUSER / NOBYPASSRLS 的應用角色連線；Flyway 仍用 owner（`DB_USERNAME`）跑 migration。
+
+**新部署（空 volume）**：在 `docker/.env` 設好 `DB_APP_USERNAME` / `DB_APP_PASSWORD` 再
+`up`，`docker/postgres-init/10-app-role.sh` 會在首次初始化時自動建角色並授權。
+
+**既有資料庫（正式機 VM）**：
+
+```bash
+cd /opt/CQL && git pull && cd docker
+
+# 1. docker/.env 加兩行（密碼自行產生：openssl rand -base64 24）
+#    DB_APP_USERNAME=cqlplatform_app
+#    DB_APP_PASSWORD=...
+
+# 2. 讓 postgres 容器掛進新的 postgres-init/（只重建容器、不動資料）
+docker compose up -d --no-build postgres
+
+# 3. 建角色 + 授權（冪等，可重跑；existing role 只會刷新密碼與屬性）
+docker compose exec -e DB_APP_USERNAME -e DB_APP_PASSWORD postgres \
+    bash /docker-entrypoint-initdb.d/10-app-role.sh
+
+# 4. backend 以新角色重啟
+docker compose up -d --no-build backend
+
+# 5. 確認
+docker compose logs backend | grep "Tenant RLS"
+#    → Tenant RLS ENFORCED for role 'cqlplatform_app' on 7 tables: [...]
+```
+
+**未設定時的行為**：backend 以 owner 連線、啟動時記 `ERROR Tenant RLS is NOT enforced`、
+Prometheus 指標 `tenant_rls_effective` = 0，功能照舊（隔離仍靠程式碼的 tenant 條件）。
+角色到位後可設 `TENANT_RLS_STRICT=true`，讓 backend 在 RLS 沒生效時拒絕啟動。
+
+**日後 migration 注意**：這些表是 `FORCE ROW LEVEL SECURITY`。superuser owner 不受影響；
+若 Flyway 改用非 superuser 的 owner 跑「資料」migration，要先 `SET LOCAL app.rls_bypass = 'on'`。
+詳見 `docs/runbooks/tenant-rls.md`。
 
 ---
 
@@ -142,6 +211,9 @@ docker compose up -d --build
 | `DB_PASSWORD` | 同 `POSTGRES_PASSWORD` | **必須設定** |
 | `JWT_SECRET` | JWT 簽章金鑰（HS256，至少 256 bits） | **必須設定** |
 | `ENCRYPTION_KEY` | AES 加密金鑰（恰好 32 bytes） | **必須設定** |
+| `DB_APP_USERNAME` | RLS 應用角色（NOSUPERUSER / NOBYPASSRLS，見 §3.6）；未設則退回 `DB_USERNAME`，RLS 不生效 | 未設 |
+| `DB_APP_PASSWORD` | 應用角色密碼 | 未設 |
+| `TENANT_RLS_STRICT` | `true` 時 RLS 未生效即拒絕啟動（角色到位後再開） | `false` |
 
 ### 4.2 FHIR 相關
 
@@ -316,8 +388,8 @@ AI_CLOUD_TIMEOUT=60
 ### 6.1 Backend（Spring Boot 4.0）
 
 **映像建置**：多階段 Docker Build
-- 建置階段：`maven:3.9-eclipse-temurin-21`
-- 執行階段：`eclipse-temurin:21-jre-alpine`（非 root 使用者 `appuser`）
+- 建置階段：`maven:3.9-eclipse-temurin-25`
+- 執行階段：`eclipse-temurin:25-jre-alpine`（非 root 使用者 `appuser`）
 
 **主要相依版本**：Spring Boot 4.0.6 / HAPI FHIR 8.8.1 / Spring Security 6.5.9 / Jackson 3.1.1 / Tomcat 10.1.54 / CQL Framework 4.5.0
 
@@ -362,6 +434,9 @@ AI_CLOUD_TIMEOUT=60
 **WAL 歸檔**：已啟用（`wal_level=replica`），備份至 `/backups/wal/`
 
 **健康檢查**：`pg_isready`（10 秒間隔）
+
+**Row-Level Security**（PAT-223）：V70 起 PHI 表有 `tenant_isolation` 政策；backend 需以
+`DB_APP_USERNAME` 角色連線才生效（§3.6）。`postgres-init/` 掛在 `/docker-entrypoint-initdb.d`。
 
 ### 6.4 HAPI FHIR
 
@@ -422,13 +497,35 @@ Frontend 容器內嵌的 Nginx 負責所有路由：
 | CqlQueueSaturation | 佇列深度 > 40（上限 50） | Warning | 2 分鐘 |
 | FhirCircuitBreakerOpen | FHIR 斷路器開啟 | Critical | 1 分鐘 |
 
-### 8.3 Alertmanager 路由
+### 8.3 Alertmanager 路由（Telegram）
+
+告警經 Prometheus 評估後送 Alertmanager，由原生 `telegram_configs` 推播到 Telegram。
 
 | 嚴重程度 | 接收方式 | 重複發送間隔 |
 |----------|----------|--------------|
-| Critical | Pager webhook | 每 1 小時 |
-| Warning | Slack webhook | 每 4 小時 |
-| 其他 | 通用 webhook | 每 12 小時 |
+| Critical | Telegram | 每 1 小時 |
+| Warning / 其他 | Telegram | 每 4 小時 |
+
+**設定步驟（一次性）：**
+
+1. 向 Telegram [@BotFather](https://t.me/BotFather) 送 `/newbot` 建立 bot，取得 **bot token**。
+2. 把 bot 加進目標群組／頻道（或直接私訊 bot）。
+3. 取得 **chat_id**：對 bot 送任一訊息後開啟
+   `https://api.telegram.org/bot<TOKEN>/getUpdates`，讀 `result[].message.chat.id`
+   （群組為負數，如 `-1001234567890`）。
+4. 在 `docker/.env` 填入（**勿 commit**，`.env` 已 gitignore）：
+   ```
+   TELEGRAM_BOT_TOKEN=<token>
+   TELEGRAM_CHAT_ID=<chat_id>
+   ```
+5. 重啟 alertmanager：`docker compose up -d --no-deps --force-recreate alertmanager`。
+
+> 安全性：bot token 不寫進任何 committed 設定；alertmanager 容器啟動時從 env 寫入
+> `/tmp/telegram_token`（`bot_token_file`），並把 `chat_id` 由 env 注入。兩者任一未設
+> 則容器拒絕啟動（fail-fast，避免靜默無告警）。
+>
+> 驗證投遞：`docker exec <alertmanager> amtool alert add test severity=warning --alertmanager.url=http://localhost:9093`
+> 應在數十秒內收到 Telegram 訊息。
 
 ### 8.4 Grafana
 
@@ -450,6 +547,44 @@ cd docker/
 
 - 輸出：`docker/postgres-backup/cqlplatform_YYYYMMDD_HHMMSS.sql.gz`
 - 自動清理 30 天以前的備份
+- 同時寫出 Prometheus 新鮮度指標（`node-exporter` textfile collector）→ `BackupStale` / `BackupMetricMissing` 告警
+
+### 9.1.1 自動每日備份（systemd timer）
+
+**正式機必須啟用**，不要依賴人工每天手動跑。安裝一次即可（詳見 `docker/systemd/README.md`）：
+
+```bash
+cd /opt/CQL   # 先 git pull 取得 units
+ln -sf /opt/CQL/docker/systemd/cql-db-backup.service /etc/systemd/system/
+ln -sf /opt/CQL/docker/systemd/cql-db-backup.timer   /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now cql-db-backup.timer
+systemctl list-timers cql-db-backup.timer     # 確認 NEXT 執行時間
+```
+
+> **限制（刻意）**：目前只做**本機**備份 —— 備份與 DB 同在一台 VM，整台壞會同歸於盡。
+> 異地備援（rclone/S3/B2 + gpg）為後續項目。
+
+### 9.1.2 WAL 歸檔（archive_command）
+
+`docker-compose.yml` 的 postgres `archive_command` 會把 WAL 段複製到
+`postgres-backup` volume 的 `/backups/wal`。
+
+> **⚠️ 歷史 bug（已修）**：舊版命令結尾有 `|| true`，且 `/backups/wal` 目錄從未建立、
+> 又是 root 擁有（postgres 使用者寫不進去）。結果 `cp` 每次都失敗、被 `|| true` 吞掉，
+> PostgreSQL 卻以為歸檔成功並回收 WAL —— **44 個 WAL 段全部丟進虛空，`failed_count`
+> 永遠是 0，監控完全看不出來**。新版命令自我修復目錄且移除 `|| true`，失敗會真實反映。
+
+**一次性設定**（全新 `postgres-backup` volume 才需要，讓 postgres 能寫入）：
+
+```bash
+docker exec docker-postgres-1 chown -R postgres:postgres /backups
+# 驗證歸檔真的動了：切一個 WAL 後，/backups/wal 應出現 16MB 的檔案
+docker exec docker-postgres-1 psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT pg_switch_wal();"
+docker exec docker-postgres-1 ls -la /backups/wal/     # 應有 16MB WAL 檔，非空目錄
+```
+
+> **注意**：保留 WAL ≠ PITR。時間點還原還需要定期 base backup（`pg_basebackup`），目前尚未接。
+> 現階段 DR 主力是上面的每日 `pg_dump`。
 
 ### 9.2 還原
 

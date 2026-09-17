@@ -294,23 +294,22 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           <MenuItem key={rt} value={rt}>{rt}</MenuItem>
         ))}
       </TextField>
-
       <TextField
         select
         size="small"
         label={t('query.terminologySource')}
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
-        SelectProps={{ displayEmpty: true }}
-        InputLabelProps={{ shrink: true }}
-      >
+        slotProps={{
+          select: { displayEmpty: true },
+          inputLabel: { shrink: true }
+        }}>
         {terminologyOptions.map((opt) => (
           <MenuItem key={opt.raw || '__none'} value={opt.raw}>
             {opt.label}
           </MenuItem>
         ))}
       </TextField>
-
       <Stack direction="row" spacing={1}>
         <TextField
           size="small"
@@ -327,13 +326,19 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           sx={{ flex: 1 }}
         />
       </Stack>
-
       {/* Let Bindings */}
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {t('query.letBindings')}
       </Typography>
       {letBindings.map((binding) => (
-        <Stack key={binding.id} direction="row" spacing={0.5} alignItems="center">
+        <Stack key={binding.id} direction="row" spacing={0.5} sx={{
+          alignItems: "center"
+        }}>
           <TextField
             size="small"
             label={t('query.letName')}
@@ -342,7 +347,12 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
             sx={{ flex: 1 }}
             placeholder="varName"
           />
-          <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>:</Typography>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              px: 0.5
+            }}>:</Typography>
           <TextField
             size="small"
             label={t('query.letExpression')}
@@ -359,14 +369,20 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <Button size="small" startIcon={<AddIcon />} onClick={addLetBinding} sx={{ alignSelf: 'flex-start' }}>
         {t('query.addLetBinding')}
       </Button>
-
       {/* With / Without Clauses */}
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {t('query.withClauses')}
       </Typography>
       {withClauses.map((wc) => (
         <Stack key={wc.id} spacing={0.5}>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <ToggleButtonGroup
               size="small"
               exclusive
@@ -416,11 +432,14 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <Button size="small" startIcon={<AddIcon />} onClick={addWithClause} sx={{ alignSelf: 'flex-start' }}>
         {t('query.addWithClause')}
       </Button>
-
       <Divider />
-
       {/* Where Clauses */}
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {t('query.whereClauses')}
       </Typography>
       {whereClauses.map((clause, idx) => (
@@ -441,7 +460,9 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
               </ToggleButton>
             </ToggleButtonGroup>
           )}
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <TextField
               select
               size="small"
@@ -475,9 +496,10 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
                   value={clause.value}
                   onChange={(e) => updateClause(clause.id, { value: e.target.value })}
                   sx={{ flex: 2 }}
-                  SelectProps={{ displayEmpty: true }}
-                  InputLabelProps={{ shrink: true }}
-                >
+                  slotProps={{
+                    select: { displayEmpty: true },
+                    inputLabel: { shrink: true }
+                  }}>
                   <MenuItem value="" disabled>
                     <em>{t('query.selectOp')}</em>
                   </MenuItem>
@@ -507,7 +529,6 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
       <Button size="small" startIcon={<AddIcon />} onClick={addWhereClause} sx={{ alignSelf: 'flex-start' }}>
         {t('query.addWhereClause')}
       </Button>
-
       {/* Sort */}
       <FormControlLabel
         control={<Checkbox size="small" checked={enableSort} onChange={(e) => setEnableSort(e.target.checked)} />}
@@ -542,9 +563,10 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           </ToggleButtonGroup>
         </Stack>
       )}
-
       {/* Return + Distinct */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <FormControlLabel
           control={<Checkbox size="small" checked={enableReturn} onChange={(e) => setEnableReturn(e.target.checked)} />}
           label={<Typography variant="body2">{t('query.returnExpression')}</Typography>}
@@ -564,12 +586,12 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
           sx={{ '& input': { fontFamily: 'monospace', fontSize: '0.8rem' } }}
         />
       )}
-
       {/* CQL Preview */}
       <CqlPreviewBox code={cqlPreview} />
-
       {/* Actions */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton onClick={handleInsert} disabled={!definitionName.trim()}>
           {t('common.insert')}
         </GradientButton>
@@ -581,5 +603,5 @@ export default function QueryBuilder({ valueSets, codes, onInsert, onCancel }: Q
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

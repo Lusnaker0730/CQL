@@ -39,7 +39,13 @@ export default function ReferenceField({ element, value, onChange }: ReferenceFi
       name={element.name}
       isRequired={element.isRequired}
       extra={targets.length > 0 ? (
-        <Typography component="span" variant="caption" color="text.disabled" sx={{ ml: 1 }}>
+        <Typography
+          component="span"
+          variant="caption"
+          sx={{
+            color: "text.disabled",
+            ml: 1
+          }}>
           ({targets.join(', ')})
         </Typography>
       ) : undefined}
@@ -67,5 +73,5 @@ export default function ReferenceField({ element, value, onChange }: ReferenceFi
         />
       </Box>
     </FieldWrapper>
-  )
+  );
 }

@@ -102,6 +102,11 @@ public class MeasureEvaluationService {
     public MeasureEvaluationResult evaluateMeasure(MeasureEvaluationRequest request,
                                                     Long measureDefinitionId,
                                                     MeasureDefinition measureDefinition) {
+        // PAT-219: lifecycle gate FIRST — before counters, timers, and any FHIR / CQL work. Every
+        // stored-definition path (controller, batch, scheduled, composite components) funnels
+        // through here; a null definition is an ad-hoc inline-CQL run and is not gated.
+        MeasureStatusGuard.requireEvaluable(measureDefinitionId, measureDefinition);
+
         log.info("Evaluating measure: {} for patient: {}", request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
@@ -305,15 +310,21 @@ public class MeasureEvaluationService {
         // (no nested executor submit), so no deadlock risk.
         record PatientResult(String patientId, CqlExecutionResponse response, Exception error) {}
 
+        // Capture the caller's tenant on THIS (request) thread so it can be propagated onto
+        // the executor threads below — the request-thread TenantContext is not visible there,
+        // and executeForPatient resolves the authenticated EHR connection tenant-scoped.
+        final Long callerTenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+
         List<CompletableFuture<PatientResult>> futures = patients.stream()
-                .map(patientId -> CompletableFuture.supplyAsync(() -> {
-                    try {
-                        CqlExecutionResponse resp = executeForPatient(context, patientId, preTranslated, bulkData);
-                        return new PatientResult(patientId, resp, null);
-                    } catch (Exception e) {
-                        return new PatientResult(patientId, null, e);
-                    }
-                }, measureExecutor))
+                .map(patientId -> CompletableFuture.supplyAsync(() ->
+                        com.cqlplatform.security.TenantContext.callWith(callerTenantId, () -> {
+                            try {
+                                CqlExecutionResponse resp = executeForPatient(context, patientId, preTranslated, bulkData);
+                                return new PatientResult(patientId, resp, null);
+                            } catch (Exception e) {
+                                return new PatientResult(patientId, null, e);
+                            }
+                        }), measureExecutor))
                 .toList();
 
         // Wait for all patients to finish (with overall timeout)
@@ -469,6 +480,9 @@ public class MeasureEvaluationService {
         execRequest.setCql(context.getMeasureCql());
         execRequest.setPatientId(patientId);
         execRequest.setFhirServerUrl(context.getFhirServerUrl());
+        // Phase 1: carry the authenticated EHR connection through so the measure evaluates
+        // against the clinic's own secured FHIR server (doExecutePreTranslated resolves it).
+        execRequest.setConnectionId(context.getConnectionId());
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",

@@ -88,9 +88,18 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
       <DialogContent>
         {/* Progress bar */}
         <Box sx={{ mb: 3 }}>
-          <Stack direction="row" justifyContent="space-between" mb={0.5}>
-            <Typography variant="caption" color="text.secondary">{t('cpg.completion')}</Typography>
-            <Typography variant="caption" color="text.secondary">{progress}%</Typography>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "space-between",
+              mb: 0.5
+            }}>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('cpg.completion')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{progress}%</Typography>
           </Stack>
           <LinearProgress
             variant="determinate"
@@ -163,7 +172,9 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               fullWidth
               value={local.approvalDate || ''}
               onChange={(e) => update('approvalDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               label={t('cpg.lastReviewDate')}
@@ -172,7 +183,9 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               fullWidth
               value={local.lastReviewDate || ''}
               onChange={(e) => update('lastReviewDate', e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Stack>
           <Stack direction="row" spacing={2}>
@@ -183,7 +196,9 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               fullWidth
               value={local.effectivePeriodStart || ''}
               onChange={(e) => update('effectivePeriodStart', e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               label={t('cpg.effectivePeriodEnd')}
@@ -192,7 +207,9 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
               fullWidth
               value={local.effectivePeriodEnd || ''}
               onChange={(e) => update('effectivePeriodEnd', e.target.value)}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Stack>
 
@@ -209,12 +226,25 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
             const labels = contactLabels[key]
             return (
               <Box key={key}>
-                <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 1
+                  }}>
                   <Typography variant="subtitle2">{labels.title}</Typography>
                   <IconButton size="small" onClick={c.add} aria-label={labels.add}><AddIcon fontSize="small" /></IconButton>
                 </Stack>
                 {c.list.map((contact, i) => (
-                  <Stack key={i} direction="row" spacing={1} mb={0.5} alignItems="center">
+                  <Stack
+                    key={i}
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      mb: 0.5,
+                      alignItems: "center"
+                    }}>
                     <TextField
                       size="small"
                       label={labels.name}
@@ -228,21 +258,34 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
                   </Stack>
                 ))}
               </Box>
-            )
+            );
           })}
 
           <Divider />
 
           {/* Related Artifacts */}
           <Box>
-            <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: "center",
+                mb: 1
+              }}>
               <Typography variant="subtitle2">{t('cpg.relatedArtifacts')}</Typography>
               <IconButton size="small" onClick={() => update('relatedArtifact', [...relatedArtifacts, { type: 'citation', display: '', url: '' }])} aria-label={t('cpg.addRelatedArtifact')}>
                 <AddIcon fontSize="small" />
               </IconButton>
             </Stack>
             {relatedArtifacts.map((ra, i) => (
-              <Stack key={i} direction="row" spacing={1} mb={0.5} alignItems="center">
+              <Stack
+                key={i}
+                direction="row"
+                spacing={1}
+                sx={{
+                  mb: 0.5,
+                  alignItems: "center"
+                }}>
                 <TextField
                   size="small"
                   label={t('cpg.typeLabel')}
@@ -294,5 +337,5 @@ export default function CpgMetadataEditor({ open, onClose, artifact, onUpdate }:
         <Button variant="contained" onClick={handleSave}>{t('cpg.saveMetadata')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

@@ -16,7 +16,10 @@
     "users": "Users",
     "auditLog": "Audit Log",
     "mainNavigation": "Main navigation",
-    "goToHome": "Go to home page"
+    "goToHome": "Go to home page",
+    "tenants": "Tenants",
+    "clinicApplications": "Applications",
+    "tenantUsers": "Staff"
   },
   "toolbar": {
     "switchToLight": "Switch to light mode",

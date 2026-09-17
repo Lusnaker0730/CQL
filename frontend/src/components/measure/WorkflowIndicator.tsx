@@ -45,8 +45,15 @@ export default function WorkflowIndicator({ measure }: WorkflowIndicatorProps) {
   const completedCount = WORKFLOW_STEP_DEFS.filter(s => s.check(measure)).length
 
   return (
-    <Stack direction="row" spacing={0.5} alignItems="center">
-      <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5 }}>
+    <Stack direction="row" spacing={0.5} sx={{
+      alignItems: "center"
+    }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          mr: 0.5
+        }}>
         {completedCount}/{WORKFLOW_STEP_DEFS.length}
       </Typography>
       {WORKFLOW_STEP_DEFS.map((step, i) => {
@@ -55,7 +62,9 @@ export default function WorkflowIndicator({ measure }: WorkflowIndicatorProps) {
         const tooltip = t(`workflow.steps.${step.key}.tooltip`)
         return (
           <Tooltip key={step.key} title={`${label}: ${tooltip}`} arrow>
-            <Stack direction="row" alignItems="center" spacing={0.25}>
+            <Stack direction="row" spacing={0.25} sx={{
+              alignItems: "center"
+            }}>
               {done ? (
                 <CompleteIcon sx={{ fontSize: 14, color: 'success.main' }} />
               ) : (
@@ -83,8 +92,8 @@ export default function WorkflowIndicator({ measure }: WorkflowIndicatorProps) {
               )}
             </Stack>
           </Tooltip>
-        )
+        );
       })}
     </Stack>
-  )
+  );
 }

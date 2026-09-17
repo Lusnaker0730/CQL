@@ -25,6 +25,7 @@ public class ImportRetryService {
 
     private final FailedImportRepository failedImportRepository;
     private final PatientImportService patientImportService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
     @Value("${ehr.import.max-retry-attempts:3}")
     private int maxRetryAttempts;
@@ -48,6 +49,7 @@ public class ImportRetryService {
         failed.setCreatedBy(createdBy != null ? createdBy : "system");
         failed.setNextRetryAt(calculateNextRetry(0));
         failed.setStatus("pending");
+        failed.setTenantId(effectiveTenantId());
 
         failed = failedImportRepository.save(failed);
         log.info("Recorded failed import: connection={}, patient={}, error={}",
@@ -60,7 +62,10 @@ public class ImportRetryService {
      */
     @Transactional
     public FailedImportEntity retryImport(Long failedImportId) {
-        FailedImportEntity failed = failedImportRepository.findById(failedImportId)
+        // Tenant-scoped: a caller cannot retry (and thereby re-import PHI for) another
+        // clinic's failed row. The retry then runs on the request thread under the
+        // caller's TenantContext, which the scoped fetch guarantees matches the row.
+        FailedImportEntity failed = failedImportRepository.findByIdAndTenantId(failedImportId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Failed import not found: " + failedImportId));
 
         if ("resolved".equals(failed.getStatus())) {
@@ -87,7 +92,11 @@ public class ImportRetryService {
         log.info("Processing {} auto-retries for failed imports", dueForRetry.size());
         for (FailedImportEntity failed : dueForRetry) {
             try {
-                executeRetry(failed);
+                // Scheduler thread has no TenantContext — re-enter each row's own tenant so
+                // the re-import (connection lookup + patient_import write) lands in the right
+                // clinic (PAT-189 pattern). Legacy rows without a tenant use the default.
+                Long rowTenant = failed.getTenantId() != null ? failed.getTenantId() : effectiveTenantId();
+                com.cqlplatform.security.TenantContext.callWith(rowTenant, () -> executeRetry(failed));
             } catch (Exception e) {
                 log.warn("Auto-retry failed for import {}: {}", failed.getId(), e.getMessage());
             }
@@ -97,22 +106,33 @@ public class ImportRetryService {
     @Transactional(readOnly = true)
     public List<FailedImportEntity> listFailedImports(String status) {
         if (status != null && !status.isBlank()) {
-            return failedImportRepository.findByStatusOrderByCreatedAtDesc(status);
+            return failedImportRepository.findByTenantIdAndStatusOrderByCreatedAtDesc(effectiveTenantId(), status);
         }
-        return failedImportRepository.findAllByOrderByCreatedAtDesc();
+        return failedImportRepository.findByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
     }
 
     @Transactional(readOnly = true)
     public FailedImportEntity getFailedImport(Long id) {
-        return failedImportRepository.findById(id)
+        return failedImportRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Failed import not found: " + id));
     }
 
     @Transactional
     public void deleteFailedImport(Long id) {
-        FailedImportEntity entity = failedImportRepository.findById(id)
+        FailedImportEntity entity = failedImportRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Failed import not found: " + id));
         failedImportRepository.delete(entity);
+    }
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
     }
 
     private FailedImportEntity executeRetry(FailedImportEntity failed) {

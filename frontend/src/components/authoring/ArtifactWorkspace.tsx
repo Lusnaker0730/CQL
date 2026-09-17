@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Box, Card, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, Typography, Stack, Chip, Tooltip, Alert, FormControlLabel, Switch } from '@mui/material'
-import { CheckCircle as CheckIcon, ErrorOutline as ErrorIcon, Public as PublicIcon, LibraryBooks as LibraryIcon } from '@mui/icons-material'
+import { CheckCircle as CheckIcon, ErrorOutlined as ErrorIcon, Public as PublicIcon, LibraryBooks as LibraryIcon } from '@mui/icons-material'
 import LibraryDefinitionPicker from '../cql-libraries/LibraryDefinitionPicker'
 import { useArtifactLibraryPicker } from '../../hooks/useArtifactLibraryPicker'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
@@ -607,13 +607,11 @@ export default function ArtifactWorkspace({
         onNameChange={handleNameChange}
         onUpdate={updateLocal}
       />
-
       {dataLoadFailed && (
         <Alert severity="error" sx={{ borderRadius: 0 }}>
           {t('workspace.dataLoadFailed')}
         </Alert>
       )}
-
       <Box sx={{ display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider', px: 2 }}>
         <Tabs
           value={tab}
@@ -629,7 +627,9 @@ export default function ArtifactWorkspace({
               arrow
               title={
                 <Box sx={{ '& ul': { m: 0, pl: 2 }, '& li': { mb: 0.25 } }}>
-                  <Typography variant="caption" fontWeight={600}>
+                  <Typography variant="caption" sx={{
+                    fontWeight: 600
+                  }}>
                     {t('workspace.validation.errorsFound', { count: si.errors.length })}
                   </Typography>
                   <ul>
@@ -669,20 +669,25 @@ export default function ArtifactWorkspace({
               />
             }
             label={
-              <Stack direction="row" alignItems="center" spacing={0.5}>
+              <Stack direction="row" spacing={0.5} sx={{
+                alignItems: "center"
+              }}>
                 <PublicIcon fontSize="small" />
-                <Typography variant="caption" fontWeight={600} noWrap>TWCORE</Typography>
+                <Typography variant="caption" noWrap sx={{
+                  fontWeight: 600
+                }}>TWCORE</Typography>
               </Stack>
             }
             sx={{ ml: 1, mr: 1, flexShrink: 0 }}
           />
         </Tooltip>
       </Box>
-
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', p: 2 }}>
         {tabStatuses[tab].errors.length > 0 && (
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <Typography variant="body2" fontWeight={600} gutterBottom>
+            <Typography variant="body2" gutterBottom sx={{
+              fontWeight: 600
+            }}>
               {t('workspace.validation.errorsFound', { count: tabStatuses[tab].errors.length })}
             </Typography>
             <Box component="ul" sx={{ m: 0, pl: 2, '& li': { mb: 0.25 } }}>
@@ -694,7 +699,12 @@ export default function ArtifactWorkspace({
         )}
         {tab === 0 && (
           <Box>
-            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "flex-end",
+                mb: 1
+              }}>
               <Button
                 size="small"
                 startIcon={<LibraryIcon />}
@@ -720,7 +730,12 @@ export default function ArtifactWorkspace({
         )}
         {tab === 1 && (
           <Box>
-            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 1 }}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "flex-end",
+                mb: 1
+              }}>
               <Button
                 size="small"
                 startIcon={<LibraryIcon />}
@@ -866,7 +881,6 @@ export default function ArtifactWorkspace({
         {tab === 9 && <ArtifactTester artifactId={localArtifact.id} />}
         {tab === 10 && <ArtifactSummaryView artifact={localArtifact} />}
       </Box>
-
       {/* Unsaved changes confirmation dialog */}
       <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
         <DialogTitle>{t('workspace.unsavedTitle')}</DialogTitle>
@@ -885,7 +899,6 @@ export default function ArtifactWorkspace({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Optimistic lock conflict dialog */}
       <Dialog open={showConflictDialog} onClose={() => { setShowConflictDialog(false); setReloadError(null) }}>
         <DialogTitle>{t('workspace.conflict.title')}</DialogTitle>
@@ -936,16 +949,23 @@ export default function ArtifactWorkspace({
           </Button>
         </DialogActions>
       </Dialog>
-
       {/* Keyboard shortcut help dialog */}
       <Dialog open={showShortcutHelp} onClose={() => setShowShortcutHelp(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('workspace.shortcutsTitle')}</DialogTitle>
         <DialogContent>
           <Stack spacing={1.5}>
             {KEYBOARD_SHORTCUTS.map((sc) => (
-              <Stack key={sc.key} direction="row" alignItems="center" justifyContent="space-between">
+              <Stack
+                key={sc.key}
+                direction="row"
+                sx={{
+                  alignItems: "center",
+                  justifyContent: "space-between"
+                }}>
                 <Chip label={sc.key} size="small" variant="outlined" sx={{ fontFamily: 'monospace', fontWeight: 600 }} />
-                <Typography variant="body2" color="text.secondary">{sc.description}</Typography>
+                <Typography variant="body2" sx={{
+                  color: "text.secondary"
+                }}>{sc.description}</Typography>
               </Stack>
             ))}
           </Stack>
@@ -955,5 +975,5 @@ export default function ArtifactWorkspace({
         </DialogActions>
       </Dialog>
     </Card>
-  )
+  );
 }

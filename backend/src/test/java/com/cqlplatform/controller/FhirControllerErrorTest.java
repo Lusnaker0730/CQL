@@ -59,10 +59,11 @@ class FhirControllerErrorTest {
 
     @Test
     @WithMockUser(roles = {"USER"})
-    void kickOffExport_invalidFhirServerUrl_shouldReturn400() throws Exception {
-        mockMvc.perform(post("/api/fhir/$export?fhirServer=not-a-url"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Invalid FHIR server URL"));
+    void kickOffExport_nonNumericConnectionId_shouldReturn400() throws Exception {
+        // PAT-212: the free-text fhirServer URL param is gone; the only server selector is a
+        // tenant-scoped connectionId (Long). A non-numeric value fails binding with 400.
+        mockMvc.perform(post("/api/fhir/$export?connectionId=not-a-number"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

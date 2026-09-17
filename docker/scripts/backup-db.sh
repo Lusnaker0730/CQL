@@ -43,6 +43,27 @@ fi
 BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 echo "Backup completed successfully: ${BACKUP_FILE} (${BACKUP_SIZE})"
 
+# Export a freshness metric for Prometheus (via node-exporter's textfile collector).
+# Powers the BackupStale / BackupMetricMissing alerts. Written atomically (tmp+mv)
+# so node-exporter never scrapes a half-written file. Best-effort: a metrics-dir
+# failure must never fail the backup itself.
+TEXTFILE_DIR="$(cd "$(dirname "$0")/.." && pwd)/node-exporter-textfile"
+BACKUP_BYTES=$(stat -c %s "$BACKUP_FILE" 2>/dev/null || wc -c < "$BACKUP_FILE")
+if mkdir -p "$TEXTFILE_DIR" 2>/dev/null; then
+    METRIC_FILE="${TEXTFILE_DIR}/cql_backup.prom"
+    {
+        echo "# HELP cql_backup_last_success_timestamp_seconds Unix time of the last successful DB backup"
+        echo "# TYPE cql_backup_last_success_timestamp_seconds gauge"
+        echo "cql_backup_last_success_timestamp_seconds $(date +%s)"
+        echo "# HELP cql_backup_size_bytes Size in bytes of the last successful DB backup"
+        echo "# TYPE cql_backup_size_bytes gauge"
+        echo "cql_backup_size_bytes ${BACKUP_BYTES}"
+    } > "${METRIC_FILE}.tmp" && mv -f "${METRIC_FILE}.tmp" "${METRIC_FILE}"
+    echo "Wrote freshness metric: ${METRIC_FILE}"
+else
+    echo "WARN: could not write freshness metric dir ${TEXTFILE_DIR} (non-fatal)" >&2
+fi
+
 # Cleanup old backups
 echo "Removing backups older than ${RETENTION_DAYS} days..."
 DELETED=$(find "$BACKUP_DIR" -name "cqlplatform_*.sql.gz" -mtime +${RETENTION_DAYS} -delete -print | wc -l)

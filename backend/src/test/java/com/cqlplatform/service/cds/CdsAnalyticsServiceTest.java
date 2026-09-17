@@ -25,12 +25,27 @@ class CdsAnalyticsServiceTest {
     private CdsServiceAnalyticsRepository analyticsRepository;
     @Mock
     private CdsFeedbackRepository feedbackRepository;
+    @Mock
+    private com.cqlplatform.repository.CdsServiceConfigRepository configRepository;
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    // BUG-137: analytics/feedback are gated on the parent service config being in the
+    // caller's tenant. With TenantContext set, effectiveTenantId() never hits tenantRepository.
+    private static final Long TENANT = 7L;
 
     private CdsAnalyticsService analyticsService;
 
     @BeforeEach
     void setUp() {
-        analyticsService = new CdsAnalyticsService(analyticsRepository, feedbackRepository);
+        analyticsService = new CdsAnalyticsService(analyticsRepository, feedbackRepository,
+                configRepository, tenantRepository);
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(TENANT);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
     }
 
     @Test
@@ -88,6 +103,10 @@ class CdsAnalyticsServiceTest {
 
     @Test
     void getServiceAnalytics_shouldReturnDTO() {
+        // BUG-137: getServiceAnalytics gates on the parent service config being in the caller's tenant.
+        when(configRepository.findByIdAndTenantIdWithPrefetch("svc-1", TENANT))
+                .thenReturn(Optional.of(com.cqlplatform.entity.CdsServiceConfigEntity.builder()
+                        .id("svc-1").tenantId(TENANT).build()));
         CdsServiceAnalyticsEntity analytics = CdsServiceAnalyticsEntity.builder()
                 .serviceId("svc-1").invocationCount(10L).errorCount(2L)
                 .totalResponseTimeMs(1500L).periodStart(LocalDateTime.now())
@@ -112,6 +131,10 @@ class CdsAnalyticsServiceTest {
 
     @Test
     void getServiceAnalytics_noData_shouldReturnEmptyDTO() {
+        // BUG-137: getServiceAnalytics gates on the parent service config being in the caller's tenant.
+        when(configRepository.findByIdAndTenantIdWithPrefetch("svc-new", TENANT))
+                .thenReturn(Optional.of(com.cqlplatform.entity.CdsServiceConfigEntity.builder()
+                        .id("svc-new").tenantId(TENANT).build()));
         when(analyticsRepository.findCurrentPeriodByServiceId("svc-new"))
                 .thenReturn(Optional.empty());
         when(feedbackRepository.countByServiceIdAndOutcome("svc-new", "accepted")).thenReturn(0L);

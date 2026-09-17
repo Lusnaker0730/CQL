@@ -85,7 +85,7 @@ export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
       .replace(/[\u201C\u201D\u201E]/g, '"')            // smart double quotes → "
       .replace(/\u2013/g, '-')                          // en-dash → -
       .replace(/\u2014/g, '--')                         // em-dash → --
-      .replace(/\u2026/g, '...')                        // ellipsis → ...
+      .replace(/\u2026/g, '...');                        // ellipsis → ...
   }
 
   const handleEditorWillMount: BeforeMount = (monaco) => {

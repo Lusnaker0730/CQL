@@ -99,7 +99,9 @@ export default function ResourceSelector<T extends CodingItem>({
         direction="row"
         sx={{ justifyContent: 'space-between', alignItems: 'center', mb: 1 }}
       >
-        <Typography variant="subtitle1" fontWeight={600}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>
           {title}
         </Typography>
         <Chip
@@ -109,7 +111,6 @@ export default function ResourceSelector<T extends CodingItem>({
           variant="outlined"
         />
       </Stack>
-
       <Stack direction="row" spacing={1} sx={{ mb: 1.5 }}>
         <TextField
           size="small"
@@ -117,12 +118,14 @@ export default function ResourceSelector<T extends CodingItem>({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ flex: 1 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <Button size="small" onClick={handleSelectAllVisible}>
@@ -132,12 +135,13 @@ export default function ResourceSelector<T extends CodingItem>({
           {t('custom.deselectAll')}
         </Button>
       </Stack>
-
       {Object.entries(filteredCategories).map(([key, cat]) => (
         <Accordion key={key} disableGutters>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
             <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
-              <Typography variant="body2" fontWeight={500}>
+              <Typography variant="body2" sx={{
+                fontWeight: 500
+              }}>
                 {t(`categories.${key}`, cat.name)}
               </Typography>
               <Chip
@@ -178,5 +182,5 @@ export default function ResourceSelector<T extends CodingItem>({
         </Accordion>
       ))}
     </Box>
-  )
+  );
 }

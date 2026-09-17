@@ -43,14 +43,14 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import {
-  useCdsServices,
+  useCdsServiceConfigs,
   useSandboxInvoke,
   useSandboxPresets,
   useCreateSandboxPreset,
   useUpdateSandboxPreset,
   useDeleteSandboxPreset,
 } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
+import type { CdsServiceConfigResponse, CdsCard, CdsResponse, SandboxPresetResponse } from '../../types'
 import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
@@ -141,7 +141,10 @@ export default function SandboxPanel() {
 
 function SandboxPanelInner() {
   const theme = useTheme()
-  const { data: servicesData } = useCdsServices()
+  // BUG-141: feed the service dropdown from the authenticated, tenant-scoped
+  // /cds/services list. The old discovery endpoint (useCdsServices) was
+  // emptied by BUG-139, so the dropdown was always empty.
+  const { data: serviceConfigs } = useCdsServiceConfigs()
   const sandboxMutation = useSandboxInvoke()
   const { state, dispatch } = useBundleBuilder()
   const { showNotification } = useNotification()
@@ -222,8 +225,8 @@ function SandboxPanelInner() {
   }, [contextFields, testDataJson, draftStorageKey])
 
   const services = useMemo(
-    () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
-    [servicesData?.services]
+    () => (Array.isArray(serviceConfigs) ? serviceConfigs.filter((s) => s.enabled) : []),
+    [serviceConfigs]
   )
 
   const selectedHook = useMemo(() => {
@@ -536,18 +539,16 @@ function SandboxPanelInner() {
       <Alert severity="info">
         {t('sandbox.description')}
       </Alert>
-
       <FormControl fullWidth size="small">
         <InputLabel>{t('sandbox.serviceLabel')}</InputLabel>
         <Select value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('sandbox.serviceLabel')}>
-          {services.map((service: CdsServiceDefinition) => (
+          {services.map((service: CdsServiceConfigResponse) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
             </MenuItem>
           ))}
         </Select>
       </FormControl>
-
       {stringFields.map((field: CdsContextField) => (
         <TextField
           key={field.name}
@@ -560,9 +561,14 @@ function SandboxPanelInner() {
           required={field.required}
         />
       ))}
-
       {/* Preset toolbar */}
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          flexWrap: "wrap"
+        }}>
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>{t('sandbox.presets.loadPreset')}</InputLabel>
           <Select
@@ -577,7 +583,13 @@ function SandboxPanelInner() {
             {myPresets.length > 0 && <ListSubheader>{t('sandbox.presets.myPresets')}</ListSubheader>}
             {myPresets.map((p) => (
               <MenuItem key={p.id} value={p.id}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between" width="100%">
+                <Stack
+                  direction="row"
+                  sx={{
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    width: "100%"
+                  }}>
                   <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                     {p.name}
                   </Typography>
@@ -598,7 +610,13 @@ function SandboxPanelInner() {
               <MenuItem key={p.id} value={p.id}>
                 <Typography variant="body2" noWrap>
                   {p.name}
-                  <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                  <Typography
+                    component="span"
+                    variant="caption"
+                    sx={{
+                      color: "text.secondary",
+                      ml: 0.5
+                    }}>
                     ({p.ownerUsername})
                   </Typography>
                 </Typography>
@@ -638,7 +656,6 @@ function SandboxPanelInner() {
           />
         )}
       </Stack>
-
       <Box>
         <Tabs value={dataTab} onChange={(_, v) => setDataTab(v)} sx={{ mb: 1 }}>
           <Tab icon={<BuilderIcon />} iconPosition="start" label={t('sandbox.tabVisualBuilder')} sx={{ textTransform: 'none', minHeight: 42 }} />
@@ -703,8 +720,13 @@ function SandboxPanelInner() {
           ) : null
         )}
       </Box>
-
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between"
+        }}>
         <Stack direction="row" spacing={1}>
           <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('sandbox.debugMode')} disabled={dryRun} />
           <FormControlLabel
@@ -730,13 +752,10 @@ function SandboxPanelInner() {
           {sandboxMutation.isPending ? t('sandbox.invoking') : (dryRun ? t('sandbox.dryRunButton') : t('sandbox.invokeButton'))}
         </GradientButton>
       </Stack>
-
       {sandboxMutation.isError && (
         <Alert severity="error">{t('sandbox.invokeError', { error: extractApiError(sandboxMutation.error) })}</Alert>
       )}
-
       {sandboxResponse?.debug && <CdsDebugPanel debug={sandboxResponse.debug} />}
-
       {/* Critical Card Dialog */}
       {currentCritical && (
         <CriticalCardDialog
@@ -746,7 +765,6 @@ function SandboxPanelInner() {
           onOverride={handleOverrideCritical}
         />
       )}
-
       {sandboxResponse && normalCards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
@@ -763,30 +781,43 @@ function SandboxPanelInner() {
                 }}
               >
                 <CardContent>
-                  <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: "center",
+                      mb: 1
+                    }}>
                     <Chip
                       label={card.indicator}
                       size="small"
                       color={getIndicatorColor(card.indicator)}
                     />
-                    <Typography variant="subtitle1" fontWeight="bold">
+                    <Typography variant="subtitle1" sx={{
+                      fontWeight: "bold"
+                    }}>
                       {card.summary}
                     </Typography>
                   </Stack>
                   {card.detail && (
                     <Typography
                       variant="body2"
-                      color="text.secondary"
-                      sx={{ whiteSpace: 'pre-line' }}
-                    >
+                      sx={{
+                        color: "text.secondary",
+                        whiteSpace: 'pre-line'
+                      }}>
                       {card.detail.split(/\*\*(.+?)\*\*/g).map((part, i) =>
                         i % 2 === 1 ? <strong key={i}>{part}</strong> : part,
                       )}
                     </Typography>
                   )}
                   {card.suggestions && card.suggestions.length > 0 && (
-                    <Box mt={1}>
-                      <Typography variant="caption" fontWeight="bold">
+                    <Box sx={{
+                      mt: 1
+                    }}>
+                      <Typography variant="caption" sx={{
+                        fontWeight: "bold"
+                      }}>
                         {t('sandbox.suggestions')}
                       </Typography>
                       {card.suggestions.map((s) => (
@@ -800,7 +831,6 @@ function SandboxPanelInner() {
           </Stack>
         </Box>
       )}
-
       {sandboxResponse?.systemActions && sandboxResponse.systemActions.length > 0 && (
         <Alert severity="info">
           <Typography variant="subtitle2">{t('sandbox.systemActions')}</Typography>
@@ -811,7 +841,6 @@ function SandboxPanelInner() {
           ))}
         </Alert>
       )}
-
       {/* Save Preset Dialog */}
       <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('sandbox.presets.saveDialogTitle')}</DialogTitle>
@@ -863,5 +892,5 @@ function SandboxPanelInner() {
         </DialogActions>
       </Dialog>
     </Stack>
-  )
+  );
 }

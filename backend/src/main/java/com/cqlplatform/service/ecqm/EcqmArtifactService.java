@@ -22,23 +22,36 @@ import java.util.stream.Collectors;
 public class EcqmArtifactService {
 
     private final EcqmArtifactRepository repository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional(readOnly = true)
     public List<EcqmArtifactSummary> listByOwner(String ownerUsername) {
-        return repository.findByOwnerUsername(ownerUsername).stream()
+        return repository.findByTenantIdAndOwnerUsername(effectiveTenantId(), ownerUsername).stream()
                 .map(this::entityToSummary)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public Optional<EcqmArtifactResponse> getById(Long id) {
-        return repository.findById(id).map(this::entityToResponse);
+        return repository.findByIdAndTenantId(id, effectiveTenantId()).map(this::entityToResponse);
     }
 
     @Transactional
     public EcqmArtifactResponse create(EcqmArtifactRequest request, String ownerUsername) {
         EcqmArtifactEntity entity = requestToEntity(request);
         entity.setOwnerUsername(ownerUsername);
+        entity.setTenantId(effectiveTenantId()); // server-assigned tenant
         entity = repository.save(entity);
         log.info("Created eCQM artifact: {} v{} by {}", entity.getName(), entity.getVersion(), ownerUsername);
         return entityToResponse(entity);
@@ -46,7 +59,7 @@ public class EcqmArtifactService {
 
     @Transactional
     public EcqmArtifactResponse update(Long id, EcqmArtifactRequest request, String currentUser) {
-        EcqmArtifactEntity entity = repository.findById(id)
+        EcqmArtifactEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("eCQM artifact not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -93,7 +106,7 @@ public class EcqmArtifactService {
 
     @Transactional
     public void delete(Long id, String currentUser) {
-        EcqmArtifactEntity entity = repository.findById(id)
+        EcqmArtifactEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("eCQM artifact not found: " + id));
         checkOwner(entity, currentUser);
         repository.deleteById(id);
@@ -102,7 +115,7 @@ public class EcqmArtifactService {
 
     @Transactional
     public EcqmArtifactResponse duplicate(Long id, String currentUser) {
-        EcqmArtifactEntity original = repository.findById(id)
+        EcqmArtifactEntity original = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("eCQM artifact not found: " + id));
         checkOwner(original, currentUser);
 
@@ -133,6 +146,7 @@ public class EcqmArtifactService {
                 .baseElementsList(new ArrayList<>(original.getBaseElementsList()))
                 .parametersList(new ArrayList<>(original.getParametersList()))
                 .ownerUsername(currentUser)
+                .tenantId(original.getTenantId()) // copy stays in the source tenant
                 .build();
 
         copy = repository.save(copy);

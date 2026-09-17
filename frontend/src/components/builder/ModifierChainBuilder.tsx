@@ -275,10 +275,14 @@ export default function ModifierChainBuilder({
 
   return (
     <Stack spacing={0.5}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary"
+        }}>
         {t('modifierChain.title')}
       </Typography>
-
       {modifiers.map((mod) => {
         const def = MODIFIER_DEFS.find((d) => d.type === mod.type)
         if (!def) return null
@@ -295,7 +299,13 @@ export default function ModifierChainBuilder({
               bgcolor: `${catColor}08`,
             }}
           >
-            <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: def.fields.length > 0 ? 0.5 : 0 }}>
+            <Stack
+              direction="row"
+              spacing={0.5}
+              sx={{
+                alignItems: "center",
+                mb: def.fields.length > 0 ? 0.5 : 0
+              }}>
               <DragIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
               <Chip
                 label={t(`modifierChain.${def.labelKey}`)}
@@ -315,9 +325,14 @@ export default function ModifierChainBuilder({
                 </IconButton>
               </Tooltip>
             </Stack>
-
             {def.fields.length > 0 && (
-              <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ pl: 2.5 }}>
+              <Stack
+                direction="row"
+                spacing={0.5}
+                sx={{
+                  flexWrap: "wrap",
+                  pl: 2.5
+                }}>
                 {def.fields.map((field) => {
                   // For qualifier matchValue, show valueSets or codes based on matchType
                   if (field.key === 'matchValue' && mod.type === 'qualifier') {
@@ -376,15 +391,25 @@ export default function ModifierChainBuilder({
               </Stack>
             )}
           </Paper>
-        )
+        );
       })}
-
       {menuOpen ? (
         <Paper variant="outlined" sx={{ p: 1 }}>
-          <Typography variant="caption" fontWeight={600} gutterBottom display="block">
+          <Typography
+            variant="caption"
+            gutterBottom
+            sx={{
+              fontWeight: 600,
+              display: "block"
+            }}>
             {t('modifierChain.addModifier')}
           </Typography>
-          <Stack direction="row" flexWrap="wrap" gap={0.5}>
+          <Stack
+            direction="row"
+            sx={{
+              flexWrap: "wrap",
+              gap: 0.5
+            }}>
             {availableModifiers.map((def) => (
               <Chip
                 key={def.type}
@@ -418,7 +443,7 @@ export default function ModifierChainBuilder({
         </Button>
       )}
     </Stack>
-  )
+  );
 }
 
 /** Generate CQL from modifier chain */

@@ -3,6 +3,7 @@ package com.cqlplatform.service.measure;
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.exception.CqlTranslationException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
@@ -33,16 +34,54 @@ public class MeasureDefinitionService {
     private final MeasureAuditRepository auditRepository;
     private final NotificationService notificationService;
     private final CqlTranslationService cqlTranslationService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+
+    /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Value("${measure.locking.timeout-minutes:30}")
     private int lockTimeoutMinutes;
 
     @Transactional
     public MeasureDefinition create(MeasureDefinition definition) {
-        if (repository.existsByNameAndVersion(definition.getName(), definition.getVersion())) {
+        if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), definition.getName(), definition.getVersion())) {
             throw new IllegalArgumentException(
                     "Measure already exists: " + definition.getName() + " v" + definition.getVersion());
         }
+
+        // PAT-222: the creator IS the owner. Measures created through the UI (and by API
+        // clients that omit ownerUsername) used to land ownerless, which meant only admins
+        // could ever update / delete them (OwnershipVerifier is fail-closed on a null owner)
+        // and the review workflow could not notify anyone (BUG-143). A body-supplied owner is
+        // ignored — ownership moves only through the /transfer endpoint.
+        String creator = ownershipVerifier.getCurrentUsername();
+        if (definition.getOwnerUsername() != null && !creator.equals(definition.getOwnerUsername())) {
+            log.warn("Ignoring ownerUsername '{}' supplied on create of measure '{}'; owner is the caller '{}'",
+                    definition.getOwnerUsername(), definition.getName(), creator);
+        }
+        definition.setOwnerUsername(creator);
+        if (definition.getCreatedBy() == null || definition.getCreatedBy().isBlank()) {
+            definition.setCreatedBy(creator);
+        }
+        // PAT-222: every measure starts its lifecycle as a draft. The review workflow
+        // (submit-for-review → approve) is the only way to reach `active`, which is what the
+        // PAT-219 evaluation guard keys on — accepting `status` from the body would let a
+        // caller skip review entirely. Imported FHIR Measures are no exception: an external
+        // "active" is not this deployment's approval.
+        if (definition.getStatus() != null && !DRAFT.equals(definition.getStatus())) {
+            log.info("Ignoring status '{}' supplied on create of measure '{}'; measures always start as draft",
+                    definition.getStatus(), definition.getName());
+        }
+        definition.setStatus(DRAFT);
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
         // Pre-compile CQL on create, same as update — surfaces translation errors at
@@ -56,24 +95,41 @@ public class MeasureDefinitionService {
         return entityToModel(entity);
     }
 
+    /**
+     * Update a measure's content and metadata.
+     *
+     * @param currentUser the authenticated caller (from the controller). Used for the lock
+     *                    check and the audit row — it used to be smuggled in through the
+     *                    body's {@code ownerUsername}, which is wrong for a shared editor
+     *                    (PAT-222).
+     */
     @Transactional
-    public MeasureDefinition update(Long id, MeasureDefinition definition) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+    public MeasureDefinition update(Long id, MeasureDefinition definition, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         // Check lock — only the lock holder can save while locked
         if (entity.getLockedBy() != null && !isLockExpired(entity)) {
-            String currentUser = definition.getOwnerUsername(); // caller identity passed via ownerUsername
             if (currentUser == null || !entity.getLockedBy().equals(currentUser)) {
                 throw new IllegalArgumentException("Measure is locked by " + entity.getLockedBy());
             }
+        }
+
+        // PAT-222: lifecycle status is NOT editable here. Until now a PUT could flip a draft
+        // straight to `active` (or an active measure back to draft) without submit-for-review /
+        // approve / reject / retire — which made the review workflow, and the PAT-219
+        // evaluation guard that trusts `active`, bypassable by anyone allowed to edit.
+        if (definition.getStatus() != null && !definition.getStatus().equals(entity.getStatus())) {
+            throw new ValidationException(
+                    "Measure status cannot be changed through update (current: '" + entity.getStatus()
+                            + "', requested: '" + definition.getStatus() + "'). Use the review workflow: "
+                            + "submit-for-review, approve, reject or retire.");
         }
 
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
         entity.setTitle(definition.getTitle());
         entity.setDescription(definition.getDescription());
-        entity.setStatus(definition.getStatus());
         entity.setScoringType(definition.getScoringType());
         entity.setCqlLibraryId(definition.getCqlLibraryId());
         boolean cqlChanged = !java.util.Objects.equals(definition.getCqlContent(), entity.getCqlContent());
@@ -112,9 +168,14 @@ public class MeasureDefinitionService {
         entity.setIndicatorCategory(definition.getIndicatorCategory());
         entity.setDepartment(definition.getDepartment());
 
-        // Sharing fields from update
-        if (definition.getOwnerUsername() != null) {
-            entity.setOwnerUsername(definition.getOwnerUsername());
+        // Sharing fields from update. PAT-222: ownerUsername is deliberately NOT taken from
+        // the body — that was a second way to transfer ownership without the /transfer
+        // endpoint's checks and notification. The UI sends the whole object back, so a
+        // matching owner is the normal case; anything else is logged and dropped.
+        if (definition.getOwnerUsername() != null
+                && !definition.getOwnerUsername().equals(entity.getOwnerUsername())) {
+            log.warn("Ignoring ownerUsername change '{}' -> '{}' on update of measure {} by '{}'; use /transfer",
+                    entity.getOwnerUsername(), definition.getOwnerUsername(), id, currentUser);
         }
         if (definition.getSharedWith() != null) {
             entity.setSharedWithList(definition.getSharedWith());
@@ -125,23 +186,23 @@ public class MeasureDefinitionService {
 
         entity = repository.save(entity);
         log.info("Updated measure definition: {} v{}", entity.getName(), entity.getVersion());
-        recordAudit(entity.getId(), "UPDATE", null, "Updated " + entity.getName() + " v" + entity.getVersion(), null, null);
+        recordAudit(entity.getId(), "UPDATE", currentUser, "Updated " + entity.getName() + " v" + entity.getVersion(), null, null);
         return entityToModel(entity);
     }
 
     @Transactional(readOnly = true)
     public Optional<MeasureDefinition> getById(Long id) {
-        return repository.findById(id).map(this::entityToModel);
+        return repository.findByIdAndTenantId(id, effectiveTenantId()).map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public Optional<MeasureDefinition> getByNameAndVersion(String name, String version) {
-        return repository.findByNameAndVersion(name, version).map(this::entityToModel);
+        return repository.findByTenantIdAndNameAndVersion(effectiveTenantId(), name, version).map(this::entityToModel);
     }
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getAll() {
-        return repository.findAll().stream()
+        return repository.findByTenantId(effectiveTenantId()).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -156,15 +217,16 @@ public class MeasureDefinitionService {
         boolean hasSearch = searchTerm != null && !searchTerm.isBlank();
         boolean hasDept = department != null && !department.isBlank();
 
+        Long tenantId = effectiveTenantId();
         List<MeasureDefinitionEntity> entities;
         if (hasSearch && hasDept) {
-            entities = repository.findByDepartmentAndSearchTerm(department, InputValidator.escapeLikeWildcards(searchTerm));
+            entities = repository.findByTenantIdAndDepartmentAndSearchTerm(tenantId, department, InputValidator.escapeLikeWildcards(searchTerm));
         } else if (hasDept) {
-            entities = repository.findByDepartment(department);
+            entities = repository.findByTenantIdAndDepartment(tenantId, department);
         } else if (hasSearch) {
-            entities = repository.findByNameContainingIgnoreCaseOrTitleContainingIgnoreCase(searchTerm, searchTerm);
+            entities = repository.searchByTenant(tenantId, InputValidator.escapeLikeWildcards(searchTerm));
         } else {
-            entities = repository.findAll();
+            entities = repository.findByTenantId(tenantId);
         }
         return entities.stream()
                 .map(this::entityToModel)
@@ -182,24 +244,25 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition createVersion(Long id, String versionType) {
-        MeasureDefinitionEntity existing = repository.findById(id)
+        MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         String newVersion = bumpVersion(existing.getVersion(), versionType);
 
-        if (repository.existsByNameAndVersion(existing.getName(), newVersion)) {
+        if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), existing.getName(), newVersion)) {
             throw new IllegalArgumentException("Version already exists: " + existing.getName() + " v" + newVersion);
         }
 
-        // Set current to active
-        existing.setStatus(ACTIVE);
-        repository.save(existing);
+        // PAT-222: the source version keeps whatever lifecycle status it has. This used to
+        // force it to `active`, i.e. creating a new version of a draft silently approved the
+        // old one without review — a third bypass of the workflow.
 
         // Create new draft copy
         MeasureDefinitionEntity newEntity = modelToEntity(entityToModel(existing));
         newEntity.setId(null);
         newEntity.setVersion(newVersion);
         newEntity.setStatus(DRAFT);
+        newEntity.setTenantId(existing.getTenantId()); // version chain stays in the source tenant
         newEntity = repository.save(newEntity);
 
         log.info("Created version {} for measure {}", newVersion, existing.getName());
@@ -208,7 +271,7 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getHistory(String name) {
-        return repository.findByName(name).stream()
+        return repository.findByTenantIdAndName(effectiveTenantId(), name).stream()
                 .sorted(Comparator.comparing(MeasureDefinitionEntity::getVersion, new SemanticVersionComparator()).reversed())
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
@@ -358,7 +421,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition shareMeasure(Long id, String targetUsername, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -382,7 +445,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition unshareMeasure(Long id, String targetUsername, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -399,7 +462,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition transferOwnership(Long id, String newOwner, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -413,7 +476,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition setAccessLevel(Long id, String accessLevel, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
 
@@ -428,7 +491,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition lockMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         if (entity.getLockedBy() != null && !isLockExpired(entity) && !entity.getLockedBy().equals(currentUser)) {
@@ -445,7 +508,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition unlockMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         if (entity.getLockedBy() == null) {
@@ -475,14 +538,14 @@ public class MeasureDefinitionService {
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getMeasuresByOwner(String ownerUsername) {
-        return repository.findByOwnerUsername(ownerUsername).stream()
+        return repository.findByTenantIdAndOwnerUsername(effectiveTenantId(), ownerUsername).stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<MeasureDefinition> getSharedMeasures(String username) {
-        return repository.findSharedWithUser("%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
+        return repository.findSharedWithUser(effectiveTenantId(), "%\"" + InputValidator.escapeLikeWildcards(username) + "\"%").stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
     }
@@ -501,7 +564,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition submitForReview(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), IN_REVIEW);
@@ -520,7 +583,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition approveMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), ACTIVE);
@@ -543,7 +606,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition rejectMeasure(Long id, String reason, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), DRAFT);
@@ -566,7 +629,7 @@ public class MeasureDefinitionService {
 
     @Transactional
     public MeasureDefinition retireMeasure(Long id, String currentUser) {
-        MeasureDefinitionEntity entity = repository.findById(id)
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), RETIRED);
@@ -665,6 +728,7 @@ public class MeasureDefinitionService {
                 .drgIndicatorCode(model.getDrgIndicatorCode())
                 .indicatorCategory(model.getIndicatorCategory())
                 .department(model.getDepartment())
+                .tenantId(effectiveTenantId())
                 .build();
     }
 

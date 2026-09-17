@@ -6,6 +6,7 @@ import {
   Storage as FhirIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const FEATURES = [
   { key: 'editor', icon: EditorIcon, color: '#0D7377' },
@@ -19,13 +20,35 @@ export default function FeatureCards() {
 
   return (
     <Box sx={{ py: 8, px: 3 }}>
-      <Typography variant="h4" fontWeight={700} textAlign="center" color="secondary.main" gutterBottom>
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          textAlign: "center",
+          color: "secondary.main"
+        }}>
         {t('features.title')}
       </Typography>
-      <Typography variant="body1" textAlign="center" color="text.secondary" sx={{ mb: 5, maxWidth: 600, mx: 'auto' }}>
+      <Typography
+        variant="body1"
+        sx={{
+          textAlign: "center",
+          color: "text.secondary",
+          mb: 5,
+          maxWidth: 600,
+          mx: 'auto'
+        }}>
         {t('features.subtitle')}
       </Typography>
-      <Grid container spacing={3} justifyContent="center" sx={{ maxWidth: 1100, mx: 'auto' }}>
+      <Grid
+        container
+        spacing={3}
+        sx={{
+          justifyContent: "center",
+          maxWidth: 1100,
+          mx: 'auto'
+        }}>
         {FEATURES.map(({ key, icon: Icon, color }) => (
           <Grid size={{ xs: 12, sm: 6, md: 3 }} key={key}>
             <Paper
@@ -33,7 +56,7 @@ export default function FeatureCards() {
               sx={{
                 p: 3,
                 height: '100%',
-                borderRadius: 3,
+                borderRadius: CARD_RADIUS,
                 border: '1px solid',
                 borderColor: 'divider',
                 transition: 'all 0.3s ease',
@@ -58,10 +81,17 @@ export default function FeatureCards() {
               >
                 <Icon sx={{ fontSize: 26, color }} />
               </Box>
-              <Typography variant="subtitle1" fontWeight={700} gutterBottom>
+              <Typography variant="subtitle1" gutterBottom sx={{
+                fontWeight: 700
+              }}>
                 {t(`features.${key}.title`)}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  lineHeight: 1.7
+                }}>
                 {t(`features.${key}.description`)}
               </Typography>
             </Paper>
@@ -69,5 +99,5 @@ export default function FeatureCards() {
         ))}
       </Grid>
     </Box>
-  )
+  );
 }

@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import { authApi } from '../../api'
 import { setCredentials } from '../../store/authSlice'
 import { validateUsername, validatePassword } from '../../utils/validation'
+import { CARD_RADIUS } from '../../constants/layout'
 
 export default function LoginForm() {
   const navigate = useNavigate()
@@ -120,6 +121,7 @@ export default function LoginForm() {
         username: response.username,
         role: response.role,
         forcePasswordChange: response.forcePasswordChange,
+        platformOperator: response.platformOperator,
       }))
       navigate('/')
     } catch (err: unknown) {
@@ -139,7 +141,7 @@ export default function LoginForm() {
       sx={{
         maxWidth: 400,
         width: '100%',
-        borderRadius: 3,
+        borderRadius: CARD_RADIUS,
         backdropFilter: 'blur(10px)',
         bgcolor: 'rgba(255,255,255,0.95)',
       }}
@@ -161,10 +163,20 @@ export default function LoginForm() {
           >
             <MedicalIcon sx={{ fontSize: 28, color: 'white' }} />
           </Box>
-          <Typography variant="h6" fontWeight={700} color="text.primary">
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: 700,
+              color: "text.primary"
+            }}>
             {t('app.title')}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              mt: 0.5
+            }}>
             {isRegister ? t('auth.createAccount') : t('auth.signInSubtitle')}
           </Typography>
         </Box>
@@ -282,5 +294,5 @@ export default function LoginForm() {
         </Box>
       </CardContent>
     </Card>
-  )
+  );
 }

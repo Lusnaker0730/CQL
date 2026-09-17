@@ -31,6 +31,24 @@ public class DashboardService {
     private final MeasureReportRepository reportRepository;
     private final MeasureReportGroupRepository reportGroupRepository;
     private final MeasureThresholdRepository thresholdRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /**
+     * Caller's tenant ?? default — see EhrConnectionService for the canonical pattern.
+     *
+     * <p>BUG-136: every read in this service goes through here. The dashboard endpoints have
+     * no controller gate beyond authenticated(), so this is the only thing standing between a
+     * clinic's user and every other tenant's measures, scores and thresholds.
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     /**
      * Whether a measure's score is meaningful to average / aggregate alongside other
@@ -53,8 +71,8 @@ public class DashboardService {
     public EnhancedDashboardData getEnhancedDashboard(String department) {
         boolean hasDept = department != null && !department.isBlank();
         List<MeasureDefinitionEntity> measures = hasDept
-                ? definitionRepository.findByDepartment(department)
-                : definitionRepository.findAll();
+                ? definitionRepository.findByTenantIdAndDepartment(effectiveTenantId(), department)
+                : definitionRepository.findByTenantId(effectiveTenantId());
 
         Map<String, Integer> byStatus = new HashMap<>();
         Map<String, Integer> byScoring = new HashMap<>();
@@ -64,7 +82,7 @@ public class DashboardService {
         }
 
         // Recent evaluations — use DB ordering + limit instead of findAll()
-        List<MeasureReportEntity> reports = reportRepository.findTop10ByOrderByCreatedAtDesc();
+        List<MeasureReportEntity> reports = reportRepository.findTop10ByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
 
         List<EnhancedDashboardData.DashboardEvaluation> recentEvals = reports.stream()
                 .map(r -> EnhancedDashboardData.DashboardEvaluation.builder()
@@ -96,7 +114,7 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public List<EnhancedDashboardData.TrendDataPoint> getTrends(Long measureId, String periodType, int count) {
         // Use DB-level filtering + ordering + limit instead of findAll()
-        List<MeasureReportEntity> reports = reportRepository.findRecentByOptionalMeasure(
+        List<MeasureReportEntity> reports = reportRepository.findRecentByOptionalMeasure(effectiveTenantId(),
                 measureId, PageRequest.of(0, count));
 
         // Reverse to show chronological order
@@ -107,7 +125,8 @@ public class DashboardService {
                 .map(MeasureReportEntity::getMeasureDefinitionId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
-        Map<Long, String> displayNameById = definitionRepository.findAllById(defIds).stream()
+        Map<Long, String> displayNameById = definitionRepository
+                .findByTenantIdAndIdIn(effectiveTenantId(), defIds).stream()
                 .collect(Collectors.toMap(
                         MeasureDefinitionEntity::getId,
                         d -> {
@@ -167,8 +186,8 @@ public class DashboardService {
     @Transactional(readOnly = true)
     public Map<String, Object> getDepartmentDrilldown(String departmentCode) {
         // Use DB-level filtering instead of findAll() + stream filter
-        List<MeasureDefinitionEntity> measures = definitionRepository.findByDepartment(departmentCode);
-        List<MeasureReportEntity> reports = reportRepository.findByDepartmentOrderByCreatedAtDesc(departmentCode);
+        List<MeasureDefinitionEntity> measures = definitionRepository.findByTenantIdAndDepartment(effectiveTenantId(), departmentCode);
+        List<MeasureReportEntity> reports = reportRepository.findByTenantIdAndDepartmentOrderByCreatedAtDesc(effectiveTenantId(), departmentCode);
 
         // Latest score per measure
         Map<String, Double> latestScores = new LinkedHashMap<>();
@@ -213,10 +232,10 @@ public class DashboardService {
     public QualityReport generateReport(String reportType, String department) {
         boolean hasDept = department != null && !department.isBlank();
         List<MeasureDefinitionEntity> measures = hasDept
-                ? definitionRepository.findByDepartment(department)
-                : definitionRepository.findAll();
+                ? definitionRepository.findByTenantIdAndDepartment(effectiveTenantId(), department)
+                : definitionRepository.findByTenantId(effectiveTenantId());
 
-        List<MeasureThresholdEntity> allThresholds = thresholdRepository.findByActiveTrue();
+        List<MeasureThresholdEntity> allThresholds = thresholdRepository.findActiveByTenantId(effectiveTenantId());
 
         // Get latest scores
         Map<Long, Double> latestScores = getLatestScoresMap(measures);
@@ -276,8 +295,8 @@ public class DashboardService {
 
     private List<ThresholdAlert> computeAlerts(String department) {
         List<MeasureThresholdEntity> thresholds = department != null
-                ? thresholdRepository.findByDepartmentAndActiveTrue(department)
-                : thresholdRepository.findByActiveTrue();
+                ? thresholdRepository.findActiveByTenantIdAndDepartment(effectiveTenantId(), department)
+                : thresholdRepository.findActiveByTenantId(effectiveTenantId());
 
         // Only load measure names for the measures that have thresholds
         Set<Long> measureIds = thresholds.stream()
@@ -287,8 +306,8 @@ public class DashboardService {
         Map<Long, String> measureNames = new HashMap<>();
         Map<Long, Double> latestScores = new HashMap<>();
         for (Long mId : measureIds) {
-            definitionRepository.findById(mId).ifPresent(m -> measureNames.put(m.getId(), m.getName()));
-            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(mId);
+            definitionRepository.findByIdAndTenantId(mId, effectiveTenantId()).ifPresent(m -> measureNames.put(m.getId(), m.getName()));
+            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(effectiveTenantId(), mId);
             if (!latest.isEmpty() && latest.get(0).getMeasureScore() != null) {
                 latestScores.put(mId, latest.get(0).getMeasureScore());
             }
@@ -332,7 +351,7 @@ public class DashboardService {
     private Map<Long, Double> getLatestScoresMap(List<MeasureDefinitionEntity> measures) {
         Map<Long, Double> scores = new HashMap<>();
         for (MeasureDefinitionEntity m : measures) {
-            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(m.getId());
+            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(effectiveTenantId(), m.getId());
             if (!latest.isEmpty() && latest.get(0).getMeasureScore() != null) {
                 scores.put(m.getId(), latest.get(0).getMeasureScore());
             }
@@ -349,7 +368,7 @@ public class DashboardService {
         record MeasureMeta(Long id, String department, String scoringType) {}
 
         List<MeasureMeta> measureMeta = new ArrayList<>();
-        for (MeasureDefinitionEntity m : definitionRepository.findAll()) {
+        for (MeasureDefinitionEntity m : definitionRepository.findByTenantId(effectiveTenantId())) {
             if (m.getDepartment() == null) continue;
             measureMeta.add(new MeasureMeta(m.getId(), m.getDepartment(), m.getScoringType()));
         }
@@ -357,7 +376,7 @@ public class DashboardService {
         Map<String, List<Double>> scoresByDept = new HashMap<>();
         for (MeasureMeta meta : measureMeta) {
             if (!isProportionScaleScoring(meta.scoringType())) continue;
-            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(meta.id());
+            List<MeasureReportEntity> latest = reportRepository.findLatestByMeasureDefinitionId(effectiveTenantId(), meta.id());
             if (!latest.isEmpty() && latest.get(0).getMeasureScore() != null) {
                 scoresByDept.computeIfAbsent(meta.department(), k -> new ArrayList<>())
                         .add(latest.get(0).getMeasureScore());

@@ -84,9 +84,9 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>{t('reports.title')}</Typography>
-
-      {isLoading && <Typography variant="body2" color="text.secondary">{t('reports.loading')}</Typography>}
-
+      {isLoading && <Typography variant="body2" sx={{
+        color: "text.secondary"
+      }}>{t('reports.loading')}</Typography>}
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -110,7 +110,7 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
               // and Chinese headers wrapped one character per line while body
               // rows misaligned. Fragment keeps the key on a logical pair of
               // rows without emitting an extra DOM element.
-              <Fragment key={report.id}>
+              (<Fragment key={report.id}>
                 <TableRow hover>
                   <TableCell>
                     <IconButton size="small" aria-label={t('reports.toggleDetails')} onClick={() => setExpandedId(expandedId === report.id ? null : report.id)}>
@@ -118,7 +118,9 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
                     </IconButton>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{report.measureName}</Typography>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 500
+                    }}>{report.measureName}</Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption">{report.periodStart} - {report.periodEnd}</Typography>
@@ -193,12 +195,17 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
                     </Collapse>
                   </TableCell>
                 </TableRow>
-              </Fragment>
+              </Fragment>)
             ))}
             {!isLoading && reports.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} align="center">
-                  <Typography variant="body2" color="text.secondary" sx={{ py: 4 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "text.secondary",
+                      py: 4
+                    }}>
                     {t('reports.emptyState')}
                   </Typography>
                 </TableCell>
@@ -207,7 +214,6 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
           </TableBody>
         </Table>
       </TableContainer>
-
       {/* Export Menu */}
       <Menu
         anchorEl={exportAnchor?.el}
@@ -227,7 +233,6 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
           {t('reports.exportFormats.qrda')}
         </MenuItem>
       </Menu>
-
       <Dialog
         open={pendingDelete != null}
         onClose={() => setPendingDelete(null)}
@@ -263,5 +268,5 @@ export default function MeasureReportHistory({ measureId }: MeasureReportHistory
         </DialogActions>
       </Dialog>
     </Paper>
-  )
+  );
 }

@@ -37,8 +37,21 @@ class EcqmPublishServiceTest {
     @Mock
     private EcqmCqlGenerationService cqlGenerationService;
 
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
     @InjectMocks
     private EcqmPublishService publishService;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setTenant() {
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(7L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
 
     // ===== Helpers =====
 
@@ -76,7 +89,7 @@ class EcqmPublishServiceTest {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
         entity.setPublishedMeasureId(null);
 
-        when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
                 anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
@@ -107,9 +120,9 @@ class EcqmPublishServiceTest {
         MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
                 .id(50L).name("OldName").build();
 
-        when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
-        when(measureRepository.findById(50L)).thenReturn(Optional.of(existingMeasure));
+        when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(existingMeasure));
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
                 anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
@@ -127,7 +140,7 @@ class EcqmPublishServiceTest {
     @Test
     void publish_withCqlErrors_shouldThrow() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
-        when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         CqlTranslationResponse failedResp = CqlTranslationResponse.builder()
                 .success(false)
@@ -150,7 +163,7 @@ class EcqmPublishServiceTest {
     @Test
     void publish_asNonOwner_shouldThrow() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "owner");
-        when(ecqmRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> publishService.publish(1L, "hacker"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -161,7 +174,7 @@ class EcqmPublishServiceTest {
 
     @Test
     void publish_notFound_shouldThrow() {
-        when(ecqmRepository.findById(999L)).thenReturn(Optional.empty());
+        when(ecqmRepository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> publishService.publish(999L, "testuser"))
                 .isInstanceOf(ResourceNotFoundException.class);

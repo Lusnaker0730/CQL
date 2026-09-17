@@ -98,26 +98,45 @@ function PackagesTab() {
           <CardContent>
             <Typography variant="h6" gutterBottom>{pkg.title}</Typography>
             <Stack spacing={1}>
-              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <Stack direction="row" spacing={1} useFlexGap sx={{
+                flexWrap: "wrap"
+              }}>
                 <Chip label={t('ig.nameLabel', { name: pkg.name })} size="small" variant="outlined" />
                 <Chip label={t('ig.versionLabel', { version: pkg.version })} size="small" variant="outlined" />
                 <Chip label={t('ig.fhirLabel', { fhirVersion: pkg.fhirVersion })} size="small" variant="outlined" />
               </Stack>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 {t('ig.canonicalLabel', { canonical: pkg.canonical })}
               </Typography>
               <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
-                  <Typography variant="h5" color="primary.main">{pkg.profileCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('ig.profiles')}</Typography>
+                  <Typography variant="h5" sx={{
+                    color: "primary.main"
+                  }}>{pkg.profileCount}</Typography>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('ig.profiles')}</Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
-                  <Typography variant="h5" color="primary.main">{pkg.valueSetCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('ig.valueSets')}</Typography>
+                  <Typography variant="h5" sx={{
+                    color: "primary.main"
+                  }}>{pkg.valueSetCount}</Typography>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('ig.valueSets')}</Typography>
                 </Paper>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', flex: 1 }}>
-                  <Typography variant="h5" color="primary.main">{pkg.codeSystemCount}</Typography>
-                  <Typography variant="caption" color="text.secondary">{t('ig.codeSystems')}</Typography>
+                  <Typography variant="h5" sx={{
+                    color: "primary.main"
+                  }}>{pkg.codeSystemCount}</Typography>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('ig.codeSystems')}</Typography>
                 </Paper>
               </Stack>
             </Stack>
@@ -125,7 +144,7 @@ function PackagesTab() {
         </Card>
       ))}
     </Stack>
-  )
+  );
 }
 
 function ProfilesTab() {
@@ -166,12 +185,14 @@ function ProfilesTab() {
           size="small"
           sx={{ flex: 1 }}
           placeholder={t('ig.searchProfilesPlaceholder')}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon sx={{ color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+            }
           }}
         />
         <FormControl size="small" sx={{ minWidth: 180 }}>
@@ -188,13 +209,13 @@ function ProfilesTab() {
           </Select>
         </FormControl>
       </Stack>
-
       {isLoading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{t('ig.profileLoadError', { error: extractApiError(error) })}</Alert>}
-
       {profiles && (
         <>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('ig.profileCount', { count: profiles.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
@@ -217,7 +238,9 @@ function ProfilesTab() {
                     onClick={() => handleRowClick(p)}
                   >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{p.name}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>{p.name}</Typography>
                     </TableCell>
                     <TableCell>{p.title}</TableCell>
                     <TableCell>
@@ -232,7 +255,9 @@ function ProfilesTab() {
                 {profiles.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={5}>
-                      <Typography variant="body2" color="text.secondary">{t('ig.noProfiles')}</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>{t('ig.noProfiles')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -241,10 +266,9 @@ function ProfilesTab() {
           </TableContainer>
         </>
       )}
-
       <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
     </Stack>
-  )
+  );
 }
 
 function ValueSetsTab() {
@@ -277,21 +301,23 @@ function ValueSetsTab() {
         size="small"
         fullWidth
         placeholder={t('ig.searchValueSetsPlaceholder')}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
-            </InputAdornment>
-          ),
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }
         }}
       />
-
       {isLoading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{t('ig.valueSetLoadError', { error: extractApiError(error) })}</Alert>}
-
       {valueSets && (
         <>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('ig.valueSetCount', { count: valueSets.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
@@ -313,7 +339,9 @@ function ValueSetsTab() {
                     onClick={() => handleRowClick(vs)}
                   >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{vs.title || vs.name}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>{vs.title || vs.name}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" noWrap sx={{ maxWidth: 300, display: 'block' }}>
@@ -330,13 +358,13 @@ function ValueSetsTab() {
                         // PAT-119: VS uses compose.include.filter or compose.include.valueSet
                         // (e.g. "all SNOMED CT descendants of X"); no inline concepts to count.
                         // Previously rendered as "0", which read as "empty / broken".
-                        <Chip
+                        (<Chip
                           label={t('ig.needsExpansion')}
                           size="small"
                           variant="outlined"
                           sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}
                           title={t('ig.needsExpansionTooltip')}
-                        />
+                        />)
                       ) : (
                         <Chip label={0} size="small" sx={{ bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1), color: 'primary.dark', fontWeight: 600 }} />
                       )}
@@ -346,7 +374,9 @@ function ValueSetsTab() {
                 {valueSets.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2" color="text.secondary">{t('ig.noValueSets')}</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>{t('ig.noValueSets')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -355,10 +385,9 @@ function ValueSetsTab() {
           </TableContainer>
         </>
       )}
-
       <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
     </Stack>
-  )
+  );
 }
 
 function CodeSystemsTab() {
@@ -391,21 +420,23 @@ function CodeSystemsTab() {
         size="small"
         fullWidth
         placeholder={t('ig.searchCodeSystemsPlaceholder')}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: 'text.secondary' }} />
-            </InputAdornment>
-          ),
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }
         }}
       />
-
       {isLoading && <CircularProgress size={24} />}
       {error && <Alert severity="error">{t('ig.codeSystemLoadError', { error: extractApiError(error) })}</Alert>}
-
       {codeSystems && (
         <>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
             {t('ig.codeSystemCount', { count: codeSystems.length })}
           </Typography>
           <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 500 }}>
@@ -427,7 +458,9 @@ function CodeSystemsTab() {
                     onClick={() => handleRowClick(cs)}
                   >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500}>{cs.title || cs.name}</Typography>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 500
+                      }}>{cs.title || cs.name}</Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="caption" noWrap sx={{ maxWidth: 300, display: 'block' }}>
@@ -445,7 +478,9 @@ function CodeSystemsTab() {
                 {codeSystems.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4}>
-                      <Typography variant="body2" color="text.secondary">{t('ig.noCodeSystems')}</Typography>
+                      <Typography variant="body2" sx={{
+                        color: "text.secondary"
+                      }}>{t('ig.noCodeSystems')}</Typography>
                     </TableCell>
                   </TableRow>
                 )}
@@ -454,10 +489,9 @@ function CodeSystemsTab() {
           </TableContainer>
         </>
       )}
-
       <DetailDialog state={detail} onClose={() => setDetail({ ...detail, open: false })} loading={loadingDetail} />
     </Stack>
-  )
+  );
 }
 
 function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; onClose: () => void; loading: boolean }) {
@@ -467,7 +501,12 @@ function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; o
   return (
     <Dialog open={state.open} onClose={onClose} maxWidth="lg" fullWidth>
       <DialogTitle>
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
           <Typography variant="h6">{state.title}</Typography>
           <Button onClick={onClose} startIcon={<CloseIcon />} size="small">{tc('actions.close')}</Button>
         </Stack>
@@ -505,5 +544,5 @@ function DetailDialog({ state, onClose, loading }: { state: DetailDialogState; o
         <Button onClick={onClose}>{tc('actions.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

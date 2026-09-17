@@ -37,6 +37,7 @@ class CdsServicePersistenceIntegrationTest {
                 .description("A test CDS service")
                 .enabled(true)
                 .prefetchItems(new ArrayList<>())
+                .tenantId(1L)  // tenant_id NOT NULL since V66
                 .build();
 
         CdsServicePrefetchEntity prefetch = CdsServicePrefetchEntity.builder()
@@ -47,7 +48,7 @@ class CdsServicePersistenceIntegrationTest {
 
         repository.save(entity);
 
-        Optional<CdsServiceConfigEntity> found = repository.findByIdWithPrefetch("test-svc");
+        Optional<CdsServiceConfigEntity> found = repository.findByIdAndTenantIdWithPrefetch("test-svc", 1L);
         assertThat(found).isPresent();
         assertThat(found.get().getTitle()).isEqualTo("Test Service");
         assertThat(found.get().getPrefetchItems()).hasSize(1);
@@ -63,13 +64,14 @@ class CdsServicePersistenceIntegrationTest {
                 .title("Original")
                 .enabled(true)
                 .prefetchItems(new ArrayList<>())
+                .tenantId(1L)  // tenant_id NOT NULL since V66
                 .build();
         repository.save(entity);
 
         entity.setTitle("Updated Title");
         repository.save(entity);
 
-        Optional<CdsServiceConfigEntity> found = repository.findByIdWithPrefetch("update-svc");
+        Optional<CdsServiceConfigEntity> found = repository.findByIdAndTenantIdWithPrefetch("update-svc", 1L);
         assertThat(found.get().getTitle()).isEqualTo("Updated Title");
     }
 
@@ -81,6 +83,7 @@ class CdsServicePersistenceIntegrationTest {
                 .title("To Delete")
                 .enabled(true)
                 .prefetchItems(new ArrayList<>())
+                .tenantId(1L)  // tenant_id NOT NULL since V66
                 .build();
         repository.save(entity);
 
@@ -97,6 +100,7 @@ class CdsServicePersistenceIntegrationTest {
                 .title("Enabled")
                 .enabled(true)
                 .prefetchItems(new ArrayList<>())
+                .tenantId(1L)  // tenant_id NOT NULL since V66
                 .build();
         CdsServiceConfigEntity disabled = CdsServiceConfigEntity.builder()
                 .id("disabled-svc")
@@ -104,6 +108,7 @@ class CdsServicePersistenceIntegrationTest {
                 .title("Disabled")
                 .enabled(false)
                 .prefetchItems(new ArrayList<>())
+                .tenantId(1L)  // tenant_id NOT NULL since V66
                 .build();
 
         repository.save(enabled);

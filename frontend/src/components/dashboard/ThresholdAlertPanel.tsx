@@ -27,11 +27,17 @@ export default function ThresholdAlertPanel({ alerts }: ThresholdAlertPanelProps
         <Typography variant="subtitle2" gutterBottom>
           {t('dashboard.alerts')}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            py: 2,
+            textAlign: 'center'
+          }}>
           {t('dashboard.noAlerts')}
         </Typography>
       </Paper>
-    )
+    );
   }
 
   return (
@@ -66,18 +72,19 @@ export default function ThresholdAlertPanel({ alerts }: ThresholdAlertPanelProps
               <ListItemText
                 primary={alert.measureName}
                 secondary={`${t('dashboard.score')}: ${score} ${alert.comparisonOperator} ${threshold}`}
-                primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                secondaryTypographyProps={{ variant: 'caption' }}
-              />
+                slotProps={{
+                  primary: { variant: 'body2', sx: { fontWeight: 600 } },
+                  secondary: { variant: 'caption' }
+                }} />
               <Chip
                 label={t(`dashboard.thresholdType.${alert.thresholdType}`, { defaultValue: alert.thresholdType })}
                 size="small"
                 color={alert.severity === 'critical' ? 'error' : 'warning'}
               />
             </ListItem>
-          )
+          );
         })}
       </List>
     </Paper>
-  )
+  );
 }
