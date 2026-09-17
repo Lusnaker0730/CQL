@@ -6,7 +6,7 @@
  */
 
 export function escapeCqlString(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 /**
@@ -14,7 +14,7 @@ export function escapeCqlString(value: string): string {
  * CQL identifier delimiters require escaping of `\` and `"`.
  */
 export function escapeCqlIdentifier(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
 export interface FieldState {

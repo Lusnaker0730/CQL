@@ -19,6 +19,7 @@ import {
   CQL_EXAMPLE_MEDICATION,
   CQL_EXAMPLE_ENCOUNTER,
 } from '../../constants/cqlExamples'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const EXAMPLE_KEYS = ['diabetes', 'hypertension', 'medication', 'encounter'] as const
 const EXAMPLE_CODES = [CQL_EXAMPLE_DIABETES, CQL_EXAMPLE_HYPERTENSION, CQL_EXAMPLE_MEDICATION, CQL_EXAMPLE_ENCOUNTER]
@@ -58,17 +59,27 @@ export default function InteractiveExamples() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.examples.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.examples.subtitle')}
       </Typography>
-
       <Grid container spacing={3}>
         {/* Example List */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <List disablePadding>
               {EXAMPLES.map(({ key, icon: Icon, color }, index) => (
                 <ListItemButton
@@ -88,12 +99,14 @@ export default function InteractiveExamples() {
                   <ListItemText
                     primary={t(`learn.examples.${key}.title`)}
                     secondary={t(`learn.examples.${key}.description`)}
-                    primaryTypographyProps={{ fontWeight: selected === index ? 700 : 500 }}
-                    secondaryTypographyProps={{
-                      variant: 'caption',
-                      sx: { lineHeight: 1.5, mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
-                    }}
-                  />
+                    slotProps={{
+                      primary: { sx: { fontWeight: selected === index ? 700 : 500 } },
+
+                      secondary: {
+                        variant: 'caption',
+                        sx: { lineHeight: 1.5, mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+                      }
+                    }} />
                 </ListItemButton>
               ))}
             </List>
@@ -102,9 +115,14 @@ export default function InteractiveExamples() {
 
         {/* Code + Explanation */}
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+          <Paper elevation={0} sx={{ borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
             <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
+              <Typography
+                variant="subtitle1"
+                sx={{
+                  fontWeight: 700,
+                  flex: 1
+                }}>
                 {t(`learn.examples.${example.key}.title`)}
               </Typography>
               <Button
@@ -119,7 +137,12 @@ export default function InteractiveExamples() {
             </Box>
             <CodeBlock code={example.code} maxHeight={400} />
             <Box sx={{ p: 2.5, bgcolor: 'action.hover' }}>
-              <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  lineHeight: 1.8
+                }}>
                 {t(`learn.examples.${example.key}.explanation`)}
               </Typography>
             </Box>
@@ -127,5 +150,5 @@ export default function InteractiveExamples() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

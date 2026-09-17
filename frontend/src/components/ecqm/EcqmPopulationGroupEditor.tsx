@@ -99,7 +99,6 @@ export default function EcqmPopulationGroupEditor({
           />
         </Box>
       )}
-
       {/* Dual IP editors */}
       {dualIp && (
         <>
@@ -121,7 +120,6 @@ export default function EcqmPopulationGroupEditor({
           />
         </>
       )}
-
       {/* Standard population editors */}
       {relevantPops
         .filter((key) => !(dualIp && key === 'initial-population'))
@@ -136,11 +134,18 @@ export default function EcqmPopulationGroupEditor({
             onUpdateTree={(tree) => updatePopulation(key, tree)}
           />
         ))}
-
       {showObservations && (
         <Box sx={{ mt: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={600}>{t('populationGroups.observations')}</Typography>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1
+            }}>
+            <Typography variant="subtitle1" sx={{
+              fontWeight: 600
+            }}>{t('populationGroups.observations')}</Typography>
             <Button size="small" startIcon={<AddIcon />} onClick={addObservation}>
               {t('populationGroups.addObservation')}
             </Button>
@@ -179,5 +184,5 @@ export default function EcqmPopulationGroupEditor({
         </Box>
       )}
     </Box>
-  )
+  );
 }

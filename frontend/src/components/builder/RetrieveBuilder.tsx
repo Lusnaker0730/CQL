@@ -119,16 +119,16 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
           <MenuItem key={rt} value={rt}>{rt}</MenuItem>
         ))}
       </TextField>
-
       <TextField
         select
         size="small"
         label={t('retrieve.terminologySource')}
         value={terminology}
         onChange={(e) => handleTerminologyChange(e.target.value)}
-        SelectProps={{ displayEmpty: true }}
-        InputLabelProps={{ shrink: true }}
-      >
+        slotProps={{
+          select: { displayEmpty: true },
+          inputLabel: { shrink: true }
+        }}>
         <MenuItem value="" disabled>
           <em>{t('retrieve.selectTerminology')}</em>
         </MenuItem>
@@ -138,7 +138,6 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
           </MenuItem>
         ))}
       </TextField>
-
       <TextField
         size="small"
         label={t('retrieve.definitionName')}
@@ -148,7 +147,6 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
           setNameEdited(true)
         }}
       />
-
       <ModifierChainBuilder
         modifiers={chainModifiers}
         onChange={setChainModifiers}
@@ -156,10 +154,10 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         valueSets={valueSets}
         codes={codes}
       />
-
       <CqlPreviewBox code={cqlPreview} />
-
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton
           onClick={handleInsert}
           disabled={!terminology || !definitionName.trim()}
@@ -179,5 +177,5 @@ export default function RetrieveBuilder({ valueSets, codes, onInsert, onCancel }
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

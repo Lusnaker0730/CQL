@@ -44,6 +44,29 @@ class FhirControllerTest {
     @MockitoBean
     private VsacService vsacService;
 
+    @MockitoBean
+    private com.cqlplatform.service.fhir.EhrConnectionService connectionService;
+
+    // ─── PAT-212: connectionId is resolved tenant-scoped ─────────────
+
+    @Test
+    @WithMockUser
+    void searchResources_withConnectionId_resolvesViaTenantScopedGetById() throws Exception {
+        com.cqlplatform.entity.EhrConnectionEntity conn = new com.cqlplatform.entity.EhrConnectionEntity();
+        when(connectionService.getById(5L)).thenReturn(conn);
+        Bundle bundle = new Bundle();
+        bundle.setType(Bundle.BundleType.SEARCHSET);
+        when(dataProviderService.searchResources(any(), eq("Patient"), any())).thenReturn(bundle);
+
+        mockMvc.perform(get("/api/fhir/Patient").param("connectionId", "5"))
+                .andExpect(status().isOk());
+
+        // The connection came from the tenant-scoped lookup (a foreign tenant's id would throw
+        // there), and the resolved connection — not an arbitrary URL — was passed downstream.
+        verify(connectionService).getById(5L);
+        verify(dataProviderService).searchResources(org.mockito.ArgumentMatchers.eq(conn), eq("Patient"), any());
+    }
+
     // ─── Existing Tests ──────────────────────────────────────────────
 
     @Test
@@ -103,10 +126,17 @@ class FhirControllerTest {
 
     @Test
     @WithMockUser
-    void searchResources_invalidUrl_shouldReturn400() throws Exception {
+    void searchResources_arbitraryFhirServerParam_isIgnored() throws Exception {
+        // PAT-212: the endpoint no longer accepts an arbitrary FHIR server URL. A leftover
+        // fhirServer query param is simply not bound (the endpoint takes connectionId now), so
+        // the request runs against the sandbox instead of an attacker-controlled URL.
+        Bundle bundle = new Bundle();
+        bundle.setType(Bundle.BundleType.SEARCHSET);
+        when(dataProviderService.searchResources(any(), eq("Patient"), any())).thenReturn(bundle);
+
         mockMvc.perform(get("/api/fhir/Patient")
                         .param("fhirServer", "javascript:alert(1)"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -254,7 +284,7 @@ class FhirControllerTest {
     void executeTransaction_shouldReturn200() throws Exception {
         Bundle responseBundle = new Bundle();
         responseBundle.setType(Bundle.BundleType.TRANSACTIONRESPONSE);
-        when(dataProviderService.executeTransaction(any(), any())).thenReturn(responseBundle);
+        when(dataProviderService.executeTransactionForConnection(any(), any())).thenReturn(responseBundle);
 
         mockMvc.perform(post("/api/fhir/Bundle/$transaction")
                         .contentType(MediaType.APPLICATION_JSON)

@@ -3,7 +3,7 @@ import { Paper, Typography, Button, Stack, Box } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 // Sub-path imports per PAT-161/PR #501: avoid loading the @mui/icons-material
 // barrel during vitest collection.
-import ErrorIcon from '@mui/icons-material/ErrorOutline'
+import ErrorIcon from '@mui/icons-material/ErrorOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import { Translation } from 'react-i18next'
 
@@ -52,12 +52,18 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             bgcolor: alpha(theme.palette.error.main, 0.04),
           })}
         >
-          <Stack spacing={2} alignItems="center">
+          <Stack spacing={2} sx={{
+            alignItems: "center"
+          }}>
             <ErrorIcon sx={{ fontSize: 48, color: 'error.main' }} />
-            <Typography variant="h6" color="error.main">
+            <Typography variant="h6" sx={{
+              color: "error.main"
+            }}>
               {this.props.fallbackTitle || t('errors.somethingWentWrong')}
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {t('errors.unexpectedError')}
             </Typography>
             <Button
@@ -95,7 +101,7 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
         </Paper>
           )}
         </Translation>
-      )
+      );
     }
 
     return this.props.children

@@ -128,7 +128,13 @@ export default function ArtifactList({
   return (
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            mb: 2
+          }}>
           <Typography variant="h6">{t('list.title')}</Typography>
           <Stack direction="row" spacing={1}>
             <GradientButton onClick={onImport} variant="outlined">{t('list.importCql')}</GradientButton>
@@ -142,12 +148,14 @@ export default function ArtifactList({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           sx={{ mb: 2 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            }
           }}
         />
 
@@ -184,7 +192,9 @@ export default function ArtifactList({
           </TableContainer>
         ) : filtered.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="text.secondary">
+            <Typography sx={{
+              color: "text.secondary"
+            }}>
               {search ? t('list.noResults') : t('list.emptyState')}
             </Typography>
           </Box>
@@ -247,7 +257,7 @@ export default function ArtifactList({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }
 
 interface ArtifactVirtualListProps {
@@ -300,11 +310,19 @@ function ArtifactRow({
       }}
     >
       <Box sx={{ width: COL_WIDTHS.name, overflow: 'hidden', textOverflow: 'ellipsis', pr: 1 }}>
-        <Typography variant="body2" fontWeight={500} noWrap>
+        <Typography variant="body2" noWrap sx={{
+          fontWeight: 500
+        }}>
           {artifact.name}
         </Typography>
         {artifact.description && (
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: "text.secondary",
+              display: 'block'
+            }}>
             {artifact.description}
           </Typography>
         )}
@@ -321,7 +339,9 @@ function ArtifactRow({
         </Typography>
       </Box>
       <Box sx={{ width: COL_WIDTHS.actions }}>
-        <Stack direction="row" spacing={0} justifyContent="flex-end">
+        <Stack direction="row" spacing={0} sx={{
+          justifyContent: "flex-end"
+        }}>
           <Tooltip title={t('list.edit')}>
             <IconButton
               size="small"
@@ -359,7 +379,7 @@ function ArtifactRow({
         </Stack>
       </Box>
     </Box>
-  )
+  );
 }
 
 function ArtifactVirtualList({

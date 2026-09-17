@@ -339,11 +339,26 @@ export default function EditorPage() {
                 borderColor: alpha(theme.palette.primary.main, 0.1),
               })}
             >
-              <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  flexWrap: 'wrap',
+                  rowGap: 0.5
+                }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: 600, color: 'secondary.main', whiteSpace: 'nowrap' }}>
                   {t('title')}
                 </Typography>
-                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+                <Stack
+                  direction="row"
+                  spacing={0.5}
+                  sx={{
+                    alignItems: "center",
+                    flexWrap: 'wrap',
+                    rowGap: 0.5
+                  }}>
                   <Tooltip title={t('toolbar.newLibrary')}>
                     <IconButton size="small" onClick={handleNewLibrary}>
                       <NewIcon fontSize="small" />
@@ -646,5 +661,5 @@ export default function EditorPage() {
         library={currentLibrary ?? null}
       />
     </Box>
-  )
+  );
 }

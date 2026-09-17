@@ -131,16 +131,20 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
               type="date"
               value={durationStart}
               onChange={(e) => setDurationStart(e.target.value)}
-              InputLabelProps={{ shrink: true }}
               fullWidth
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               label={t('dateCalculator.fields.endDate')}
               type="date"
               value={durationEnd}
               onChange={(e) => setDurationEnd(e.target.value)}
-              InputLabelProps={{ shrink: true }}
               fullWidth
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             {durationResult && (
               <Box
@@ -171,8 +175,10 @@ const DateCalculatorDialog: React.FC<DateCalculatorDialogProps> = ({
               type="date"
               value={computedStart}
               onChange={(e) => setComputedStart(e.target.value)}
-              InputLabelProps={{ shrink: true }}
               fullWidth
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <Stack direction="row" spacing={2}>
               <TextField

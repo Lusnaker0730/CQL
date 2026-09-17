@@ -19,7 +19,7 @@ import {
 import {
   ContentCopy as CopyIcon,
   Check as CheckIcon,
-  AddCircleOutline as UseIcon,
+  AddCircleOutlined as UseIcon,
 } from '@mui/icons-material'
 import { ALL_CODE_SYSTEMS, type CodeSystemEntry } from '../../constants/codeSystems'
 import { useSearchCodes } from '../../hooks/useTerminology'
@@ -88,9 +88,16 @@ export default function DrawerCodeSearchPanel({
         )}
         size="small"
       />
-
-      <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-        <Typography variant="caption" color="text.secondary" sx={{ mr: 0.5, alignSelf: 'center' }}>
+      <Stack direction="row" spacing={0.5} useFlexGap sx={{
+        flexWrap: "wrap"
+      }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            mr: 0.5,
+            alignSelf: 'center'
+          }}>
           {t('drawer.quickSystems')}:
         </Typography>
         {ALL_CODE_SYSTEMS.slice(0, 6).map((cs) => (
@@ -105,7 +112,6 @@ export default function DrawerCodeSearchPanel({
           />
         ))}
       </Stack>
-
       <TextField
         label={t('drawer.searchPlaceholder')}
         size="small"
@@ -113,14 +119,19 @@ export default function DrawerCodeSearchPanel({
         value={searchText}
         onChange={(e) => setSearchText(e.target.value)}
       />
-
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
             <CircularProgress size={24} />
           </Box>
         ) : results.length === 0 && searchText.length >= 2 && system ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              py: 2,
+              textAlign: 'center'
+            }}>
             {t('drawer.noResults')}
           </Typography>
         ) : (
@@ -174,5 +185,5 @@ export default function DrawerCodeSearchPanel({
         )}
       </Box>
     </Box>
-  )
+  );
 }

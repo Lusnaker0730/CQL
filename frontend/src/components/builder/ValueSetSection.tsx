@@ -142,11 +142,15 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
           )
         })
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.valueSets').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'ValueSet' })}
@@ -212,8 +216,10 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                     placeholder={t('valueSets.searchVsacPlaceholder')}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      endAdornment: isSearching ? <CircularProgress size={16} /> : null,
+                    slotProps={{
+                      input: {
+                        endAdornment: isSearching ? <CircularProgress size={16} /> : null,
+                      }
                     }}
                   />
 
@@ -221,8 +227,19 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                     <Stack spacing={0.5} sx={{ maxHeight: 250, overflow: 'auto' }}>
                       {searchResults.slice(0, 20).map((vs) => (
                         <Stack key={vs.url} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 0.75 }}>
-                          <Stack direction="row" justifyContent="space-between" alignItems="center">
-                            <Typography variant="body2" fontWeight={500} sx={{ fontSize: '0.8rem', flex: 1 }}>
+                          <Stack
+                            direction="row"
+                            sx={{
+                              justifyContent: "space-between",
+                              alignItems: "center"
+                            }}>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 500,
+                                fontSize: '0.8rem',
+                                flex: 1
+                              }}>
                               {vs.title || vs.name}
                             </Typography>
                             <Stack direction="row" spacing={0.5}>
@@ -239,7 +256,9 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                               </Button>
                             </Stack>
                           </Stack>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{
+                            color: "text.secondary"
+                          }}>
                             URL: {vs.url}
                           </Typography>
 
@@ -296,7 +315,6 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -306,5 +324,5 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

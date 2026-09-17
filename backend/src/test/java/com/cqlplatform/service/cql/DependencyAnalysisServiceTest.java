@@ -2,7 +2,11 @@ package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
 import com.cqlplatform.repository.CqlLibraryRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.TenantContext;
 import com.cqlplatform.service.cql.DependencyAnalysisService.DependencyAnalysisResult;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -18,11 +22,28 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DependencyAnalysisServiceTest {
 
+    private static final long TENANT_ID = 7L;
+
     @Mock
     private CqlLibraryRepository libraryRepository;
 
+    // Wired into the service by @InjectMocks. Never stubbed: setUp() puts a non-null tenant on
+    // the context, so effectiveTenantId() returns it directly without hitting this repository.
+    @Mock
+    private TenantRepository tenantRepository;
+
     @InjectMocks
     private DependencyAnalysisService service;
+
+    @BeforeEach
+    void setUp() {
+        TenantContext.setCurrentTenantId(TENANT_ID);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
 
     private CqlLibraryEntity createLibrary(String name, String version, List<String> deps) {
         CqlLibraryEntity entity = new CqlLibraryEntity();
@@ -43,7 +64,7 @@ class DependencyAnalysisServiceTest {
 
     @Test
     void analyze_libraryNotFound_shouldReturnEmpty() {
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0.0")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"TestLib", "1.0.0")).thenReturn(Optional.empty());
 
         DependencyAnalysisResult result = service.analyze("TestLib-1.0.0");
         assertThat(result.getDependencies()).isEmpty();
@@ -54,7 +75,7 @@ class DependencyAnalysisServiceTest {
     @Test
     void analyze_noDependencies_shouldReturnEmpty() {
         CqlLibraryEntity lib = createLibrary("TestLib", "1.0.0", List.of());
-        when(libraryRepository.findByNameAndVersion("TestLib", "1.0.0")).thenReturn(Optional.of(lib));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"TestLib", "1.0.0")).thenReturn(Optional.of(lib));
 
         DependencyAnalysisResult result = service.analyze("TestLib-1.0.0");
         assertThat(result.getDependencies()).isEmpty();
@@ -69,8 +90,8 @@ class DependencyAnalysisServiceTest {
                 List.of("FHIRHelpers version '4.0.1'"));
         CqlLibraryEntity dep = createLibrary("FHIRHelpers", "4.0.1", List.of());
 
-        when(libraryRepository.findByNameAndVersion("MainLib", "1.0.0")).thenReturn(Optional.of(main));
-        when(libraryRepository.findByNameAndVersion("FHIRHelpers", "4.0.1")).thenReturn(Optional.of(dep));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"MainLib", "1.0.0")).thenReturn(Optional.of(main));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"FHIRHelpers", "4.0.1")).thenReturn(Optional.of(dep));
 
         DependencyAnalysisResult result = service.analyze("MainLib-1.0.0");
 
@@ -89,9 +110,9 @@ class DependencyAnalysisServiceTest {
                 List.of("FHIRHelpers version '4.0.1'"));
         CqlLibraryEntity depDifferentVersion = createLibrary("FHIRHelpers", "4.0.2", List.of());
 
-        when(libraryRepository.findByNameAndVersion("MainLib", "1.0.0")).thenReturn(Optional.of(main));
-        when(libraryRepository.findByNameAndVersion("FHIRHelpers", "4.0.1")).thenReturn(Optional.empty());
-        when(libraryRepository.findByName("FHIRHelpers")).thenReturn(List.of(depDifferentVersion));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"MainLib", "1.0.0")).thenReturn(Optional.of(main));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"FHIRHelpers", "4.0.1")).thenReturn(Optional.empty());
+        when(libraryRepository.findByTenantIdAndName(TENANT_ID,"FHIRHelpers")).thenReturn(List.of(depDifferentVersion));
 
         DependencyAnalysisResult result = service.analyze("MainLib-1.0.0");
 
@@ -111,9 +132,9 @@ class DependencyAnalysisServiceTest {
                 List.of("FHIRHelpers version '4.0.1'"));
         CqlLibraryEntity fhirHelpers = createLibrary("FHIRHelpers", "4.0.1", List.of());
 
-        when(libraryRepository.findByNameAndVersion("MainLib", "1.0.0")).thenReturn(Optional.of(main));
-        when(libraryRepository.findByNameAndVersion("HelperLib", "2.0.0")).thenReturn(Optional.of(helper));
-        when(libraryRepository.findByNameAndVersion("FHIRHelpers", "4.0.1")).thenReturn(Optional.of(fhirHelpers));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"MainLib", "1.0.0")).thenReturn(Optional.of(main));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"HelperLib", "2.0.0")).thenReturn(Optional.of(helper));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"FHIRHelpers", "4.0.1")).thenReturn(Optional.of(fhirHelpers));
 
         DependencyAnalysisResult result = service.analyze("MainLib-1.0.0");
 
@@ -135,11 +156,11 @@ class DependencyAnalysisServiceTest {
         CqlLibraryEntity fh401 = createLibrary("FHIRHelpers", "4.0.1", List.of());
         CqlLibraryEntity fh300 = createLibrary("FHIRHelpers", "3.0.0", List.of());
 
-        when(libraryRepository.findByNameAndVersion("MainLib", "1.0.0")).thenReturn(Optional.of(main));
-        when(libraryRepository.findByNameAndVersion("LibA", "1.0.0")).thenReturn(Optional.of(libA));
-        when(libraryRepository.findByNameAndVersion("LibB", "1.0.0")).thenReturn(Optional.of(libB));
-        when(libraryRepository.findByNameAndVersion("FHIRHelpers", "4.0.1")).thenReturn(Optional.of(fh401));
-        when(libraryRepository.findByNameAndVersion("FHIRHelpers", "3.0.0")).thenReturn(Optional.of(fh300));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"MainLib", "1.0.0")).thenReturn(Optional.of(main));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"LibA", "1.0.0")).thenReturn(Optional.of(libA));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"LibB", "1.0.0")).thenReturn(Optional.of(libB));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"FHIRHelpers", "4.0.1")).thenReturn(Optional.of(fh401));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"FHIRHelpers", "3.0.0")).thenReturn(Optional.of(fh300));
 
         DependencyAnalysisResult result = service.analyze("MainLib-1.0.0");
 
@@ -158,12 +179,37 @@ class DependencyAnalysisServiceTest {
         CqlLibraryEntity libB = createLibrary("LibB", "1.0.0",
                 List.of("LibA version '1.0.0'"));
 
-        when(libraryRepository.findByNameAndVersion("LibA", "1.0.0")).thenReturn(Optional.of(main));
-        when(libraryRepository.findByNameAndVersion("LibB", "1.0.0")).thenReturn(Optional.of(libB));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"LibA", "1.0.0")).thenReturn(Optional.of(main));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID,"LibB", "1.0.0")).thenReturn(Optional.of(libB));
 
         // Should not throw or infinite loop
         DependencyAnalysisResult result = service.analyze("LibA-1.0.0");
 
         assertThat(result.getDependencies()).hasSize(1);
+    }
+
+    // ===== Tenant isolation (V62 hardening) =====
+
+    @Test
+    void analyze_resolvesDependenciesOnlyWithinCallerTenant() {
+        CqlLibraryEntity main = createLibrary("MainLib", "1.0.0",
+                List.of("FHIRHelpers version '4.0.1'"));
+        when(libraryRepository.findByTenantIdAndNameAndVersion(TENANT_ID, "MainLib", "1.0.0"))
+                .thenReturn(Optional.of(main));
+        // The dependency is intentionally left unstubbed for TENANT_ID (Mockito returns an
+        // empty Optional/List), so it resolves as unavailable — a library visible only under
+        // another tenant must never leak into this tenant's dependency graph.
+
+        DependencyAnalysisResult result = service.analyze("MainLib-1.0.0");
+
+        assertThat(result.getDependencies()).hasSize(1);
+        assertThat(result.getDependencies().get(0).getName()).isEqualTo("FHIRHelpers");
+        assertThat(result.getDependencies().get(0).isAvailable()).isFalse();
+        // Root + dependency were both resolved via the tenant-scoped queries with the caller's
+        // tenant, and the pre-hardening unscoped variants were never consulted.
+        verify(libraryRepository).findByTenantIdAndNameAndVersion(TENANT_ID, "FHIRHelpers", "4.0.1");
+        verify(libraryRepository).findByTenantIdAndName(TENANT_ID, "FHIRHelpers");
+        verify(libraryRepository, never()).findByNameAndVersion(anyString(), anyString());
+        verify(libraryRepository, never()).findByName(anyString());
     }
 }

@@ -1,5 +1,6 @@
 export { authApi } from './authApi'
 export { adminApi } from './adminApi'
+export { tenantUserApi } from './tenantUserApi'
 export { cqlApi } from './cqlApi'
 export { measureApi } from './measureApi'
 export { fhirApi } from './fhirApi'

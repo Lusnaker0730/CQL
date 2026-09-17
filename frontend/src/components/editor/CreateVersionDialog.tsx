@@ -69,7 +69,9 @@ export default function CreateVersionDialog({
       <DialogTitle>{t('version.createTitle', { type: label })}</DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('version.currentVersion')}<strong>{currentVersion}</strong>
           </Typography>
         </Box>
@@ -83,10 +85,14 @@ export default function CreateVersionDialog({
             control={<Radio size="small" />}
             label={
               <Box>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 500
+                }}>
                   {t('version.major')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('version.majorDesc')}
                 </Typography>
               </Box>
@@ -97,10 +103,14 @@ export default function CreateVersionDialog({
             control={<Radio size="small" />}
             label={
               <Box>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 500
+                }}>
                   {t('version.minor')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('version.minorDesc')}
                 </Typography>
               </Box>
@@ -111,10 +121,14 @@ export default function CreateVersionDialog({
             control={<Radio size="small" />}
             label={
               <Box>
-                <Typography variant="body2" fontWeight={500}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 500
+                }}>
                   {t('version.patch')}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>
                   {t('version.patchDesc')}
                 </Typography>
               </Box>
@@ -133,10 +147,14 @@ export default function CreateVersionDialog({
             justifyContent: 'space-between',
           }}
         >
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('version.newVersion')}
           </Typography>
-          <Typography variant="body1" fontWeight={600} color="primary">
+          <Typography variant="body1" color="primary" sx={{
+            fontWeight: 600
+          }}>
             {newVersion}
           </Typography>
         </Box>
@@ -156,5 +174,5 @@ export default function CreateVersionDialog({
         </GradientButton>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

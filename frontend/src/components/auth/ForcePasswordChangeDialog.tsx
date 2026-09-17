@@ -82,14 +82,18 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
       open={open}
       maxWidth="sm"
       fullWidth
-      disableEscapeKeyDown
       onClose={(_e, reason) => {
         if (reason === 'backdropClick') return
       }}
     >
       <DialogTitle sx={{ fontWeight: 700 }}>{t('auth.passwordChangeRequired')}</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            mb: 2
+          }}>
           {t('auth.passwordChangeDescription')}
         </Typography>
 
@@ -151,5 +155,5 @@ export default function ForcePasswordChangeDialog({ open }: ForcePasswordChangeD
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

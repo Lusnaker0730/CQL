@@ -61,9 +61,12 @@ const CoverageItemRow: React.FC<{ item: CoverageItem }> = ({ item }) => {
       <Chip label={chipLabel} color={chipColor} size="small" />
       <Typography
         variant="caption"
-        color="text.secondary"
-        sx={{ fontFamily: 'monospace', minWidth: 80, textAlign: 'right' }}
-      >
+        sx={{
+          color: "text.secondary",
+          fontFamily: 'monospace',
+          minWidth: 80,
+          textAlign: 'right'
+        }}>
         {item.result}
       </Typography>
     </Paper>
@@ -88,7 +91,9 @@ const TestCaseCoverage: React.FC<TestCaseCoverageProps> = ({
   if (!coverage) {
     return (
       <Box sx={{ py: 3, textAlign: 'center' }}>
-        <Typography color="text.secondary">{t('coverage.noData')}</Typography>
+        <Typography sx={{
+          color: "text.secondary"
+        }}>{t('coverage.noData')}</Typography>
       </Box>
     );
   }
@@ -108,11 +113,14 @@ const TestCaseCoverage: React.FC<TestCaseCoverageProps> = ({
         <Tab label={t('coverage.tabs.definitions')} />
         <Tab label={t('coverage.tabs.functions')} />
       </Tabs>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 1.5
+        }}>
         {t('coverage.covered', { covered: coveredCount, total: totalCount, label })}
       </Typography>
-
       <Stack spacing={1}>
         {items.map((item, index) => (
           <CoverageItemRow key={`${item.name}-${index}`} item={item} />

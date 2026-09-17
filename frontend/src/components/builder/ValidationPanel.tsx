@@ -122,11 +122,17 @@ export default function ValidationPanel({ structure, parseError }: ValidationPan
     return (
       <Box sx={{ p: 1.5, textAlign: 'center' }}>
         <CheckIcon sx={{ color: 'success.main', fontSize: 20 }} />
-        <Typography variant="caption" display="block" color="success.main" fontWeight={600}>
+        <Typography
+          variant="caption"
+          sx={{
+            display: "block",
+            color: "success.main",
+            fontWeight: 600
+          }}>
           {t('validation.noIssues')}
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (

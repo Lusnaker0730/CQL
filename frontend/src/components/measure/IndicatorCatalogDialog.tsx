@@ -97,7 +97,12 @@ export default function IndicatorCatalogDialog({
             <CircularProgress size={32} />
           </Box>
         ) : indicators.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 4,
+              textAlign: 'center'
+            }}>
             {t('indicators.noResults')}
           </Typography>
         ) : (
@@ -121,14 +126,18 @@ export default function IndicatorCatalogDialog({
                     onClick={() => handleSelect(ind)}
                   >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600}>
+                      <Typography variant="body2" sx={{
+                        fontWeight: 600
+                      }}>
                         {ind.code}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">{ind.name}</Typography>
                       {ind.nameEn && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{
+                          color: "text.secondary"
+                        }}>
                           {ind.nameEn}
                         </Typography>
                       )}
@@ -153,5 +162,5 @@ export default function IndicatorCatalogDialog({
         <Button onClick={onClose}>{t('indicators.close')}</Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }

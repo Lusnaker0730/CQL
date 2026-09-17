@@ -2,6 +2,9 @@ package com.cqlplatform.service.authoring;
 
 import com.cqlplatform.model.authoring.ArtifactRequest;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -44,6 +47,18 @@ class ArtifactServiceLibraryRefIntegrationTest {
     private CqlGenerationService cqlGenerationService;
     @Autowired
     private ObjectMapper objectMapper;
+
+    // BUG-134: create/generate are tenant-scoped. Setting the context makes
+    // effectiveTenantId() return early, so no tenant row is needed in H2.
+    @BeforeEach
+    void setTenant() {
+        TenantContext.setCurrentTenantId(1L);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
+    }
 
     /**
      * Exact JSON body the frontend factory would POST — matches

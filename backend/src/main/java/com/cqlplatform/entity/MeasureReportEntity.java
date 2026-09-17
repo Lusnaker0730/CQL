@@ -130,6 +130,16 @@ public class MeasureReportEntity {
     @Column(name = "department", length = 100)
     private String department;
 
+    /**
+     * Tenant (clinic) this report belongs to — the isolation boundary (Phase 2).
+     * Assigned server-side at save; existing rows were backfilled to the default tenant.
+     * NOT NULL since V63 — the DB rejects tenant-less PHI reports even if a future insert
+     * path forgets the assignment.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

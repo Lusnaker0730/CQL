@@ -103,7 +103,13 @@ export default function ArithmeticUnaryElement({
   return (
     <Card variant="outlined" sx={{ borderLeft: 3, borderLeftColor: 'info.main' }}>
       <CardContent>
-        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: "center",
+            mb: 2
+          }}>
           <TextField
             value={element.name}
             onChange={(e) => onUpdate({ name: e.target.value })}
@@ -121,7 +127,9 @@ export default function ArithmeticUnaryElement({
           </Tooltip>
         </Stack>
 
-        <Stack direction="row" spacing={1} alignItems="flex-start">
+        <Stack direction="row" spacing={1} sx={{
+          alignItems: "flex-start"
+        }}>
           {/* Function dropdown */}
           <TextField
             select
@@ -194,7 +202,9 @@ export default function ArithmeticUnaryElement({
 
         {preview && (
           <Box sx={(theme) => ({ mt: 1.5, p: 1, bgcolor: alpha(theme.palette.info.main, 0.04), borderRadius: 1 })}>
-            <Typography variant="caption" color="text.secondary">{t('arithmeticUnary.cqlPreview')}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>{t('arithmeticUnary.cqlPreview')}</Typography>
             <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
               define &quot;{safeNameDisplay}&quot;: {preview}
             </Typography>
@@ -202,5 +212,5 @@ export default function ArithmeticUnaryElement({
         )}
       </CardContent>
     </Card>
-  )
+  );
 }

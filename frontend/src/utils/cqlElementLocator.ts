@@ -98,5 +98,5 @@ function findMultiLine(lines: string[], pattern: RegExp): LineRange | null {
 }
 
 function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

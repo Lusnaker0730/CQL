@@ -41,14 +41,14 @@ public class JwtTokenProvider {
     }
 
     public String generateToken(String username, String role) {
-        return generateToken(username, role, null, 0);
+        return generateToken(username, role, null, null, 0);
     }
 
     public String generateToken(String username, String role, String department) {
-        return generateToken(username, role, department, 0);
+        return generateToken(username, role, department, null, 0);
     }
 
-    public String generateToken(String username, String role, String department, int tokenVersion) {
+    public String generateToken(String username, String role, String department, Long tenantId, int tokenVersion) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + accessExpirationMs);
 
@@ -64,6 +64,9 @@ public class JwtTokenProvider {
         if (department != null) {
             builder.claim("department", department);
         }
+        if (tenantId != null) {
+            builder.claim("tenant", tenantId);
+        }
 
         return builder.signWith(key).compact();
     }
@@ -78,6 +81,12 @@ public class JwtTokenProvider {
 
     public String getDepartment(String token) {
         return getClaims(token).getPayload().get("department", String.class);
+    }
+
+    /** The caller's tenant id from the JWT `tenant` claim, or null if absent. */
+    public Long getTenantId(String token) {
+        Object tenant = getClaims(token).getPayload().get("tenant");
+        return tenant == null ? null : ((Number) tenant).longValue();
     }
 
     public int getTokenVersion(String token) {

@@ -71,7 +71,9 @@ export default function EcqmSummaryTab({ artifact, onChange }: Props) {
         />
 
         <Divider />
-        <Typography variant="subtitle1" fontWeight={600}>{t('summary.identification')}</Typography>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>{t('summary.identification')}</Typography>
         <Stack direction="row" spacing={2}>
           <TextField
             label={t('summary.cmsMeasureId')} sx={{ width: 200 }}
@@ -91,7 +93,9 @@ export default function EcqmSummaryTab({ artifact, onChange }: Props) {
         </Stack>
 
         <Divider />
-        <Typography variant="subtitle1" fontWeight={600}>{t('summary.metadata')}</Typography>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>{t('summary.metadata')}</Typography>
         <TextField
           label={t('summary.url')} fullWidth
           value={artifact.url || ''}
@@ -136,5 +140,5 @@ export default function EcqmSummaryTab({ artifact, onChange }: Props) {
         />
       </Stack>
     </Box>
-  )
+  );
 }

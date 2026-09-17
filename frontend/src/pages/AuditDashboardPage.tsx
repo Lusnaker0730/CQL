@@ -66,16 +66,20 @@ function StatCard({ title, value, icon, color }: { title: string; value: number;
           {icon}
         </Box>
         <Box>
-          <Typography variant="h5" fontWeight={700}>
+          <Typography variant="h5" sx={{
+            fontWeight: 700
+          }}>
             {value.toLocaleString()}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {title}
           </Typography>
         </Box>
       </Box>
     </Paper>
-  )
+  );
 }
 
 function ActivityChart({ stats, t }: { stats: AuditStatsResponse; t: (key: string, options?: Record<string, unknown>) => string }) {
@@ -83,7 +87,12 @@ function ActivityChart({ stats, t }: { stats: AuditStatsResponse; t: (key: strin
 
   return (
     <Paper sx={{ p: 2.5, borderRadius: 2, flex: 2, border: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 600,
+          mb: 2
+        }}>
         {t('audit.activityTimeline')}
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.5, height: 120 }}>
@@ -104,15 +113,19 @@ function ActivityChart({ stats, t }: { stats: AuditStatsResponse; t: (key: strin
         ))}
       </Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {stats.dailyActivity.length > 0 ? stats.dailyActivity[0].date : ''}
         </Typography>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {stats.dailyActivity.length > 0 ? stats.dailyActivity[stats.dailyActivity.length - 1].date : ''}
         </Typography>
       </Box>
     </Paper>
-  )
+  );
 }
 
 function ActionDistribution({ stats, t }: { stats: AuditStatsResponse; t: (key: string) => string }) {
@@ -128,17 +141,26 @@ function ActionDistribution({ stats, t }: { stats: AuditStatsResponse; t: (key: 
 
   return (
     <Paper sx={{ p: 2.5, borderRadius: 2, flex: 1, border: '1px solid', borderColor: 'divider' }}>
-      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+      <Typography
+        variant="subtitle2"
+        sx={{
+          fontWeight: 600,
+          mb: 2
+        }}>
         {t('audit.actionDistribution')}
       </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {entries.map(([action, count]) => (
           <Box key={action}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-              <Typography variant="body2" fontWeight={500}>
+              <Typography variant="body2" sx={{
+                fontWeight: 500
+              }}>
                 {action}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {count.toLocaleString()}
               </Typography>
             </Box>
@@ -157,7 +179,7 @@ function ActionDistribution({ stats, t }: { stats: AuditStatsResponse; t: (key: 
         ))}
       </Box>
     </Paper>
-  )
+  );
 }
 
 function AuditLogTable({
@@ -213,7 +235,9 @@ function AuditLogTable({
             ) : logs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">{t('audit.table.noEntries')}</Typography>
+                  <Typography sx={{
+                    color: "text.secondary"
+                  }}>{t('audit.table.noEntries')}</Typography>
                 </TableCell>
               </TableRow>
             ) : (
@@ -225,7 +249,9 @@ function AuditLogTable({
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" sx={{
+                      fontWeight: 500
+                    }}>
                       {log.username}
                     </Typography>
                   </TableCell>
@@ -282,7 +308,7 @@ function AuditLogTable({
         rowsPerPageOptions={[10, 20, 50]}
       />
     </>
-  )
+  );
 }
 
 export default function AuditDashboardPage() {
@@ -359,11 +385,12 @@ export default function AuditDashboardPage() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
         <SecurityIcon sx={{ fontSize: 28, color: 'primary.main' }} />
-        <Typography variant="h5" fontWeight={700}>
+        <Typography variant="h5" sx={{
+          fontWeight: 700
+        }}>
           {t('audit.title')}
         </Typography>
       </Box>
-
       {/* Stat Cards */}
       {statsLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -407,7 +434,12 @@ export default function AuditDashboardPage() {
           {/* Top Users */}
           {stats.topUsers.length > 0 && (
             <Paper sx={{ p: 2.5, borderRadius: 2, mb: 3, border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1.5 }}>
+              <Typography
+                variant="subtitle2"
+                sx={{
+                  fontWeight: 600,
+                  mb: 1.5
+                }}>
                 {t('audit.topUsers.title')}
               </Typography>
               <TableContainer>
@@ -423,13 +455,17 @@ export default function AuditDashboardPage() {
                     {stats.topUsers.map((u) => (
                       <TableRow key={u.username} hover>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={500}>{u.username}</Typography>
+                          <Typography variant="body2" sx={{
+                            fontWeight: 500
+                          }}>{u.username}</Typography>
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2">{u.eventCount.toLocaleString()}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2" sx={{
+                            color: "text.secondary"
+                          }}>
                             {u.lastActivityAt ? new Date(u.lastActivityAt).toLocaleString() : '--'}
                           </Typography>
                         </TableCell>
@@ -442,7 +478,6 @@ export default function AuditDashboardPage() {
           )}
         </>
       ) : null}
-
       {/* Tabbed Log Viewer */}
       <Paper sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
         <Tabs
@@ -487,8 +522,10 @@ export default function AuditDashboardPage() {
                 size="small"
                 value={filters.startDate || ''}
                 onChange={(e) => updateFilter('startDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
                 sx={{ minWidth: 150 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
               <TextField
                 label={t('audit.filters.endDate')}
@@ -496,8 +533,10 @@ export default function AuditDashboardPage() {
                 size="small"
                 value={filters.endDate || ''}
                 onChange={(e) => updateFilter('endDate', e.target.value)}
-                InputLabelProps={{ shrink: true }}
                 sx={{ minWidth: 150 }}
+                slotProps={{
+                  inputLabel: { shrink: true }
+                }}
               />
               <TextField
                 label={t('audit.filters.statusCode')}
@@ -574,5 +613,5 @@ export default function AuditDashboardPage() {
         )}
       </Paper>
     </Box>
-  )
+  );
 }

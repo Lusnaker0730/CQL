@@ -184,7 +184,6 @@ export default function MeasureComparison() {
   return (
     <Paper sx={{ p: 2, height: '100%', overflow: 'auto' }}>
       <Typography variant="h6" gutterBottom>{t('comparison.title')}</Typography>
-
       <Autocomplete
         options={measureOptions}
         getOptionLabel={(opt) => opt.label}
@@ -196,26 +195,44 @@ export default function MeasureComparison() {
         )}
         sx={{ mb: 2 }}
       />
-
       {/* Period Comparison */}
       <Typography variant="subtitle2" gutterBottom>{t('comparison.compareTwoPeriods')}</Typography>
-      <Stack direction="row" spacing={2} mb={1}>
+      <Stack direction="row" spacing={2} sx={{
+        mb: 1
+      }}>
         <TextField label={t('comparison.period1Start')} type="date" size="small" fullWidth
           value={p1Start} onChange={(e) => setP1Start(e.target.value)}
-          InputLabelProps={{ shrink: true }} />
+          slotProps={{
+            inputLabel: { shrink: true }
+          }} />
         <TextField label={t('comparison.period1End')} type="date" size="small" fullWidth
           value={p1End} onChange={(e) => setP1End(e.target.value)}
-          InputLabelProps={{ shrink: true }} />
+          slotProps={{
+            inputLabel: { shrink: true }
+          }} />
       </Stack>
-      <Stack direction="row" spacing={2} mb={2}>
+      <Stack direction="row" spacing={2} sx={{
+        mb: 2
+      }}>
         <TextField label={t('comparison.period2Start')} type="date" size="small" fullWidth
           value={p2Start} onChange={(e) => setP2Start(e.target.value)}
-          InputLabelProps={{ shrink: true }} />
+          slotProps={{
+            inputLabel: { shrink: true }
+          }} />
         <TextField label={t('comparison.period2End')} type="date" size="small" fullWidth
           value={p2End} onChange={(e) => setP2End(e.target.value)}
-          InputLabelProps={{ shrink: true }} />
+          slotProps={{
+            inputLabel: { shrink: true }
+          }} />
       </Stack>
-      <Stack direction="row" spacing={1} mb={1} flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={1}
+        useFlexGap
+        sx={{
+          mb: 1,
+          flexWrap: "wrap"
+        }}>
         <Button
           variant="outlined"
           startIcon={<CompareIcon />}
@@ -237,35 +254,46 @@ export default function MeasureComparison() {
             : t('comparison.compareLive')}
         </GradientButton>
       </Stack>
-      <Stack spacing={0.5} mb={2}>
-        <Typography variant="caption" color="text.secondary">{t('comparison.compareHint')}</Typography>
-        <Typography variant="caption" color="text.secondary">{t('comparison.compareLiveHint')}</Typography>
+      <Stack spacing={0.5} sx={{
+        mb: 2
+      }}>
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>{t('comparison.compareHint')}</Typography>
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>{t('comparison.compareLiveHint')}</Typography>
       </Stack>
-
       {liveCompareRunning && (
         <LinearProgress sx={{ mb: 2 }} />
       )}
-
       {liveCompareError && (
         <Alert severity="error" sx={{ mb: 2 }}>{liveCompareError}</Alert>
       )}
-
       {compareMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(compareMutation.error)}</Alert>
       )}
-
       {comparison && comparison.period1.measureScore == null && comparison.period2.measureScore == null && (
         <Alert severity="info" sx={{ mb: 2 }}>
           {t('comparison.noReportData')}
         </Alert>
       )}
-
       {comparison && (
         <Card variant="outlined" sx={{ mb: 3 }}>
           <CardContent>
-            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="subtitle1" fontWeight={600}>{comparison.measureName}</Typography>
-              <Stack direction="row" alignItems="center" spacing={1}>
+            <Stack
+              direction="row"
+              sx={{
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 2
+              }}>
+              <Typography variant="subtitle1" sx={{
+                fontWeight: 600
+              }}>{comparison.measureName}</Typography>
+              <Stack direction="row" spacing={1} sx={{
+                alignItems: "center"
+              }}>
                 {getTrendIcon(comparison.trend)}
                 <Typography variant="body2" sx={{ color: getTrendColor(comparison.trend), fontWeight: 600 }}>
                   {comparison.trend.charAt(0).toUpperCase() + comparison.trend.slice(1)}
@@ -273,16 +301,22 @@ export default function MeasureComparison() {
               </Stack>
             </Stack>
 
-            <Stack direction="row" spacing={2} mb={2}>
+            <Stack direction="row" spacing={2} sx={{
+              mb: 2
+            }}>
               <Card variant="outlined" sx={{ flex: 1, p: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">{t('comparison.period1')}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('comparison.period1')}</Typography>
                 <Typography variant="body2">{comparison.period1.periodStart} - {comparison.period1.periodEnd}</Typography>
                 <Typography variant="h5" sx={{ color: getScoreThemeColor(comparison.period1.measureScore), fontWeight: 700 }}>
                   {comparison.period1.measureScore != null ? `${comparison.period1.measureScore.toFixed(1)}%` : t('comparison.na')}
                 </Typography>
               </Card>
               <Card variant="outlined" sx={{ flex: 1, p: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">{t('comparison.period2')}</Typography>
+                <Typography variant="caption" sx={{
+                  color: "text.secondary"
+                }}>{t('comparison.period2')}</Typography>
                 <Typography variant="body2">{comparison.period2.periodStart} - {comparison.period2.periodEnd}</Typography>
                 <Typography variant="h5" sx={{ color: getScoreThemeColor(comparison.period2.measureScore), fontWeight: 700 }}>
                   {comparison.period2.measureScore != null ? `${comparison.period2.measureScore.toFixed(1)}%` : t('comparison.na')}
@@ -291,9 +325,15 @@ export default function MeasureComparison() {
             </Stack>
 
             {comparison.scoreDelta != null && (
-              <Stack direction="row" spacing={3} justifyContent="center">
-                <Box textAlign="center">
-                  <Typography variant="caption" color="text.secondary">{t('comparison.delta')}</Typography>
+              <Stack direction="row" spacing={3} sx={{
+                justifyContent: "center"
+              }}>
+                <Box sx={{
+                  textAlign: "center"
+                }}>
+                  <Typography variant="caption" sx={{
+                    color: "text.secondary"
+                  }}>{t('comparison.delta')}</Typography>
                   <Typography variant="h6" sx={{
                     color: comparison.scoreDelta >= 0 ? 'success.main' : 'error.main',
                     fontWeight: 600,
@@ -302,8 +342,12 @@ export default function MeasureComparison() {
                   </Typography>
                 </Box>
                 {comparison.scorePercentChange != null && (
-                  <Box textAlign="center">
-                    <Typography variant="caption" color="text.secondary">{t('comparison.change')}</Typography>
+                  <Box sx={{
+                    textAlign: "center"
+                  }}>
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>{t('comparison.change')}</Typography>
                     <Typography variant="h6" sx={{
                       color: comparison.scorePercentChange >= 0 ? 'success.main' : 'error.main',
                       fontWeight: 600,
@@ -317,16 +361,24 @@ export default function MeasureComparison() {
           </CardContent>
         </Card>
       )}
-
       <Divider sx={{ my: 2 }} />
-
       {/* Trend — historical */}
       <Typography variant="subtitle2" gutterBottom>{t('comparison.scoreTrend')}</Typography>
-      <Stack direction="row" spacing={2} mb={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={2}
+        useFlexGap
+        sx={{
+          mb: 1,
+          alignItems: "center",
+          flexWrap: "wrap"
+        }}>
         <TextField label={t('comparison.periods')} type="number" size="small" sx={{ width: 110 }}
           value={periods}
           onChange={(e) => setPeriods(parseInt(e.target.value) || 4)}
-          inputProps={{ min: 1, max: 12 }} />
+          slotProps={{
+            htmlInput: { min: 1, max: 12 }
+          }} />
         <Button
           variant="outlined"
           startIcon={<TimelineIcon />}
@@ -337,13 +389,26 @@ export default function MeasureComparison() {
           {trendMutation.isPending ? t('comparison.loading') : t('comparison.loadTrend')}
         </Button>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          display: 'block',
+          mb: 2
+        }}>
         {t('comparison.loadTrendHint')}
       </Typography>
-
       {/* Trend — live */}
       <Typography variant="subtitle2" gutterBottom>{t('comparison.trendLiveSection')}</Typography>
-      <Stack direction="row" spacing={2} mb={1} alignItems="center" flexWrap="wrap" useFlexGap>
+      <Stack
+        direction="row"
+        spacing={2}
+        useFlexGap
+        sx={{
+          mb: 1,
+          alignItems: "center",
+          flexWrap: "wrap"
+        }}>
         <TextField
           label={t('comparison.trendEndDate')}
           type="date"
@@ -351,7 +416,9 @@ export default function MeasureComparison() {
           sx={{ width: 170 }}
           value={trendEndDate}
           onChange={(e) => setTrendEndDate(e.target.value)}
-          InputLabelProps={{ shrink: true }}
+          slotProps={{
+            inputLabel: { shrink: true }
+          }}
         />
         <TextField
           select
@@ -375,13 +442,24 @@ export default function MeasureComparison() {
             : t('comparison.runLiveTrend')}
         </GradientButton>
       </Stack>
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "text.secondary",
+          display: 'block',
+          mb: 1
+        }}>
         {t('comparison.trendLiveHint')}
       </Typography>
-      <Typography variant="caption" color="warning.main" sx={{ display: 'block', mb: 2 }}>
+      <Typography
+        variant="caption"
+        sx={{
+          color: "warning.main",
+          display: 'block',
+          mb: 2
+        }}>
         {t('comparison.liveTrendNote', { count: slotCount })}
       </Typography>
-
       {liveTrendRunning && (
         <LinearProgress
           variant="determinate"
@@ -389,15 +467,12 @@ export default function MeasureComparison() {
           sx={{ mb: 2 }}
         />
       )}
-
       {liveTrendError && (
         <Alert severity="error" sx={{ mb: 2 }}>{liveTrendError}</Alert>
       )}
-
       {trendMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(trendMutation.error)}</Alert>
       )}
-
       {trend && trend.dataPoints.length > 0 && (
         <Card variant="outlined">
           <CardContent>
@@ -407,10 +482,19 @@ export default function MeasureComparison() {
                 const maxScore = Math.max(...trend.dataPoints.filter(d => d.score != null).map(d => d.score!), 100)
                 return trend.dataPoints.map((dp, idx) => (
                   <Box key={idx}>
-                    <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                    <Stack
+                      direction="row"
+                      sx={{
+                        justifyContent: "space-between",
+                        mb: 0.5
+                      }}>
                       <Typography variant="caption">{dp.periodStart} - {dp.periodEnd}</Typography>
-                      <Typography variant="caption" fontWeight={600}
-                        sx={{ color: getScoreThemeColor(dp.score) }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          fontWeight: 600,
+                          color: getScoreThemeColor(dp.score)
+                        }}>
                         {dp.score != null ? `${dp.score.toFixed(1)}%` : t('comparison.na')}
                       </Typography>
                     </Stack>
@@ -428,18 +512,23 @@ export default function MeasureComparison() {
                       }}
                     />
                   </Box>
-                ))
+                ));
               })()}
             </Stack>
           </CardContent>
         </Card>
       )}
-
       {trend && trend.dataPoints.length === 0 && (
-        <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ py: 2 }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            textAlign: "center",
+            py: 2
+          }}>
           {t('comparison.noReportData')}
         </Typography>
       )}
     </Paper>
-  )
+  );
 }

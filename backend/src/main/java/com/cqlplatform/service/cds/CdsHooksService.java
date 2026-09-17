@@ -46,6 +46,7 @@ public class CdsHooksService {
      */
     private final Optional<CdsFeedbackRepository> feedbackRepository;
     private final Optional<CqlLibraryRepository> cqlLibraryRepository;
+    private final Optional<com.cqlplatform.repository.TenantRepository> tenantRepository;
     private final Map<String, CdsServiceConfig> serviceConfigs = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -99,6 +100,7 @@ public class CdsHooksService {
         if (ownerUsername != null) {
             entity.setOwnerUsername(ownerUsername);
         }
+        entity.setTenantId(effectiveTenantId());
         entity = repository.save(entity);
 
         syncCqlLibrary(entity.getCqlContent());
@@ -131,7 +133,16 @@ public class CdsHooksService {
      * comparison so existing un-owned rows aren't accidentally locked out.
      */
     private void verifyOwnership(CdsServiceConfigEntity entity, String username, boolean isAdmin, String action) {
-        if (isAdmin) return;
+        if (isAdmin) {
+            // Admin bypass is bounded to the admin's own clinic (Phase 2 — #698 PR-C2).
+            // A null entity tenant is legacy data (pre-V64 rows are backfilled, so this
+            // only occurs in non-Spring test wiring) and keeps the old behaviour.
+            Long entityTenant = entity.getTenantId();
+            if (entityTenant == null || entityTenant.equals(effectiveTenantId())) {
+                return;
+            }
+            throw new AccessDeniedException("You can only " + action + " services in your own clinic");
+        }
         String owner = entity.getOwnerUsername();
         if (owner == null || owner.equals(username)) return;
         throw new AccessDeniedException("You can only " + action + " your own services");
@@ -139,10 +150,24 @@ public class CdsHooksService {
 
     @Transactional
     public CdsServiceConfigResponse toggleShared(String id, boolean shared) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        // BUG-137: strictly own-tenant. The controller only checks isAdmin(), and a clinic's
+        // ADMIN is not a platform operator — without this scope they could publish another
+        // tenant's private service onto the anonymous discovery surface, or unshare theirs.
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         entity.setShared(shared);
         entity = repository.save(entity);
+        // BUG-142: keep the in-memory registry in step with the DB. Without this,
+        // toggling shared only touched the DB row and invokeService's authorization
+        // kept reading the stale `shared` flag from the cached config until the next
+        // restart — so "make private" (or "make shared") had no effect on invocation.
+        synchronized (serviceConfigs) {
+            if (Boolean.TRUE.equals(entity.getEnabled())) {
+                serviceConfigs.put(id, entityToConfig(entity));
+            } else {
+                serviceConfigs.remove(id);
+            }
+        }
         log.info("Set service {} shared={}", id, shared);
         return entityToResponse(entity);
     }
@@ -157,7 +182,7 @@ public class CdsHooksService {
     @Transactional
     public CdsServiceConfigResponse updateServiceIfOwnedBy(
             String id, CdsServiceConfigRequest request, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, "modify");
         return updateService(id, request);
@@ -166,7 +191,7 @@ public class CdsHooksService {
     /** Same as {@link #deleteService(String)} but enforces ownership in the service layer. */
     @Transactional
     public void deleteServiceIfOwnedBy(String id, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, "delete");
         deleteService(id);
@@ -176,7 +201,7 @@ public class CdsHooksService {
     @Transactional
     public CdsServiceConfigResponse toggleServiceEnabledIfOwnedBy(
             String id, boolean enabled, String username, boolean isAdmin) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         verifyOwnership(entity, username, isAdmin, enabled ? "enable" : "disable");
         return toggleServiceEnabled(id, enabled);
@@ -186,7 +211,7 @@ public class CdsHooksService {
     public CdsServiceConfigResponse updateService(String id, CdsServiceConfigRequest request) {
         HookTypeValidator.validate(request.getHook());
 
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
         entity.setHook(request.getHook());
@@ -243,23 +268,28 @@ public class CdsHooksService {
         log.info("Deleted CDS service: {}", id);
     }
 
+    /**
+     * BUG-139 — strictly tenant-scoped read. With shared collapsed to within-tenant, a service
+     * in another tenant is not found whether shared or not, so read and mutation lookups are the
+     * same. (BUG-137's cross-tenant shared read surface is gone.)
+     */
     @Transactional(readOnly = true)
     public CdsServiceConfigResponse getService(String id) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
         return entityToResponse(entity);
     }
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getAllServices() {
-        return repository.findAllWithPrefetch().stream()
+        return repository.findAllByTenantIdWithPrefetch(effectiveTenantId()).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getServicesForUser(String username) {
-        return repository.findByOwnerUsernameOrSharedTrue(username).stream()
+        return repository.findByTenantIdAndOwnerUsernameOrSharedTrue(effectiveTenantId(), username).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
@@ -276,7 +306,9 @@ public class CdsHooksService {
     @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getServiceDefinitionsForUser(String username) {
         List<CdsServiceDefinition> definitions = new ArrayList<>();
-        List<CdsServiceConfigEntity> entities = repository.findByOwnerUsernameAndEnabledTrue(username);
+        // Tenant-scoped since PR-C2; the API-key auth path sets TenantContext (PAT-198).
+        List<CdsServiceConfigEntity> entities =
+                repository.findByTenantIdAndOwnerUsernameAndEnabledTrue(effectiveTenantId(), username);
 
         for (CdsServiceConfigEntity entity : entities) {
             definitions.add(toDefinition(entityToConfig(entity)));
@@ -285,31 +317,22 @@ public class CdsHooksService {
         return definitions;
     }
 
+    /**
+     * BUG-139 — the anonymous, tenant-agnostic discovery surface (Option A, #698) is retired:
+     * with shared collapsed to within-tenant, "shared" no longer means "published platform-wide",
+     * so there is nothing for an anonymous, tenant-less caller to enumerate. Returns empty; the
+     * standard {@code /cds-services} response stays valid ({@code {"services":[]}}). External
+     * integrators use the authenticated, tenant-scoped per-user surface
+     * ({@code /cds-services/u/{username}} → {@link #getServiceDefinitionsForUser}).
+     */
     @Transactional(readOnly = true)
     public List<CdsServiceDefinition> getSharedServiceDefinitions() {
-        List<CdsServiceDefinition> definitions = new ArrayList<>();
-
-        List<CdsServiceConfigEntity> entities = repository.findAllEnabledWithPrefetch();
-
-        Map<String, CdsServiceConfigEntity> latestByServiceName = new LinkedHashMap<>();
-        for (CdsServiceConfigEntity entity : entities) {
-            String key = entity.getServiceName() != null ? entity.getServiceName() : entity.getId();
-            CdsServiceConfigEntity existing = latestByServiceName.get(key);
-            if (existing == null || entity.getVersion() > existing.getVersion()) {
-                latestByServiceName.put(key, entity);
-            }
-        }
-
-        for (CdsServiceConfigEntity entity : latestByServiceName.values()) {
-            definitions.add(toDefinition(entityToConfig(entity)));
-        }
-
-        return definitions;
+        return List.of();
     }
 
     @Transactional
     public CdsServiceConfigResponse toggleServiceEnabled(String id, boolean enabled) {
-        CdsServiceConfigEntity entity = repository.findByIdWithPrefetch(id)
+        CdsServiceConfigEntity entity = repository.findByIdAndTenantIdWithPrefetch(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Service not found: " + id));
 
         entity.setEnabled(enabled);
@@ -353,6 +376,43 @@ public class CdsHooksService {
         CdsServiceConfig config = serviceConfigs.get(serviceId);
 
         if (config == null) {
+            return CdsResponse.builder()
+                    .cards(List.of(tupleStrategy.createInfoCard("Service not found",
+                            "The requested CDS service '" + serviceId + "' is not available.")))
+                    .build();
+        }
+
+        // BUG-139: shared is now within-tenant, so there is no anonymous invocation any more.
+        // Every call needs an authenticated caller: a shared service is invocable by anyone in
+        // its OWN tenant, a private one only by its owner. Legacy un-owned / un-tenanted rows stay
+        // permissive (they predate ownership/tenancy). Unauthorized callers get the same not-found
+        // card as a missing service, so service ids are not confirmable by probing.
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        String caller = (auth != null && auth.isAuthenticated()
+                && !"anonymousUser".equals(auth.getName())) ? auth.getName() : null;
+        String owner = config.getOwnerUsername();
+        boolean allowed;
+        if (caller == null) {
+            allowed = false;
+        } else if (owner != null && owner.equals(caller)) {
+            // BUG-142: the owner can ALWAYS invoke their own service — shared or
+            // private, regardless of tenant. Otherwise an owner whose tenant differs
+            // from the service's stamped tenant (e.g. a null-tenant platform admin who
+            // owns a service tagged to a clinic tenant) is locked out of a service they
+            // created. The shared→same-tenant rule below still gates non-owner callers.
+            allowed = true;
+        } else if (Boolean.TRUE.equals(config.getShared())) {
+            // Same-tenant caller. TenantContext is set by the API-key auth path (PAT-198).
+            Long callerTenant = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+            allowed = config.getTenantId() == null
+                    || (callerTenant != null && callerTenant.equals(config.getTenantId()));
+        } else {
+            // Private service, non-owner caller. Legacy un-owned rows stay permissive.
+            allowed = owner == null;
+        }
+        if (!allowed) {
+            log.info("CDS invoke denied for service {} (caller={})", serviceId, caller);
             return CdsResponse.builder()
                     .cards(List.of(tupleStrategy.createInfoCard("Service not found",
                             "The requested CDS service '" + serviceId + "' is not available.")))
@@ -418,6 +478,12 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsFeedbackEntity> getFeedback(String serviceId) {
+        // BUG-137: cds_feedback has no tenant_id — its tenant is its parent service's
+        // (service_id is NOT NULL REFERENCES cds_service_config ON DELETE CASCADE), so the
+        // parent gate IS the boundary. Strictly own-tenant, not findReadableById: publishing
+        // a service to the shared surface does not publish who overrode its cards and why.
+        repository.findByIdAndTenantIdWithPrefetch(serviceId, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Service not found: " + serviceId));
         return feedbackRepository
                 .map(repo -> repo.findByServiceIdOrderByCreatedAtDesc(serviceId))
                 .orElseGet(List::of);
@@ -440,14 +506,17 @@ public class CdsHooksService {
 
     @Transactional(readOnly = true)
     public List<CdsServiceConfigResponse> getServiceVersions(String serviceName) {
-        return repository.findByServiceNameOrderByVersionDesc(serviceName).stream()
+        return repository.findByTenantIdAndServiceNameOrderByVersionDesc(effectiveTenantId(), serviceName).stream()
                 .map(this::entityToResponse)
                 .collect(Collectors.toList());
     }
 
     @Transactional
     public CdsServiceConfigResponse rollbackService(String serviceName, int targetVersion) {
-        List<CdsServiceConfigEntity> versions = repository.findByServiceNameOrderByVersionDesc(serviceName);
+        // BUG-137: strictly own-tenant — a rollback rewrites the live service, so seeing a
+        // shared service must not imply being able to roll it back.
+        List<CdsServiceConfigEntity> versions =
+                repository.findByTenantIdAndServiceNameOrderByVersionDesc(effectiveTenantId(), serviceName);
 
         if (versions.isEmpty()) {
             throw new IllegalArgumentException("No service found with name: " + serviceName);
@@ -543,6 +612,9 @@ public class CdsHooksService {
                 .planDefinitionJson(entity.getPlanDefinitionJson())
                 .cardGenerationMode(entity.getCardGenerationMode())
                 .prefetch(prefetch.isEmpty() ? null : prefetch)
+                .shared(entity.getShared())
+                .ownerUsername(entity.getOwnerUsername())
+                .tenantId(entity.getTenantId())
                 .build();
     }
 
@@ -611,7 +683,14 @@ public class CdsHooksService {
         String libName = matcher.group(1);
         String libVersion = matcher.group(2);
 
-        Optional<CqlLibraryEntity> existing = repo.findByNameAndVersion(libName, libVersion);
+        // Phase 2 (V62): cql_library is tenant-scoped. This runs on the request thread
+        // (CDS service create/update), so the tenant comes straight off TenantContext,
+        // defaulting to the default tenant for legacy callers with none. Both the lookup
+        // and the insert are scoped so a CDS sync never overwrites or collides with another
+        // clinic's same-named library.
+        Long tenantId = effectiveTenantId();
+        Optional<CqlLibraryEntity> existing =
+                repo.findByTenantIdAndNameAndVersion(tenantId, libName, libVersion);
         if (existing.isPresent()) {
             CqlLibraryEntity entity = existing.get();
             entity.setCqlContent(cqlContent);
@@ -624,10 +703,29 @@ public class CdsHooksService {
                     .version(libVersion)
                     .cqlContent(cqlContent)
                     .status("active")
+                    .tenantId(tenantId)
                     .build();
             repo.save(newLib);
             log.info("Created cql_library '{}' version '{}' from CDS service CQL", libName, libVersion);
         }
+    }
+
+    /**
+     * Effective tenant for CDS→cql_library sync: the caller's, or the default tenant for
+     * legacy callers with none. {@code tenantRepository} is Optional (absent in trimmed test
+     * slices); when it and the tenant context are both absent this returns null, which only
+     * happens in tests that also lack a cqlLibraryRepository — so no tenant-less row is ever
+     * persisted (see {@link #syncCqlLibrary} early-return guard).
+     */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository
+                .flatMap(r -> r.findByCode("default"))
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElse(null);
     }
 
     @lombok.Data
@@ -645,5 +743,10 @@ public class CdsHooksService {
         private String planDefinitionJson;
         private String cardGenerationMode;
         private Map<String, CdsServiceDefinition.PrefetchTemplate> prefetch;
+        // Phase 2 (#698 PR-C2): carried so invokeService can authorize from the cache
+        // without a DB round-trip — shared services are the anonymous surface.
+        private Boolean shared;
+        private String ownerUsername;
+        private Long tenantId;
     }
 }

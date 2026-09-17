@@ -123,9 +123,11 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
             value={(param.value as string) || ''}
             onChange={(e) => handleUpdate(param.uniqueId, { value: e.target.value || undefined })}
             sx={{ minWidth: 220 }}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
-        )
+        );
       case 'time':
         return (
           <TextField
@@ -135,13 +137,17 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
             value={(param.value as string) || ''}
             onChange={(e) => handleUpdate(param.uniqueId, { value: e.target.value || undefined })}
             sx={{ minWidth: 150 }}
-            InputLabelProps={{ shrink: true }}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
-        )
+        );
       case 'code': {
         const codeVal = (param.value as { system?: string; code?: string }) || {}
         return (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <TextField
               size="small"
               label={t('parameters.codeSystemUri')}
@@ -168,7 +174,7 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
               </IconButton>
             </Tooltip>
           </Stack>
-        )
+        );
       }
       case 'concept': {
         const conceptVal = (param.value as { system?: string; code?: string; display?: string }) || {}
@@ -235,7 +241,9 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
       case 'interval<integer>': {
         const intVal = (param.value as { low?: number; high?: number }) || {}
         return (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <TextField
               size="small"
               label={t('parameters.intervalLow')}
@@ -246,7 +254,9 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
               })}
               sx={{ width: 120 }}
             />
-            <Typography variant="body2" color="text.secondary">–</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>–</Typography>
             <TextField
               size="small"
               label={t('parameters.intervalHigh')}
@@ -258,12 +268,14 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
               sx={{ width: 120 }}
             />
           </Stack>
-        )
+        );
       }
       case 'interval<datetime>': {
         const dtVal = (param.value as { low?: string; high?: string }) || {}
         return (
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} sx={{
+            alignItems: "center"
+          }}>
             <TextField
               size="small"
               label={t('parameters.intervalStart')}
@@ -273,9 +285,13 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
                 value: { ...dtVal, low: e.target.value || undefined },
               })}
               sx={{ minWidth: 200 }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
-            <Typography variant="body2" color="text.secondary">–</Typography>
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>–</Typography>
             <TextField
               size="small"
               label={t('parameters.intervalEnd')}
@@ -285,10 +301,12 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
                 value: { ...dtVal, high: e.target.value || undefined },
               })}
               sx={{ minWidth: 200 }}
-              InputLabelProps={{ shrink: true }}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Stack>
-        )
+        );
       }
       default:
         return null
@@ -297,17 +315,26 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('parameters.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
           {t('parameters.add')}
         </GradientButton>
       </Stack>
-
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography
+        variant="body2"
+        sx={{
+          color: "text.secondary",
+          mb: 2
+        }}>
         {t('parameters.description')}
       </Typography>
-
       {parameters.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -319,59 +346,62 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
           {parameters.map((param) => {
             const nameError = getNameError(param)
             return (
-            <Card key={param.uniqueId} variant="outlined">
-              <CardContent>
-                <Stack direction="row" alignItems="center" spacing={2}>
+              <Card key={param.uniqueId} variant="outlined">
+                <CardContent>
+                  <Stack direction="row" spacing={2} sx={{
+                    alignItems: "center"
+                  }}>
+                    <TextField
+                      value={param.name}
+                      onChange={(e) => handleUpdate(param.uniqueId, { name: e.target.value })}
+                      size="small"
+                      label={t('parameters.nameLabel')}
+                      sx={{ flex: 1 }}
+                      error={!!nameError}
+                      helperText={nameError}
+                    />
+                    <Tooltip title={PARAMETER_TYPES.find((t) => t.value === param.type)?.hint || ''} placement="top">
+                      <FormControl size="small" sx={{ minWidth: 160 }}>
+                        <InputLabel>{t('parameters.typeLabel')}</InputLabel>
+                        <Select
+                          value={param.type}
+                          label={t('parameters.typeLabel')}
+                          onChange={(e) => handleUpdate(param.uniqueId, { type: e.target.value, value: undefined })}
+                        >
+                          {PARAMETER_TYPES.map((t) => (
+                            <MenuItem key={t.value} value={t.value}>
+                              <Box>
+                                <Typography variant="body2">{t.label}</Typography>
+                                <Typography variant="caption" sx={{
+                                  color: "text.secondary"
+                                }}>{t.hint}</Typography>
+                              </Box>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Tooltip>
+                    {renderValueField(param)}
+                    <Tooltip title={t('parameters.removeTooltip')}>
+                      <IconButton size="small" color="error" onClick={() => setPendingDeleteId(param.uniqueId)} aria-label={t('parameters.removeTooltip')}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                   <TextField
-                    value={param.name}
-                    onChange={(e) => handleUpdate(param.uniqueId, { name: e.target.value })}
+                    value={param.comment || ''}
+                    onChange={(e) => handleUpdate(param.uniqueId, { comment: e.target.value })}
                     size="small"
-                    label={t('parameters.nameLabel')}
-                    sx={{ flex: 1 }}
-                    error={!!nameError}
-                    helperText={nameError}
+                    label={t('parameters.commentLabel')}
+                    fullWidth
+                    sx={{ mt: 1.5 }}
+                    placeholder={t('parameters.commentPlaceholder')}
                   />
-                  <Tooltip title={PARAMETER_TYPES.find((t) => t.value === param.type)?.hint || ''} placement="top">
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                      <InputLabel>{t('parameters.typeLabel')}</InputLabel>
-                      <Select
-                        value={param.type}
-                        label={t('parameters.typeLabel')}
-                        onChange={(e) => handleUpdate(param.uniqueId, { type: e.target.value, value: undefined })}
-                      >
-                        {PARAMETER_TYPES.map((t) => (
-                          <MenuItem key={t.value} value={t.value}>
-                            <Box>
-                              <Typography variant="body2">{t.label}</Typography>
-                              <Typography variant="caption" color="text.secondary">{t.hint}</Typography>
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Tooltip>
-                  {renderValueField(param)}
-                  <Tooltip title={t('parameters.removeTooltip')}>
-                    <IconButton size="small" color="error" onClick={() => setPendingDeleteId(param.uniqueId)} aria-label={t('parameters.removeTooltip')}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-                <TextField
-                  value={param.comment || ''}
-                  onChange={(e) => handleUpdate(param.uniqueId, { comment: e.target.value })}
-                  size="small"
-                  label={t('parameters.commentLabel')}
-                  fullWidth
-                  sx={{ mt: 1.5 }}
-                  placeholder={t('parameters.commentPlaceholder')}
-                />
-              </CardContent>
-            </Card>
-          )})}
+                </CardContent>
+              </Card>
+            );})}
         </Stack>
       )}
-
       <ChooseCodeDialog
         open={!!codeDialogParamId}
         onClose={() => setCodeDialogParamId(null)}
@@ -384,7 +414,6 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
           setCodeDialogParamId(null)
         }}
       />
-
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('parameters.deleteTitle')}</DialogTitle>
         <DialogContent>
@@ -403,5 +432,5 @@ export default function Parameters({ parameters, onChange }: ParametersProps) {
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

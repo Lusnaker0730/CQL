@@ -31,8 +31,10 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
             const v = e.target.value
             onChange({ ...period, start: v ? v + ':00' : undefined })
           }}
-          InputLabelProps={{ shrink: true }}
           sx={{ flex: 1 }}
+          slotProps={{
+            inputLabel: { shrink: true }
+          }}
         />
         <TextField
           label={t('testCaseBuilder.fields.end')}
@@ -43,10 +45,12 @@ export default function PeriodField({ element, value, onChange }: PeriodFieldPro
             const v = e.target.value
             onChange({ ...period, end: v ? v + ':00' : undefined })
           }}
-          InputLabelProps={{ shrink: true }}
           sx={{ flex: 1 }}
+          slotProps={{
+            inputLabel: { shrink: true }
+          }}
         />
       </Box>
     </FieldWrapper>
-  )
+  );
 }

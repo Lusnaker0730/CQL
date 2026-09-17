@@ -40,7 +40,9 @@ export default function MeasuresPage() {
           <Typography variant="h6" sx={{ fontWeight: 700 }}>
             {t('page.title')}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('page.subtitle')}
           </Typography>
         </Box>
@@ -50,13 +52,11 @@ export default function MeasuresPage() {
           <Tab label={t('page.tabs.comparison')} />
         </Tabs>
       </Box>
-
       {topTab === 0 && (
         <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1, overflow: 'auto' }}>
           <MeasureDashboardPage />
         </Box>
       )}
-
       {topTab === 1 && (
         <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1 }}>
           <Grid container spacing={2} sx={{ height: '100%' }}>
@@ -83,12 +83,11 @@ export default function MeasuresPage() {
           </Grid>
         </Box>
       )}
-
       {topTab === 2 && (
         <Box sx={{ flex: 1, minHeight: 0, p: 2, pt: 1, overflow: 'auto' }}>
           <MeasureComparison />
         </Box>
       )}
     </Box>
-  )
+  );
 }

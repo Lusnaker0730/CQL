@@ -1,7 +1,13 @@
 package com.cqlplatform.controller;
 
+import com.cqlplatform.exception.MeasureNotEvaluableException;
+import com.cqlplatform.exception.ValidationException;
+import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
+import com.cqlplatform.model.measure.TestCase;
+import com.cqlplatform.service.measure.MeasureDefinitionService;
 import com.cqlplatform.service.measure.MeasureEvaluationService;
+import com.cqlplatform.service.measure.TestCaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -14,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -30,6 +37,12 @@ class MeasureControllerTest {
 
     @MockitoBean
     private MeasureEvaluationService measureService;
+
+    @MockitoBean
+    private MeasureDefinitionService definitionService;
+
+    @MockitoBean
+    private TestCaseService testCaseService;
 
     @Test
     @WithMockUser
@@ -66,6 +79,27 @@ class MeasureControllerTest {
                 .andExpect(status().isOk());
     }
 
+    // ===== PAT-219: stored measure must be active to evaluate =====
+
+    @Test
+    @WithMockUser
+    void evaluateMeasure_storedMeasureNotActive_shouldReturn409WithDistinctErrorLabel() throws Exception {
+        MeasureDefinition draft = MeasureDefinition.builder()
+                .id(7L).name("draft-measure").status("draft").scoringType("proportion")
+                .cqlContent("library D version '1.0'").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(draft));
+        when(measureService.evaluateMeasure(any(), eq(7L), any()))
+                .thenThrow(new MeasureNotEvaluableException(7L, "draft"));
+
+        mockMvc.perform(post("/api/measures/7/$evaluate-measure")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status").value(409))
+                .andExpect(jsonPath("$.error").value("Measure Not Evaluable"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("'draft'")));
+    }
+
     @Test
     @WithMockUser
     void evaluateCustomMeasure_shouldReturn200() throws Exception {
@@ -77,5 +111,75 @@ class MeasureControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"measureId\":\"custom\",\"measureCql\":\"library C version '1.0'\"}"))
                 .andExpect(status().isOk());
+    }
+
+    // ===== Test cases: tenant boundary (BUG-133) =====
+    //
+    // test_case.patient_bundle_json holds real $everything bundles imported from a clinic's
+    // EHR, and test_case has no tenant_id — its tenant is its parent measure's. So the whole
+    // boundary is the parent gate: definitionService.getById is tenant-scoped
+    // (findByIdAndTenantId), and an empty Optional is exactly what a foreign tenant's measure
+    // looks like to the caller.
+
+    @Test
+    @WithMockUser
+    void listTestCases_whenMeasureNotInCallersTenant_shouldNotReadTestCases() throws Exception {
+        when(definitionService.getById(42L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/measures/42/test-cases"))
+                .andExpect(status().isNotFound());
+
+        // The gate must run first — no PHI is fetched for a measure the caller can't see.
+        verify(testCaseService, never()).getTestCasesForMeasure(any());
+    }
+
+    @Test
+    @WithMockUser
+    void listTestCases_whenMeasureInCallersTenant_shouldReturnTestCases() throws Exception {
+        when(definitionService.getById(7L))
+                .thenReturn(Optional.of(MeasureDefinition.builder().id(7L).title("M").build()));
+        when(testCaseService.getTestCasesForMeasure(7L))
+                .thenReturn(List.of(TestCase.builder().id(1L).title("tc-1").build()));
+
+        mockMvc.perform(get("/api/measures/7/test-cases"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].title").value("tc-1"));
+    }
+    // ===== PAT-222: update carries the authenticated caller; status is not editable via PUT =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateMeasure_shouldPassTheAuthenticatedCallerToTheService() throws Exception {
+        MeasureDefinition owned = MeasureDefinition.builder()
+                .id(7L).name("m").version("1.0.0").status("draft").scoringType("proportion")
+                .ownerUsername("alice").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(owned));
+        when(definitionService.update(eq(7L), any(), eq("alice"))).thenReturn(owned);
+
+        mockMvc.perform(put("/api/measures/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"m\",\"version\":\"1.0.0\",\"status\":\"draft\",\"scoringType\":\"proportion\"}"))
+                .andExpect(status().isOk());
+
+        verify(definitionService).update(eq(7L), any(), eq("alice"));
+    }
+
+    @Test
+    @WithMockUser(username = "alice")
+    void updateMeasure_statusChangeRefusedByService_shouldSurfaceAs400WithGuidance() throws Exception {
+        MeasureDefinition owned = MeasureDefinition.builder()
+                .id(7L).name("m").version("1.0.0").status("draft").scoringType("proportion")
+                .ownerUsername("alice").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(owned));
+        when(definitionService.update(eq(7L), any(), eq("alice")))
+                .thenThrow(new ValidationException("Measure status cannot be changed through update (current: 'draft', "
+                        + "requested: 'active'). Use the review workflow: submit-for-review, approve, reject or retire."));
+
+        mockMvc.perform(put("/api/measures/7")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"m\",\"version\":\"1.0.0\",\"status\":\"active\",\"scoringType\":\"proportion\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Error"))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("review workflow")));
     }
 }

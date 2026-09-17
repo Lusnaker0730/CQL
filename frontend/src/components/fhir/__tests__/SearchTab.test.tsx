@@ -58,14 +58,14 @@ describe('SearchTab — PAT-134 history records correct params (P1)', () => {
   it('records the variables used by mutationFn (not stale React state) when history-replay fires', async () => {
     searchMock.mockResolvedValue({ resourceType: 'Bundle', entry: [], total: 0 })
 
-    render(<SearchTab fhirServer="https://hapi.example" resourceType="Patient" />)
+    render(<SearchTab connectionId={7} resourceType="Patient" />)
 
     // Trigger an immediate "history-replay-style" call via the search button
     // (the simpler default path also goes through the same onSuccess code).
     fireEvent.click(screen.getByRole('button', { name: 'search.searchButton' }))
 
     await waitFor(() => expect(addEntryMock).toHaveBeenCalledTimes(1))
-    // resourceType=Patient, params='', server=https://hapi.example
-    expect(addEntryMock).toHaveBeenCalledWith('Patient', '', 'https://hapi.example')
+    // resourceType=Patient, params='', connectionId=7
+    expect(addEntryMock).toHaveBeenCalledWith('Patient', '', 7)
   })
 })

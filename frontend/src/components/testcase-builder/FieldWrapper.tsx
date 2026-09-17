@@ -13,7 +13,14 @@ export default function FieldWrapper({ name, isRequired, extra, children }: Fiel
   const { t } = useTranslation('measures')
   return (
     <Box sx={{ mb: 1, pl: 1, borderLeft: 2, borderColor: 'divider' }}>
-      <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+      <Typography
+        variant="caption"
+        sx={{
+          fontWeight: 600,
+          color: "text.secondary",
+          mb: 0.5,
+          display: 'block'
+        }}>
         {name}
         {isRequired && (
           <Box component="span" aria-label={t('testCaseBuilder.requiredAria')} sx={{ ml: 0.5, color: 'error.main' }}>
@@ -24,5 +31,5 @@ export default function FieldWrapper({ name, isRequired, extra, children }: Fiel
       </Typography>
       {children}
     </Box>
-  )
+  );
 }

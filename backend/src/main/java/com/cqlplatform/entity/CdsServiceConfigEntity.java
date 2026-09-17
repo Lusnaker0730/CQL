@@ -74,6 +74,14 @@ public class CdsServiceConfigEntity {
     @EqualsAndHashCode.Exclude
     private List<CdsServicePrefetchEntity> prefetchItems = new ArrayList<>();
 
+    /**
+     * Tenant (clinic) this row belongs to — the isolation boundary (Phase 2, V64 / #698).
+     * NOT NULL since V66; assigned server-side on every write path (PAT-195..199).
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

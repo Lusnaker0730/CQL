@@ -71,6 +71,15 @@ public class CqlExecutionService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Counter cqlExecutionErrorCounter;
 
+    /**
+     * Resolves a stored, authenticated EhrConnection when a request carries a
+     * {@code connectionId} (Phase 1 — clinic executes against its own secured FHIR).
+     * Field-injected (required=false) so the existing integration-test constructors,
+     * which don't need it, keep working; it is only used when connectionId is set.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.cqlplatform.service.fhir.EhrConnectionService ehrConnectionService;
+
     @Value("${fhir.server.url:http://hapi-fhir:8080/fhir}")
     private String defaultFhirServerUrl;
 
@@ -188,10 +197,14 @@ public class CqlExecutionService {
         Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
         long startTime = System.currentTimeMillis();
 
+        // Phase 2: capture the caller's tenant and propagate it onto the execute thread so
+        // DatabaseLibrarySourceProvider resolves included libraries within that tenant.
+        final Long callerTenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
         Future<CqlExecutionResponse> future;
         try {
             future = executorService.submit(
-                    () -> doExecute(request, prefetchProvider, startTime));
+                    () -> com.cqlplatform.security.TenantContext.callWith(callerTenantId,
+                            () -> doExecute(request, prefetchProvider, startTime)));
         } catch (java.util.concurrent.RejectedExecutionException e) {
             if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
             if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
@@ -323,9 +336,14 @@ public class CqlExecutionService {
                                 request.getCql()));
             }
 
-            String fhirServerUrl = request.getFhirServerUrl() != null
-                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
-            log.debug("Using FHIR server URL: {}", fhirServerUrl);
+            // Phase 1: resolve an authenticated EhrConnection when the request targets one.
+            // When present, the FHIR URL + credentials come from the connection.
+            com.cqlplatform.entity.EhrConnectionEntity connection = resolveConnection(request);
+
+            String fhirServerUrl = connection != null ? connection.getFhirServerUrl()
+                    : (request.getFhirServerUrl() != null ? request.getFhirServerUrl() : defaultFhirServerUrl);
+            log.debug("Using FHIR server URL: {} (authenticated connection={})",
+                    fhirServerUrl, connection != null ? connection.getId() : "none");
 
             // Setup terminology provider
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
@@ -340,6 +358,12 @@ public class CqlExecutionService {
                     pfp.setTerminologyProvider(terminologyProvider);
                 }
                 retrieveProvider = prefetchProvider;
+            } else if (connection != null) {
+                // Authenticated clinic connection: retrieve directly via the authenticated
+                // REST client. The batch auto-prefetch optimisation is not yet wired for
+                // connections (Phase 1 follow-up) — correctness is unaffected, only per-
+                // retrieve batching.
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider, connection);
             } else if (request.getPatientId() != null) {
                 // Auto-prefetch: batch-fetch all needed resource types in one FHIR request
                 retrieveProvider = tryAutoPrefetch(request, fhirServerUrl, terminologyProvider, translator, elmJson);
@@ -824,8 +848,11 @@ public class CqlExecutionService {
             org.hl7.elm.r1.Library elmLibrary = ctx.elmLibrary();
             org.hl7.elm.r1.VersionedIdentifier libraryId = elmLibrary.getIdentifier();
 
-            String fhirServerUrl = request.getFhirServerUrl() != null
-                    ? request.getFhirServerUrl() : defaultFhirServerUrl;
+            // Phase 1: authenticated EHR connection (clinic evaluates the measure against
+            // its own secured FHIR server). Fail-closed via resolveConnection.
+            com.cqlplatform.entity.EhrConnectionEntity connection = resolveConnection(request);
+            String fhirServerUrl = connection != null ? connection.getFhirServerUrl()
+                    : (request.getFhirServerUrl() != null ? request.getFhirServerUrl() : defaultFhirServerUrl);
 
             long t1 = System.currentTimeMillis();
             TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
@@ -838,6 +865,10 @@ public class CqlExecutionService {
                     pfp.setTerminologyProvider(terminologyProvider);
                 }
                 retrieveProvider = prefetchProvider;
+            } else if (connection != null) {
+                // Authenticated clinic connection: retrieve via the authenticated REST client.
+                // (Batch prefetch for connections is a Phase 1 follow-up — correctness unaffected.)
+                retrieveProvider = dataProviderService.createDataProvider(fhirServerUrl, terminologyProvider, connection);
             } else if (request.getPatientId() != null) {
                 // Extract retrieve types directly from pre-translated ELM Library object
                 Set<String> retrieveTypes = extractRetrieveTypesFromLibrary(ctx.elmLibrary(), ctx.libraryManager());
@@ -1171,6 +1202,33 @@ public class CqlExecutionService {
      * Parses ELM to find Retrieve data types, then batch-fetches them.
      * Returns null if prefetch fails (caller should fall back to REST provider).
      */
+    /**
+     * Resolve the request's connectionId to a stored, active EhrConnection, or null when
+     * no connectionId is set. Fail-closed: when a connectionId IS given we must never
+     * silently fall back to an unauthenticated server, so a missing/inactive connection
+     * throws rather than degrading to the default FHIR server.
+     */
+    private com.cqlplatform.entity.EhrConnectionEntity resolveConnection(CqlExecutionRequest request) {
+        if (request.getConnectionId() == null) {
+            return null;
+        }
+        if (ehrConnectionService == null) {
+            throw new IllegalStateException("EHR connections are not available in this context");
+        }
+        com.cqlplatform.entity.EhrConnectionEntity connection =
+                // Tenant-scoped: PR#4 propagates the caller's tenant onto the async measure
+                // executor threads (MeasureEvaluationService), so getById resolves the
+                // connection within the caller's tenant on both sync and async paths. A
+                // cross-tenant connectionId reads as not-found. (The interim ADMIN guard on
+                // the controllers is retained as defence-in-depth during tenant rollout.)
+                ehrConnectionService.getById(request.getConnectionId()); // throws if not found / cross-tenant
+        if (!connection.isActive()) {
+            throw new IllegalArgumentException(
+                    "EHR connection " + request.getConnectionId() + " is inactive");
+        }
+        return connection;
+    }
+
     private RetrieveProvider tryAutoPrefetch(CqlExecutionRequest request, String fhirServerUrl,
             TerminologyProvider terminologyProvider, CqlTranslator translator, String elmJson) {
         try {

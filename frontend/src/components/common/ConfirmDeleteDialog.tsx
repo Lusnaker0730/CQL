@@ -30,7 +30,7 @@ export default function ConfirmDeleteDialog({
   onCancel,
   onConfirm,
   isPending = false,
-}: ConfirmDeleteDialogProps): JSX.Element {
+}: ConfirmDeleteDialogProps) {
   const { t } = useTranslation()
   const defaultMessage = t('dialogs.deleteConfirm.message', { itemName })
 

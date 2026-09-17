@@ -54,7 +54,7 @@ class FhirTerminologyServiceTest {
         Field metaField = FhirImplementationGuideService.class.getDeclaredField("packageMetadata");
         metaField.setAccessible(true);
         metaField.set(igService, new FhirImplementationGuideService.PackageMetadata(
-                "tw.gov.mohw.twcore", "0.3.2", "TW Core IG",
+                "tw.gov.mohw.twcore", "1.0.0", "TW Core IG",
                 "https://twcore.mohw.gov.tw/ig/twcore", "4.0.1", 0, 0, 0));
         Field vsField = FhirImplementationGuideService.class.getDeclaredField("validationSupport");
         vsField.setAccessible(true);

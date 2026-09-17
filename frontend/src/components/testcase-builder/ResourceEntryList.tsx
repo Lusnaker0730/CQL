@@ -45,11 +45,13 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
     return (
       <Box sx={{ p: 2, textAlign: 'center' }}>
         <InfoIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('testCaseBuilder.noResourcesYet')}
         </Typography>
       </Box>
-    )
+    );
   }
 
   return (
@@ -75,7 +77,9 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
                     sx={{ fontSize: '0.75rem', height: 22 }}
                   />
                   <Tooltip title={(entry.resourceData.id as string) || entry.id}>
-                    <Typography variant="caption" color="text.secondary" noWrap>
+                    <Typography variant="caption" noWrap sx={{
+                      color: "text.secondary"
+                    }}>
                       {(entry.resourceData.id as string) || entry.id}
                     </Typography>
                   </Tooltip>
@@ -96,7 +100,6 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
           </ListItemButton>
         ))}
       </List>
-
       <Dialog open={!!deleteId} onClose={() => setDeleteId(null)}>
         <DialogTitle>{t('testCaseBuilder.deleteResource')}</DialogTitle>
         <DialogContent>
@@ -110,5 +113,5 @@ export default function ResourceEntryList({ onDirty }: ResourceEntryListProps) {
         </DialogActions>
       </Dialog>
     </>
-  )
+  );
 }

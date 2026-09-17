@@ -10,8 +10,17 @@ interface SectionHeaderProps extends Omit<StackProps, 'title'> {
 
 function SectionHeader({ title, helpText, actions, ...stackProps }: SectionHeaderProps) {
   return (
-    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} {...stackProps}>
-      <Stack direction="row" spacing={0.5} alignItems="center">
+    <Stack
+      direction="row"
+      {...stackProps}
+      sx={[{
+        justifyContent: "space-between",
+        alignItems: "center",
+        mb: 2
+      }, ...(Array.isArray(stackProps.sx) ? stackProps.sx : [stackProps.sx])]}>
+      <Stack direction="row" spacing={0.5} sx={{
+        alignItems: "center"
+      }}>
         <Typography variant="h6">{title}</Typography>
         {helpText && <HelpTooltip text={helpText} />}
       </Stack>
@@ -21,7 +30,7 @@ function SectionHeader({ title, helpText, actions, ...stackProps }: SectionHeade
         </Stack>
       )}
     </Stack>
-  )
+  );
 }
 
 export default memo(SectionHeader)

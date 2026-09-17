@@ -4,6 +4,9 @@ import com.cqlplatform.entity.FailedImportEntity;
 import com.cqlplatform.entity.PatientImportEntity;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.repository.FailedImportRepository;
+import com.cqlplatform.repository.TenantRepository;
+import com.cqlplatform.security.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,6 +32,9 @@ class ImportRetryServiceTest {
     @Mock
     private PatientImportService patientImportService;
 
+    @Mock
+    private TenantRepository tenantRepository;
+
     @InjectMocks
     private ImportRetryService service;
 
@@ -36,6 +42,13 @@ class ImportRetryServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(service, "maxRetryAttempts", 3);
         ReflectionTestUtils.setField(service, "retryInitialDelaySeconds", 60);
+        // Exact-tenant assertions below rely on this (repo convention: tenant 7L).
+        TenantContext.setCurrentTenantId(7L);
+    }
+
+    @AfterEach
+    void clearTenant() {
+        TenantContext.clear();
     }
 
     // ===== recordFailure =====
@@ -62,6 +75,7 @@ class ImportRetryServiceTest {
         assertThat(result.getMaxRetries()).isEqualTo(3);
         assertThat(result.getCreatedBy()).isEqualTo("admin");
         assertThat(result.getNextRetryAt()).isNotNull();
+        assertThat(result.getTenantId()).isEqualTo(7L);  // Phase 2 — #698
     }
 
     @Test
@@ -97,7 +111,7 @@ class ImportRetryServiceTest {
         PatientImportEntity imported = new PatientImportEntity();
         imported.setId(100L);
 
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(failed));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(failed));
         when(failedImportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(patientImportService.importAsTestCase(5L, "Patient/123", null)).thenReturn(imported);
 
@@ -112,7 +126,7 @@ class ImportRetryServiceTest {
     void retryImport_failure_shouldIncrementRetry() {
         FailedImportEntity failed = createFailed(1L, "pending", 0);
 
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(failed));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(failed));
         when(failedImportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(patientImportService.importAsTestCase(5L, "Patient/123", null))
                 .thenThrow(new RuntimeException("Still failing"));
@@ -128,7 +142,7 @@ class ImportRetryServiceTest {
     void retryImport_exhausted_shouldMarkExhausted() {
         FailedImportEntity failed = createFailed(1L, "pending", 2); // Already retried twice
 
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(failed));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(failed));
         when(failedImportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(patientImportService.importAsTestCase(5L, "Patient/123", null))
                 .thenThrow(new RuntimeException("Still failing"));
@@ -143,7 +157,7 @@ class ImportRetryServiceTest {
     void retryImport_alreadyResolved_shouldThrow() {
         FailedImportEntity failed = createFailed(1L, "resolved", 1);
 
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(failed));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(failed));
 
         assertThatThrownBy(() -> service.retryImport(1L))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -156,7 +170,7 @@ class ImportRetryServiceTest {
         PatientImportEntity imported = new PatientImportEntity();
         imported.setId(100L);
 
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(failed));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(failed));
         when(failedImportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(patientImportService.importAsTestCase(5L, "Patient/123", null)).thenReturn(imported);
 
@@ -168,7 +182,7 @@ class ImportRetryServiceTest {
 
     @Test
     void retryImport_notFound_shouldThrow() {
-        when(failedImportRepository.findById(999L)).thenReturn(Optional.empty());
+        when(failedImportRepository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.retryImport(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -200,20 +214,48 @@ class ImportRetryServiceTest {
         verify(patientImportService).importAsTestCase(5L, "Patient/123", null);
     }
 
+    @Test
+    void processAutoRetries_reentersRowTenantOnSchedulerThread() {
+        // Scheduler thread has no TenantContext; each row's retry must run under the
+        // row's own tenant (PAT-189 pattern).
+        TenantContext.clear();
+
+        FailedImportEntity failed = createFailed(1L, "pending", 0);
+        failed.setTenantId(42L);
+        PatientImportEntity imported = new PatientImportEntity();
+        imported.setId(100L);
+
+        when(failedImportRepository.findDueForRetry(any())).thenReturn(List.of(failed));
+        when(failedImportRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        java.util.concurrent.atomic.AtomicReference<Long> seenTenant = new java.util.concurrent.atomic.AtomicReference<>();
+        when(patientImportService.importAsTestCase(5L, "Patient/123", null))
+                .thenAnswer(inv -> {
+                    seenTenant.set(TenantContext.getCurrentTenantId());
+                    return imported;
+                });
+
+        service.processAutoRetries();
+
+        assertThat(seenTenant.get()).isEqualTo(42L);
+        assertThat(TenantContext.getCurrentTenantId()).isNull();
+    }
+
     // ===== listFailedImports =====
 
     @Test
     void listFailedImports_withStatus_shouldFilter() {
-        when(failedImportRepository.findByStatusOrderByCreatedAtDesc("pending")).thenReturn(List.of());
+        when(failedImportRepository.findByTenantIdAndStatusOrderByCreatedAtDesc(7L, "pending")).thenReturn(List.of());
         service.listFailedImports("pending");
-        verify(failedImportRepository).findByStatusOrderByCreatedAtDesc("pending");
+        verify(failedImportRepository).findByTenantIdAndStatusOrderByCreatedAtDesc(7L, "pending");
+        verify(failedImportRepository, never()).findByStatusOrderByCreatedAtDesc(anyString());
     }
 
     @Test
     void listFailedImports_withoutStatus_shouldReturnAll() {
-        when(failedImportRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of());
+        when(failedImportRepository.findByTenantIdOrderByCreatedAtDesc(7L)).thenReturn(List.of());
         service.listFailedImports(null);
-        verify(failedImportRepository).findAllByOrderByCreatedAtDesc();
+        verify(failedImportRepository).findByTenantIdOrderByCreatedAtDesc(7L);
+        verify(failedImportRepository, never()).findAllByOrderByCreatedAtDesc();
     }
 
     // ===== deleteFailedImport =====
@@ -221,14 +263,14 @@ class ImportRetryServiceTest {
     @Test
     void deleteFailedImport_exists_shouldDelete() {
         FailedImportEntity entity = createFailed(1L, "pending", 0);
-        when(failedImportRepository.findById(1L)).thenReturn(Optional.of(entity));
+        when(failedImportRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         service.deleteFailedImport(1L);
         verify(failedImportRepository).delete(entity);
     }
 
     @Test
     void deleteFailedImport_notFound_shouldThrow() {
-        when(failedImportRepository.findById(999L)).thenReturn(Optional.empty());
+        when(failedImportRepository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.deleteFailedImport(999L))
                 .isInstanceOf(ResourceNotFoundException.class);
     }

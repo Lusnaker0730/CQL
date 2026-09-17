@@ -89,13 +89,11 @@ export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabPr
   return (
     <Box sx={{ maxWidth: 700 }}>
       <SectionHeader title={t('sharing.title')} />
-
       {error && (
         <Typography variant="body2" color="error" sx={{ mb: 2 }}>
           {error}
         </Typography>
       )}
-
       {/* Access Level */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>{t('metadata.accessLevel')}</Typography>
@@ -112,9 +110,7 @@ export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabPr
           ))}
         </Stack>
       </Box>
-
       <Divider sx={{ my: 2 }} />
-
       {/* Share with user */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>{t('sharing.shareWith')}</Typography>
@@ -136,12 +132,13 @@ export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabPr
           </GradientButton>
         </Stack>
       </Box>
-
       {/* Shared users list */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" gutterBottom>{t('sharing.sharedUsers')}</Typography>
         {sharedUsers.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('sharing.noSharedUsers')}
           </Typography>
         ) : (
@@ -169,13 +166,17 @@ export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabPr
           </List>
         )}
       </Box>
-
       <Divider sx={{ my: 2 }} />
-
       {/* Transfer ownership */}
       <Box>
         <Typography variant="subtitle2" gutterBottom>{t('sharing.transfer')}</Typography>
-        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            display: "block",
+            mb: 1
+          }}>
           {t('sharing.retainAccess')}
         </Typography>
         <Stack direction="row" spacing={1}>
@@ -199,5 +200,5 @@ export default function CqlLibrarySharingTab({ library }: CqlLibrarySharingTabPr
         </Stack>
       </Box>
     </Box>
-  )
+  );
 }

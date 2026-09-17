@@ -4,6 +4,7 @@ import { ContentCopy as CopyIcon, Check as CheckIcon } from '@mui/icons-material
 import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { COPY_FEEDBACK_TIMEOUT_MS } from '../../constants/timing'
+import { INNER_RADIUS } from '../../constants/layout'
 
 export const CODE_BLOCK_BG = '#1E1E2E'
 export const CODE_BLOCK_FG = '#D4D4D4'
@@ -25,7 +26,7 @@ export default function CodeBlock({ code, maxHeight = 320 }: CodeBlockProps) {
   }, [code])
 
   return (
-    <Box sx={{ position: 'relative', borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+    <Box sx={{ position: 'relative', borderRadius: INNER_RADIUS, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
       <Tooltip title={copied ? t('learn.examples.copied') : t('learn.examples.copyCode')}>
         <IconButton
           onClick={handleCopy}

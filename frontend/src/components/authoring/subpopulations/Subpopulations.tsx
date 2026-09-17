@@ -66,13 +66,18 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 2
+        }}>
         <Typography variant="h6">{t('subpopulations.title')}</Typography>
         <GradientButton startIcon={<AddIcon />} onClick={handleAdd}>
           {t('subpopulations.add')}
         </GradientButton>
       </Stack>
-
       {subpopulations.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
           <Typography variant="body2">
@@ -84,7 +89,13 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
           {subpopulations.filter((sp) => !sp.special).map((sp) => (
             <Card key={sp.uniqueId} variant="outlined">
               <CardContent>
-                <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{
+                    alignItems: "center",
+                    mb: 2
+                  }}>
                   <TextField
                     value={sp.subpopulationName}
                     onChange={(e) => handleNameChange(sp.uniqueId, e.target.value)}
@@ -126,7 +137,6 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
           ))}
         </Stack>
       )}
-
       <Dialog open={!!pendingDeleteId} onClose={() => setPendingDeleteId(null)}>
         <DialogTitle>{t('subpopulations.deleteTitle')}</DialogTitle>
         <DialogContent>
@@ -145,5 +155,5 @@ export default function Subpopulations({ subpopulations, templates, modifiers, d
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

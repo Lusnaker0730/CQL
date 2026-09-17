@@ -78,8 +78,11 @@ public class CqlTranslationService {
         if (cqlTranslationCounter != null) cqlTranslationCounter.increment();
         Timer.Sample sample = cqlTranslationTimer != null ? Timer.start() : null;
 
+        // Phase 2: capture the caller's tenant and propagate it onto the translate thread so
+        // DatabaseLibrarySourceProvider resolves included libraries within that tenant.
+        final Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
         Future<CqlTranslationResponse> future = TRANSLATION_EXECUTOR.submit(
-                () -> doTranslate(request));
+                () -> com.cqlplatform.security.TenantContext.callWith(tenantId, () -> doTranslate(request)));
         try {
             CqlTranslationResponse response = future.get(translationTimeoutSeconds, TimeUnit.SECONDS);
             if (sample != null && cqlTranslationTimer != null) sample.stop(cqlTranslationTimer);

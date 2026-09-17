@@ -18,7 +18,9 @@ export default function ResourceFormHeader({ resourceType, resourceId, onIdChang
         size="small"
         sx={{ fontWeight: 600 }}
       />
-      <Typography variant="caption" color="text.secondary">{t('testCaseBuilder.idLabel')}</Typography>
+      <Typography variant="caption" sx={{
+        color: "text.secondary"
+      }}>{t('testCaseBuilder.idLabel')}</Typography>
       <TextField
         size="small"
         value={resourceId}
@@ -28,5 +30,5 @@ export default function ResourceFormHeader({ resourceType, resourceId, onIdChang
         variant="standard"
       />
     </Box>
-  )
+  );
 }

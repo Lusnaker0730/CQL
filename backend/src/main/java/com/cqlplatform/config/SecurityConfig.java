@@ -5,6 +5,7 @@ import com.cqlplatform.security.JwtAuthenticationFilter;
 import com.cqlplatform.security.RateLimitFilter;
 import com.cqlplatform.security.RequestTracingFilter;
 import com.cqlplatform.security.UserRateLimitFilter;
+import com.cqlplatform.security.TenantRateLimitFilter;
 import com.cqlplatform.security.XssFilter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class SecurityConfig {
     private final AuditFilter auditFilter;
     private final RateLimitFilter rateLimitFilter;
     private final UserRateLimitFilter userRateLimitFilter;
+    private final TenantRateLimitFilter tenantRateLimitFilter;
     private final XssFilter xssFilter;
 
     @Value("${spring.h2.console.enabled:false}")
@@ -171,7 +173,8 @@ public class SecurityConfig {
                 .addFilterBefore(xssFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterAfter(userRateLimitFilter, JwtAuthenticationFilter.class)
-                .addFilterAfter(auditFilter, UserRateLimitFilter.class);
+                .addFilterAfter(tenantRateLimitFilter, UserRateLimitFilter.class)
+                .addFilterAfter(auditFilter, TenantRateLimitFilter.class);
 
         return http.build();
     }
@@ -181,6 +184,7 @@ public class SecurityConfig {
         // Public auth endpoints
         auth.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/auth/clinic-applications").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/reset-password").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/okta/config").permitAll()
@@ -202,7 +206,9 @@ public class SecurityConfig {
                 // Actuator: health is always public
                 .requestMatchers("/actuator/health").permitAll()
                 // Deploy-change detection for SPA cache-bust — no sensitive data exposed
-                .requestMatchers(HttpMethod.GET, "/api/version").permitAll();
+                .requestMatchers(HttpMethod.GET, "/api/version").permitAll()
+                // PAT-209: public status page. Coarse reachability only, no sensitive data.
+                .requestMatchers(HttpMethod.GET, "/api/status").permitAll();
 
         // /actuator/prometheus is handled by the dedicated @Order(0) chain
         // (prometheusSecurityChain) — this chain never sees that path.

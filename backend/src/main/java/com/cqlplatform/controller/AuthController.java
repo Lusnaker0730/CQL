@@ -44,6 +44,8 @@ public class AuthController {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final UserRepository userRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.security.PlatformOperatorGuard platformOperatorGuard;
     private final PasswordEncoder passwordEncoder;
     private final PasswordResetService passwordResetService;
     private final RefreshTokenService refreshTokenService;
@@ -109,6 +111,18 @@ public class AuthController {
         var user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new ResourceNotFoundException("User", request.getUsername()));
 
+        // #700: a deactivated clinic blocks its users at login. tenantId == null is a
+        // legacy/platform account (resolves to the default tenant) — always allowed.
+        if (user.getTenantId() != null) {
+            boolean tenantActive = tenantRepository.findById(user.getTenantId())
+                    .map(t -> Boolean.TRUE.equals(t.getActive()))
+                    .orElse(false);
+            if (!tenantActive) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Your clinic account is deactivated. Contact the platform operator."));
+            }
+        }
+
         TokenPair pair = refreshTokenService.createTokenPair(user);
         cookieUtil.addRefreshTokenCookie(response, pair.refreshToken(),
                 jwtTokenProvider.getRefreshExpirationMs());
@@ -119,6 +133,7 @@ public class AuthController {
                 .role(user.getRole().name())
                 .expiresIn(pair.accessExpiresIn())
                 .forcePasswordChange(Boolean.TRUE.equals(user.getForcePasswordChange()))
+                .platformOperator(platformOperatorGuard.isPlatformOperator(user.getTenantId()))
                 .build());
     }
 

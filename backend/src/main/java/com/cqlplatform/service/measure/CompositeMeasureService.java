@@ -25,6 +25,11 @@ public class CompositeMeasureService {
 
     public MeasureEvaluationResult evaluateComposite(MeasureDefinition composite,
                                                       MeasureEvaluationRequest baseRequest) {
+        // PAT-219: the composite parent never passes through MeasureEvaluationService itself
+        // (only its components do), so it needs its own lifecycle gate — before any component
+        // is even looked up.
+        MeasureStatusGuard.requireEvaluable(composite.getId(), composite);
+
         List<Long> componentIds = composite.getComponentMeasureIds();
         if (componentIds == null || componentIds.isEmpty()) {
             throw new IllegalArgumentException("Composite measure has no component measures defined");

@@ -28,7 +28,19 @@ public class AsyncPatientImportService {
 
     private final BatchImportJobRepository jobRepository;
     private final PatientImportService patientImportService;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     /**
      * Create a batch import job and return immediately. The caller should trigger
@@ -42,6 +54,9 @@ public class AsyncPatientImportService {
         job.setStatus("pending");
         job.setMeasureId(request.getMeasureId());
         job.setCreatedBy(SecurityUtils.getCurrentUsername("system"));
+        // Captured on the request thread; executeBatchImport re-enters this tenant on the
+        // async executor thread via TenantContext.callWith (the ThreadLocal doesn't cross).
+        job.setTenantId(effectiveTenantId());
 
         try {
             job.setPatientIds(MAPPER.writeValueAsString(request.getPatientIds()));
@@ -58,11 +73,29 @@ public class AsyncPatientImportService {
 
     /**
      * Execute the batch import asynchronously.
+     *
+     * <p>Runs on the {@code patientImportExecutor} thread where the request thread's
+     * {@code TenantContext} ThreadLocal is NOT visible. Without re-entering the job's
+     * tenant, every downstream tenant-scoped lookup would resolve against the default
+     * tenant — most immediately {@code EhrConnectionService.getById} (tenant-scoped since
+     * PAT-180), which would fail the whole batch for any non-default clinic. Same
+     * propagation pattern as PAT-181/184/189: capture at submit, re-enter via callWith.
      */
     @Async("patientImportExecutor")
     public void executeBatchImport(Long jobId) {
+        // System lookup by id — the tenant to run under comes from the job row itself
+        // (assigned on the request thread in submitBatchImport).
         BatchImportJobEntity job = jobRepository.findById(jobId)
                 .orElseThrow(() -> new ResourceNotFoundException("Batch import job not found: " + jobId));
+        Long jobTenant = job.getTenantId() != null ? job.getTenantId() : effectiveTenantId();
+        com.cqlplatform.security.TenantContext.callWith(jobTenant, () -> {
+            doExecuteBatchImport(job);
+            return null;
+        });
+    }
+
+    private void doExecuteBatchImport(BatchImportJobEntity job) {
+        Long jobId = job.getId();
 
         job.setStatus("running");
         job.setStartedAt(LocalDateTime.now());
@@ -151,16 +184,16 @@ public class AsyncPatientImportService {
 
     @Transactional(readOnly = true)
     public BatchImportJobEntity getJob(Long jobId) {
-        return jobRepository.findById(jobId)
+        return jobRepository.findByIdAndTenantId(jobId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Batch import job not found: " + jobId));
     }
 
     @Transactional(readOnly = true)
     public List<BatchImportJobEntity> listJobs(String createdBy) {
         if (createdBy != null && !createdBy.isBlank()) {
-            return jobRepository.findByCreatedByOrderByCreatedAtDesc(createdBy);
+            return jobRepository.findByTenantIdAndCreatedByOrderByCreatedAtDesc(effectiveTenantId(), createdBy);
         }
-        return jobRepository.findAllByOrderByCreatedAtDesc();
+        return jobRepository.findByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
     }
 
     @Transactional

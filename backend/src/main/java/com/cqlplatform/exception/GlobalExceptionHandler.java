@@ -40,6 +40,17 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
+    /**
+     * PAT-219: a stored measure that is not {@code active} was asked to evaluate. 409 rather
+     * than 400 — the request is well-formed, it conflicts with the measure's lifecycle state.
+     * The distinct {@code error} label lets EHR integrators tell "not approved yet" apart from
+     * a duplicate-resource conflict without parsing the message.
+     */
+    @ExceptionHandler(MeasureNotEvaluableException.class)
+    public ResponseEntity<ErrorResponse> handleMeasureNotEvaluableException(MeasureNotEvaluableException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Measure Not Evaluable", ex.getMessage());
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());
@@ -199,6 +210,18 @@ public class GlobalExceptionHandler {
         log.warn("Malformed request body: {}", msg);
         return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request",
                 "Request body is not valid JSON or does not match the expected schema.");
+    }
+
+    // A query/path param that can't be bound to its declared type (e.g. connectionId=abc
+    // for a Long) is a client mistake, not a server fault. Without this it falls through to
+    // the generic 500 handler. (PAT-212)
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleTypeMismatch(
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        String expected = ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "the expected type";
+        log.warn("Parameter type mismatch: {}={} (expected {})", ex.getName(), ex.getValue(), expected);
+        return buildResponse(HttpStatus.BAD_REQUEST, "Bad Request",
+                "Parameter '" + ex.getName() + "' has an invalid value for " + expected + ".");
     }
 
     // Thrown when an AbortPolicy-backed thread pool is saturated. Today that's

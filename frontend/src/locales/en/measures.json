@@ -117,6 +117,7 @@
       "name": "Name",
       "version": "Version",
       "status": "Status",
+      "statusReadOnly": "Changed only through the review workflow: submit for review, approve, reject, retire.",
       "titleField": "Title",
       "description": "Description",
       "scoringType": "Scoring Type",
@@ -212,6 +213,7 @@
       "name": "Name",
       "version": "Version",
       "status": "Status",
+      "statusReadOnly": "Changed only through the review workflow: submit for review, approve, reject, retire.",
       "scoringType": "Scoring Type",
       "measureSet": "Measure Set",
       "measureSetPlaceholder": "e.g. CMS Quality Reporting",
@@ -442,7 +444,8 @@
     "evaluateMeasure": "Evaluate Measure",
     "schedules": "Schedules",
     "evaluationFailed": "Evaluation failed: {{error}}",
-    "emptyState": "Click \"Evaluate Measure\" to run the measure against patient data."
+    "emptyState": "Click \"Evaluate Measure\" to run the measure against patient data.",
+    "notActiveWarning": "Only active measures can be evaluated against patient data. Verify draft logic in the Test Cases tab, or submit this measure for review and approve it first."
   },
   "testCases": {
     "title": "Test Cases",

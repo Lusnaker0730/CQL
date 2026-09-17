@@ -1,6 +1,7 @@
 import { Box, Typography, Paper, Grid } from '@mui/material'
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
+import { CARD_RADIUS } from '../../constants/layout'
 
 const AGGREGATE_CODE = `library AggregateExample version '1.0.0'
 using FHIR version '4.0.1'
@@ -119,21 +120,43 @@ export default function AdvancedTopics() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.advanced.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.advanced.subtitle')}
       </Typography>
-
       <Grid container spacing={3}>
         {TOPICS.map(({ key, code }) => (
           <Grid key={key} size={12}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-              <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+            <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  fontWeight: 700,
+                  color: "primary.main"
+                }}>
                 {t(`learn.advanced.${key}.title`)}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 2,
+                  lineHeight: 1.7
+                }}>
                 {t(`learn.advanced.${key}.description`)}
               </Typography>
               <CodeBlock code={code} maxHeight={400} />
@@ -142,5 +165,5 @@ export default function AdvancedTopics() {
         ))}
       </Grid>
     </Box>
-  )
+  );
 }

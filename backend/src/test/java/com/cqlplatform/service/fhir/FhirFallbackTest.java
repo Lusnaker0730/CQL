@@ -47,7 +47,7 @@ class FhirFallbackTest {
 
         assertThatThrownBy(() ->
                 ReflectionTestUtils.invokeMethod(dataProviderService,
-                        "searchResourcesFallback", "http://fhir.example.com", "Patient", (String) null, cause))
+                        "searchResourcesFallback", (com.cqlplatform.entity.EhrConnectionEntity) null, "Patient", (String) null, cause))
                 .isInstanceOf(FhirServerUnavailableException.class)
                 .hasMessageContaining("Connection refused")
                 .hasCause(cause);
@@ -60,7 +60,7 @@ class FhirFallbackTest {
         assertThatThrownBy(() ->
                 ReflectionTestUtils.invokeMethod(dataProviderService,
                         "searchPatientsByDemographicsFallback",
-                        "http://fhir.example.com", "Smith", "John", "1990-01-01", (String) null, cause))
+                        (com.cqlplatform.entity.EhrConnectionEntity) null, "Smith", "John", "1990-01-01", (String) null, cause))
                 .isInstanceOf(FhirServerUnavailableException.class)
                 .hasMessageContaining("Timeout")
                 .hasCause(cause);

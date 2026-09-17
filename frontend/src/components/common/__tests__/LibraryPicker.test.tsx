@@ -45,16 +45,15 @@ describe('LibraryPicker — PAT-133 race + error handling (P1)', () => {
     showNotificationMock.mockReset()
   })
 
-  it('calls onSelect with the most-recent click winning (race-guard)', async () => {
-    // First click → slow response; second click → fast response. The user's
-    // expectation is that the second click's library is what loads.
+  it('blocks concurrent selection while a load is in flight, then selects once (race-guard)', async () => {
+    // The list is disabled while a selection is loading (disabled={loading}), so a
+    // second click cannot start a competing request — only one getLibrary is ever
+    // dispatched, and onSelect fires exactly once with that library. The internal
+    // requestTokenRef guard remains as defense-in-depth for supersession the UI
+    // can't prevent (e.g. a new search mid-flight).
     let resolveFirst: (v: { cqlContent: string }) => void = () => {}
-    let resolveSecond: (v: { cqlContent: string }) => void = () => {}
     getLibraryMock.mockImplementationOnce(
       () => new Promise<{ cqlContent: string }>((r) => { resolveFirst = r }),
-    )
-    getLibraryMock.mockImplementationOnce(
-      () => new Promise<{ cqlContent: string }>((r) => { resolveSecond = r }),
     )
     getLibrariesMock.mockResolvedValue([
       { id: 'lib-A', name: 'Library A', version: '1.0' },
@@ -69,20 +68,18 @@ describe('LibraryPicker — PAT-133 race + error handling (P1)', () => {
       target: { value: 'lib' },
     })
     const A = await screen.findByText('Library A', {}, { timeout: 1500 })
-    const B = await screen.findByText('Library B')
+    await screen.findByText('Library B')
 
-    fireEvent.click(A) // dispatches getLibrary('lib-A') — slow
-    fireEvent.click(B) // dispatches getLibrary('lib-B') — fast
+    fireEvent.click(A) // dispatches getLibrary('lib-A'); list becomes disabled
+    // A second click while loading is a no-op — the list item is now disabled.
+    fireEvent.click(screen.getByText('Library B'))
+    expect(getLibraryMock).toHaveBeenCalledTimes(1)
+    expect(getLibraryMock).toHaveBeenCalledWith('lib-A')
 
-    // Resolve B first (most-recent click)
-    resolveSecond({ cqlContent: 'cql-from-B' })
-    await waitFor(() => expect(onSelect).toHaveBeenCalledWith('cql-from-B'))
-
-    // Now resolve A (the superseded request) — should NOT call onSelect again
+    // Resolving the single in-flight request selects that library exactly once.
     resolveFirst({ cqlContent: 'cql-from-A' })
-    await new Promise((r) => setTimeout(r, 10))
+    await waitFor(() => expect(onSelect).toHaveBeenCalledWith('cql-from-A'))
     expect(onSelect).toHaveBeenCalledTimes(1)
-    expect(onSelect).not.toHaveBeenCalledWith('cql-from-A')
   })
 
   it('shows an error notification when getLibrary throws (no more silent catch)', async () => {

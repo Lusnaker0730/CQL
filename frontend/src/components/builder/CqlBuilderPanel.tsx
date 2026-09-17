@@ -248,8 +248,18 @@ export default function CqlBuilderPanel({
           borderColor: (theme) => alpha(theme.palette.primary.main, 0.1),
         }}
       >
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
-          <Typography variant="subtitle2" fontWeight={600} color="secondary.main">
+        <Stack
+          direction="row"
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center"
+          }}>
+          <Typography
+            variant="subtitle2"
+            sx={{
+              fontWeight: 600,
+              color: "secondary.main"
+            }}>
             {t('title')}
           </Typography>
           <Button
@@ -263,18 +273,18 @@ export default function CqlBuilderPanel({
           </Button>
         </Stack>
         {structure.libraryId && (
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {structure.libraryId} v{structure.libraryVersion}
           </Typography>
         )}
       </Box>
-
       {parseError && (
         <Alert severity="warning" sx={{ mx: 1, mt: 1, py: 0, whiteSpace: 'pre-line' }}>
           {parseError}
         </Alert>
       )}
-
       <Box sx={{ flex: 1, overflow: 'auto', p: 0.5 }}>
         {sections.map((section) => (
           <Accordion
@@ -283,7 +293,6 @@ export default function CqlBuilderPanel({
             onChange={handleAccordion(section.id)}
             disableGutters
             elevation={0}
-            TransitionProps={{ unmountOnExit: true }}
             sx={{
               '&:before': { display: 'none' },
               border: '1px solid',
@@ -291,6 +300,9 @@ export default function CqlBuilderPanel({
               borderRadius: '4px !important',
               mb: 0.5,
               '&.Mui-expanded': { mb: 0.5 },
+            }}
+            slotProps={{
+              transition: { unmountOnExit: true }
             }}
           >
             <AccordionSummary
@@ -300,8 +312,12 @@ export default function CqlBuilderPanel({
                 '& .MuiAccordionSummary-content': { my: 0.5 },
               }}
             >
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography variant="body2" fontWeight={500}>
+              <Stack direction="row" spacing={1} sx={{
+                alignItems: "center"
+              }}>
+                <Typography variant="body2" sx={{
+                  fontWeight: 500
+                }}>
                   {section.label}
                 </Typography>
                 <Chip
@@ -322,7 +338,6 @@ export default function CqlBuilderPanel({
           </Accordion>
         ))}
       </Box>
-
       <Dialog open={!!duplicateWarning} onClose={() => setDuplicateWarning(null)}>
         <DialogTitle>{t('duplicateWarning.title')}</DialogTitle>
         <DialogContent>
@@ -344,5 +359,5 @@ export default function CqlBuilderPanel({
         </DialogActions>
       </Dialog>
     </Box>
-  )
+  );
 }

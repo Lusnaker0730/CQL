@@ -36,9 +36,31 @@ class MeasureReportServiceVersionTrackingTest {
     private MeasureReportNormalizer normalizer;
     @Mock
     private MeasureDefinitionRepository measureDefinitionRepository;
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
 
     @InjectMocks
     private MeasureReportService service;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setTenant() {
+        // Phase 2: saveReport derives tenant from TenantContext; set one so tests exercise
+        // the effectiveTenantId path without a repo stub.
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(7L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
+    }
+
+    @org.junit.jupiter.api.Test
+    void getRecentReports_scopesToCallerTenant() {
+        when(repository.findTop50ByTenantIdOrderByCreatedAtDesc(7L)).thenReturn(java.util.List.of());
+        service.getRecentReports();
+        org.mockito.Mockito.verify(repository).findTop50ByTenantIdOrderByCreatedAtDesc(7L); // exact tenant
+        org.mockito.Mockito.verify(repository, org.mockito.Mockito.never()).findTop50ByOrderByCreatedAtDesc();
+    }
 
     private MeasureEvaluationResult minimalResult() {
         return MeasureEvaluationResult.builder()

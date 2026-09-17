@@ -31,6 +31,17 @@ public class FhirController {
     private final VsacService vsacService;
     private final FhirContext fhirContext;
     private final FhirStructureDefinitionService structureDefinitionService;
+    private final com.cqlplatform.service.fhir.EhrConnectionService connectionService;
+
+    /**
+     * PAT-212 — resolve the target for a browse/CRUD request. A connectionId is resolved through
+     * the tenant-scoped EhrConnectionService.getById (a connection in another tenant reads as
+     * not-found), so callers can only reach their own connections. No connectionId → null → the
+     * shared sandbox HAPI. Arbitrary FHIR server URLs are no longer accepted.
+     */
+    private com.cqlplatform.entity.EhrConnectionEntity resolveConnection(Long connectionId) {
+        return connectionId != null ? connectionService.getById(connectionId) : null;
+    }
 
     @Autowired(required = false)
     private FhirImplementationGuideService igService;
@@ -225,16 +236,14 @@ public class FhirController {
     @PostMapping("/$export")
     @Operation(summary = "Kick Off Bulk Export", description = "Start a bulk data export operation")
     public ResponseEntity<FhirBulkExportService.BulkExportKickOffResult> kickOffExport(
-            @RequestParam String fhirServer,
+            @RequestParam(required = false) Long connectionId,
             @RequestParam(defaultValue = "system") String exportType,
             @RequestParam(name = "_outputFormat", required = false) String outputFormat,
             @RequestParam(name = "_since", required = false) String since,
             @RequestParam(name = "_type", required = false) String typeFilter) {
 
-        InputValidator.requireValidUrl(fhirServer);
-
         FhirBulkExportService.BulkExportKickOffResult result =
-                bulkExportService.kickOffExport(fhirServer, exportType, outputFormat, since, typeFilter);
+                bulkExportService.kickOffExport(resolveConnection(connectionId), exportType, outputFormat, since, typeFilter);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(result);
     }
 
@@ -257,15 +266,11 @@ public class FhirController {
     @PostMapping(value = "/Bundle/$transaction", consumes = MediaType.APPLICATION_JSON_VALUE)
     @Operation(summary = "Execute Transaction", description = "Execute a FHIR batch or transaction bundle")
     public ResponseEntity<String> executeTransaction(
-            @RequestParam(required = false) String fhirServer,
+            @RequestParam(required = false) Long connectionId,
             @RequestBody String bundleJson) {
 
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
-
         Bundle bundle = (Bundle) fhirContext.newJsonParser().parseResource(bundleJson);
-        Bundle result = dataProviderService.executeTransaction(fhirServer, bundle);
+        Bundle result = dataProviderService.executeTransactionForConnection(resolveConnection(connectionId), bundle);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(result);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -314,7 +319,7 @@ public class FhirController {
             @RequestParam(required = false) String given,
             @RequestParam(required = false) String birthdate,
             @RequestParam(required = false) String identifier,
-            @RequestParam(required = false) String fhirServer) {
+            @RequestParam(required = false) Long connectionId) {
 
         if (!InputValidator.isValidNameParam(family)) {
             throw new IllegalArgumentException("Invalid family name parameter");
@@ -326,11 +331,8 @@ public class FhirController {
             throw new IllegalArgumentException("Invalid birthdate parameter");
         }
         InputValidator.requireValidIdentifierParam(identifier);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
-        Bundle bundle = dataProviderService.searchPatientsByDemographics(fhirServer, family, given, birthdate, identifier);
+        Bundle bundle = dataProviderService.searchPatientsByDemographics(resolveConnection(connectionId), family, given, birthdate, identifier);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -386,18 +388,15 @@ public class FhirController {
     @Operation(summary = "Search Resources", description = "Search FHIR resources")
     public ResponseEntity<String> searchResources(
             @PathVariable String resourceType,
-            @RequestParam(required = false) String fhirServer,
+            @RequestParam(required = false) Long connectionId,
             @RequestParam(required = false) String params) {
 
         if (!InputValidator.isValidFhirResourceType(resourceType)) {
             throw new IllegalArgumentException("Invalid FHIR resource type: " + resourceType);
         }
         InputValidator.requireValidSearchParams(params);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
-        Bundle bundle = dataProviderService.searchResources(fhirServer, resourceType, params);
+        Bundle bundle = dataProviderService.searchResources(resolveConnection(connectionId), resourceType, params);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -409,15 +408,12 @@ public class FhirController {
     public ResponseEntity<String> readResource(
             @PathVariable String resourceType,
             @PathVariable String id,
-            @RequestParam(required = false) String fhirServer) {
+            @RequestParam(required = false) Long connectionId) {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
-        Resource resource = dataProviderService.getResource(fhirServer, resourceType, id);
+        Resource resource = dataProviderService.getResource(resolveConnection(connectionId), resourceType, id);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(resource);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -428,16 +424,13 @@ public class FhirController {
     @Operation(summary = "Create Resource", description = "Create a new FHIR resource")
     public ResponseEntity<String> createResource(
             @PathVariable String resourceType,
-            @RequestParam(required = false) String fhirServer,
+            @RequestParam(required = false) Long connectionId,
             @RequestBody String resourceJson) {
 
         InputValidator.requireValidFhirResourceType(resourceType);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
-        Resource created = dataProviderService.createResource(fhirServer, resource);
+        Resource created = dataProviderService.createResource(resolveConnection(connectionId), resource);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(created);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -449,18 +442,15 @@ public class FhirController {
     public ResponseEntity<String> updateResource(
             @PathVariable String resourceType,
             @PathVariable String id,
-            @RequestParam(required = false) String fhirServer,
+            @RequestParam(required = false) Long connectionId,
             @RequestBody String resourceJson) {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
         Resource resource = (Resource) fhirContext.newJsonParser().parseResource(resourceJson);
         resource.setId(id);
-        Resource updated = dataProviderService.updateResource(fhirServer, resource);
+        Resource updated = dataProviderService.updateResource(resolveConnection(connectionId), resource);
         String json = fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(updated);
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_JSON)
@@ -472,15 +462,12 @@ public class FhirController {
     public ResponseEntity<Void> deleteResource(
             @PathVariable String resourceType,
             @PathVariable String id,
-            @RequestParam(required = false) String fhirServer) {
+            @RequestParam(required = false) Long connectionId) {
 
         InputValidator.requireValidFhirResourceType(resourceType);
         InputValidator.requireValidResourceId(id);
-        if (fhirServer != null) {
-            InputValidator.requireValidUrl(fhirServer);
-        }
 
-        dataProviderService.deleteResource(fhirServer, resourceType, id);
+        dataProviderService.deleteResource(resolveConnection(connectionId), resourceType, id);
         return ResponseEntity.noContent().build();
     }
 

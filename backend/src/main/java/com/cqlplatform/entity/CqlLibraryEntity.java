@@ -56,6 +56,16 @@ public class CqlLibraryEntity {
     @Builder.Default
     private String accessLevel = "private";
 
+    /**
+     * Tenant (clinic) that owns this library — the isolation boundary (Phase 2).
+     * Assigned server-side; existing rows were backfilled to the default tenant. NOT NULL
+     * as of V62 (hardening); uniqueness is scoped per-tenant via
+     * uq_cql_library_tenant_name_version (tenant_id, name, version).
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @Column(name = "dependencies", columnDefinition = "TEXT")
     private String dependencies;
 

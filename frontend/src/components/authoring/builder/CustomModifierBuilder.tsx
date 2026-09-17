@@ -96,7 +96,7 @@ function inputTypeToResourceName(inputType: string): string | null {
 
 /** Capitalize first letter of each word for labels: "clinicalStatus" → "Clinical Status" */
 function toLabel(name: string): string {
-  return name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim()
+  return name.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()).trim();
 }
 
 function createEmptyRule(): ModifierRule {
@@ -243,12 +243,21 @@ export default function CustomModifierBuilder({
       </DialogTitle>
       <DialogContent>
         {availableFields.length === 0 ? (
-          <Typography color="text.secondary" sx={{ py: 2 }}>
+          <Typography
+            sx={{
+              color: "text.secondary",
+              py: 2
+            }}>
             {t('customModifier.notAvailable', { type: inputType.replace(/_/g, ' ') })}
           </Typography>
         ) : (
           <>
-            <Typography variant="body2" color="text.secondary" mb={2}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2
+              }}>
               {t('customModifier.description')}
             </Typography>
             <RuleGroupEditor
@@ -269,7 +278,7 @@ export default function CustomModifierBuilder({
         </Button>
       </DialogActions>
     </Dialog>
-  )
+  );
 }
 
 // ---------- RuleGroupEditor ----------
@@ -334,7 +343,13 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
         backgroundColor: depth > 0 ? 'action.hover' : 'transparent',
       }}
     >
-      <Stack direction="row" alignItems="center" spacing={1} mb={1}>
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          mb: 1
+        }}>
         <Chip
           label={group.conjunction}
           size="small"
@@ -353,7 +368,6 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
           {t('customModifier.addGroup')}
         </Button>
       </Stack>
-
       <Stack spacing={1}>
         {group.rules.map((rule) => (
           <RuleEditor
@@ -389,7 +403,7 @@ function RuleGroupEditor({ group, availableFields, getOperatorsForType, codeValu
         ))}
       </Stack>
     </Box>
-  )
+  );
 }
 
 // ---------- RuleEditor ----------
@@ -417,15 +431,15 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
     <Stack
       direction="row"
       spacing={1}
-      alignItems="center"
-      sx={(theme) => ({
+      sx={[{
+        alignItems: "center"
+      }, (theme) => ({
         p: 1,
         borderRadius: 1,
         backgroundColor: complete ? 'transparent' : alpha(theme.palette.error.main, 0.08),
         border: 1,
         borderColor: complete ? 'divider' : alpha(theme.palette.error.main, 0.2),
-      })}
-    >
+      })]}>
       {/* Field selector */}
       <FormControl size="small" sx={{ minWidth: 160 }}>
         <InputLabel>{t('customModifier.propertyLabel')}</InputLabel>
@@ -443,7 +457,6 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
           ))}
         </Select>
       </FormControl>
-
       {/* Operator selector */}
       {rule.field && (
         <FormControl size="small" sx={{ minWidth: 140 }}>
@@ -459,7 +472,6 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
           </Select>
         </FormControl>
       )}
-
       {/* Value input */}
       {rule.field && rule.operator && needsValue && (
         codeOptions ? (
@@ -476,7 +488,9 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
             </Select>
           </FormControl>
         ) : fieldType === 'dateTime' && rule.operator === 'within_last' ? (
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             <TextField
               size="small"
               type="number"
@@ -508,13 +522,12 @@ function RuleEditor({ rule, availableFields, getOperatorsForType, codeValueOptio
           />
         )
       )}
-
       <Box sx={{ flex: 1 }} />
       <IconButton size="small" color="error" onClick={onRemove} aria-label={t('customModifier.removeRule')}>
         <DeleteIcon fontSize="small" />
       </IconButton>
     </Stack>
-  )
+  );
 }
 
 // ---------- CQL Generation ----------
@@ -557,7 +570,7 @@ function buildRuleClause(
 
   const numericLiteral = (raw: string): string | null => {
     const v = raw.trim()
-    return /^-?\d+(\.\d+)?$/.test(v) ? v : null
+    return /^-?\d+(\.\d+)?$/.test(v) ? v : null;
   }
 
   switch (rule.operator) {

@@ -48,7 +48,7 @@ function getIncludeIdentifier(raw: string): string {
   if (parsed?.alias) return parsed.alias
   if (parsed) return parsed.name
   // Fallback: first word
-  return raw.split(/\s/)[0] || raw
+  return raw.split(/\s/)[0] || raw;
 }
 
 export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, onEdit }: IncludesSectionProps) {
@@ -157,11 +157,15 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
           )
         })
       ) : (
-        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic'
+          }}>
           {t('common.noItemsFound', { type: t('sections.includes').toLowerCase() })}
         </Typography>
       )}
-
       {!showForm ? (
         <Button size="small" startIcon={<AddIcon />} onClick={() => setShowForm(true)} sx={{ alignSelf: 'flex-start' }}>
           {t('common.addItem', { type: 'Include' })}
@@ -185,7 +189,9 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
                 value={selectedVersion}
                 onChange={(e) => setSelectedVersion(e.target.value)}
                 disabled={loadingVersions}
-                SelectProps={{ native: true }}
+                slotProps={{
+                  select: { native: true }
+                }}
               >
                 <option value="" />
                 {versions.map((v) => (
@@ -217,7 +223,6 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
           )}
         </Stack>
       )}
-
       <ConfirmDeleteDialog
         open={!!deleteTarget}
         title={t('common.deleteElement')}
@@ -227,5 +232,5 @@ export default function IncludesSection({ includes, onInsert, onDelete, onGoTo, 
         onConfirm={handleConfirmDelete}
       />
     </Stack>
-  )
+  );
 }

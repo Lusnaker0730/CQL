@@ -8,7 +8,8 @@ export interface HistoryEntry {
   id: string
   resourceType: string
   params: string
-  fhirServer: string
+  // PAT-212: tenant-scoped connection id the query ran against (null = sandbox).
+  connectionId: number | null
   timestamp: number
   isFavorite: boolean
 }
@@ -52,10 +53,10 @@ function saveHistory(entries: HistoryEntry[]) {
 export default function useFhirQueryHistory() {
   const [history, setHistory] = useState<HistoryEntry[]>(loadHistory)
 
-  const addEntry = useCallback((resourceType: string, params: string, fhirServer: string) => {
+  const addEntry = useCallback((resourceType: string, params: string, connectionId: number | null) => {
     setHistory(prev => {
       const existing = prev.find(
-        e => e.resourceType === resourceType && e.params === params && e.fhirServer === fhirServer
+        e => e.resourceType === resourceType && e.params === params && e.connectionId === connectionId
       )
       if (existing) {
         const updated = prev.map(e =>
@@ -69,7 +70,7 @@ export default function useFhirQueryHistory() {
         id: generateId(),
         resourceType,
         params,
-        fhirServer,
+        connectionId,
         timestamp: Date.now(),
         isFavorite: false,
       }

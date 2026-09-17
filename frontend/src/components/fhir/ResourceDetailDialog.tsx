@@ -31,7 +31,7 @@ interface ResourceDetailDialogProps {
   resource: object | null
   resourceType: string
   resourceId: string
-  fhirServer: string
+  connectionId: number | null
   onClose: () => void
   onDeleted?: () => void
   onUpdated?: () => void
@@ -42,7 +42,7 @@ export default function ResourceDetailDialog({
   resource,
   resourceType,
   resourceId,
-  fhirServer,
+  connectionId,
   onClose,
   onDeleted,
   onUpdated,
@@ -55,7 +55,7 @@ export default function ResourceDetailDialog({
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const deleteMutation = useMutation({
-    mutationFn: () => fhirApi.deleteResource(resourceType, resourceId, fhirServer),
+    mutationFn: () => fhirApi.deleteResource(resourceType, resourceId, connectionId),
     onSuccess: () => {
       setDeleteOpen(false)
       onClose()
@@ -144,7 +144,7 @@ export default function ResourceDetailDialog({
         resourceType={resourceType}
         resourceId={resourceId}
         initialJson={jsonString}
-        fhirServer={fhirServer}
+        connectionId={connectionId}
         onClose={() => setEditOpen(false)}
         onSaved={() => {
           setEditOpen(false)

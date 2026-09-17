@@ -91,14 +91,17 @@ export default function EcqmSdeTab({
   return (
     <Box sx={{ p: 3, maxWidth: 900 }}>
       <Typography variant="h6" gutterBottom>{t('sde.title')}</Typography>
-
       <TextField
         label={t('sde.guidance')} fullWidth multiline rows={2} sx={{ mb: 3 }}
         value={supplementalDataGuidance || ''}
         onChange={(e) => onGuidanceChange(e.target.value)}
       />
-
-      <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>{t('sde.standardSdes')}</Typography>
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: 600,
+          mb: 1
+        }}>{t('sde.standardSdes')}</Typography>
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
         <Stack spacing={0.5}>
           {STANDARD_SDE.map((sde) => (
@@ -115,19 +118,31 @@ export default function EcqmSdeTab({
           ))}
         </Stack>
       </Paper>
-
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-        <Typography variant="subtitle1" fontWeight={600}>{t('sde.customSdes')}</Typography>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1
+        }}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>{t('sde.customSdes')}</Typography>
         <Button size="small" startIcon={<AddIcon />} onClick={addCustom}>{t('sde.addCustom')}</Button>
       </Stack>
-
       {customRows.map(({ sde, idx }) => (
         // PAT-115 Bug #1 fix: use a stable id for the React key, NOT the name.
         // Previously `key={sde.name}` caused the <Paper> (and its child TextField)
         // to remount on every keystroke in the name field → focus loss → users
         // could only type one character at a time.
-        <Paper key={sde.id ?? `sde-idx-${idx}`} variant="outlined" sx={{ p: 2, mb: 2 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
+        (<Paper key={sde.id ?? `sde-idx-${idx}`} variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Stack
+            direction="row"
+            sx={{
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 1
+            }}>
             <TextField
               label={t('sde.sdeName')} size="small" sx={{ flex: 1, mr: 1 }}
               value={sde.name}
@@ -152,8 +167,8 @@ export default function EcqmSdeTab({
             modifiers={modifiers}
             onUpdateTree={(tree) => updateCustom(idx, { ...sde, criteria: tree })}
           />
-        </Paper>
+        </Paper>)
       ))}
     </Box>
-  )
+  );
 }

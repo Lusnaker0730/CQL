@@ -35,6 +35,10 @@ public class MeasureEvaluationContext {
         return request.getFhirServerUrl();
     }
 
+    public Long getConnectionId() {
+        return request.getConnectionId();
+    }
+
     public String getPatientId() {
         return request.getPatientId();
     }

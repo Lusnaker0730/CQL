@@ -31,10 +31,15 @@ export default function ExpressionPhrase({ element, variant = 'inline' }: Expres
   }
 
   return (
-    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+    <Typography
+      variant="caption"
+      sx={{
+        color: "text.secondary",
+        fontStyle: 'italic'
+      }}>
       {phraseToString(element, t)}
     </Typography>
-  )
+  );
 }
 
 function buildPhrase(element: ElementInstance, t: TFunction) {
@@ -228,7 +233,7 @@ function phraseToString(element: ElementInstance, t: TFunction): string {
 
 /** Strip HTML tags from a string for use in plain-text contexts */
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '')
+  return html.replace(/<[^>]*>/g, '');
 }
 
 function getFieldValue(element: ElementInstance, fieldId: string): string {

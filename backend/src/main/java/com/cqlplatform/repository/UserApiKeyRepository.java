@@ -16,6 +16,11 @@ public interface UserApiKeyRepository extends JpaRepository<UserApiKeyEntity, Lo
 
     List<UserApiKeyEntity> findByUsername(String username);
 
+    // Tenant-scoped variants (Phase 2 — #698); findByApiKeyAndActiveTrue stays unscoped:
+    // it IS the authentication step (no tenant exists yet) and the key hash is globally unique.
+    List<UserApiKeyEntity> findByTenantIdAndUsername(Long tenantId, String username);
+    java.util.Optional<UserApiKeyEntity> findByIdAndTenantId(Long id, Long tenantId);
+
     /**
      * PAT-146 — {@code clearAutomatically=true} evicts any UserApiKey entities
      * loaded into the persistence context before this bulk UPDATE runs, so

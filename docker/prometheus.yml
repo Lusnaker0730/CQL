@@ -25,3 +25,12 @@ scrape_configs:
       - targets: ['backend:8080']
         labels:
           application: 'cql-platform'
+
+  # Host-level metrics (disk / cpu / mem) + backup-freshness textfile metric.
+  # No auth: node-exporter is only reachable inside the cql-network bridge.
+  - job_name: 'node-exporter'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels:
+          application: 'cql-platform-host'

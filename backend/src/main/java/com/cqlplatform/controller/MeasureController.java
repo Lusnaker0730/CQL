@@ -156,7 +156,7 @@ public class MeasureController {
             @PathVariable Long id,
             @Valid @RequestBody MeasureDefinition definition) {
         requireOwnedMeasure(id);
-        MeasureDefinition updated = definitionService.update(id, definition);
+        MeasureDefinition updated = definitionService.update(id, definition, ownershipVerifier.getCurrentUsername());
         return ResponseEntity.ok(updated);
     }
 
@@ -327,6 +327,9 @@ public class MeasureController {
         if (request.getFhirServerUrl() != null) {
             InputValidator.requireValidUrl(request.getFhirServerUrl());
         }
+        if (request.getConnectionId() != null) {
+            requireConnectionUseRole();
+        }
         request.setMeasureId(measureId);
 
         if (subject != null) {
@@ -374,8 +377,24 @@ public class MeasureController {
         if (request.getFhirServerUrl() != null) {
             InputValidator.requireValidUrl(request.getFhirServerUrl());
         }
+        if (request.getConnectionId() != null) {
+            requireConnectionUseRole();
+        }
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
         return ResponseEntity.ok(result);
+    }
+
+    /** Interim (pre-tenant) authorization for evaluating against a stored EHR connection. */
+    private void requireConnectionUseRole() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication();
+        boolean allowed = auth != null && auth.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ROLE_DEPARTMENT_ADMIN"));
+        if (!allowed) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Evaluating against a stored EHR connection requires ADMIN or DEPARTMENT_ADMIN");
+        }
     }
 
     // ===== Reports =====
@@ -534,6 +553,12 @@ public class MeasureController {
     @GetMapping("/{measureId}/test-cases")
     @Operation(summary = "List Test Cases", description = "List test cases for a measure")
     public ResponseEntity<List<TestCase>> listTestCases(@PathVariable Long measureId) {
+        // BUG-133: test cases carry patient_bundle_json — real $everything bundles imported
+        // from a clinic's EHR (PatientImportService.importAsTestCase). test_case has no
+        // tenant_id; its tenant is its parent measure's, so the parent gate IS the boundary
+        // (as in getTestCase below). Without this line any authenticated user of any tenant
+        // could read another clinic's PHI by enumerating measureId.
+        requireMeasure(measureId);
         return ResponseEntity.ok(testCaseService.getTestCasesForMeasure(measureId));
     }
 
@@ -914,6 +939,9 @@ public class MeasureController {
     @Operation(summary = "Get Thresholds", description = "Returns thresholds for a measure")
     public ResponseEntity<List<com.cqlplatform.entity.MeasureThresholdEntity>> getThresholds(
             @PathVariable Long id) {
+        // BUG-136: measure_threshold has no tenant_id — its tenant is its parent measure's,
+        // so the parent gate IS the boundary here (same shape as listTestCases, BUG-133).
+        requireMeasure(id);
         return ResponseEntity.ok(dashboardService.getThresholds(id));
     }
 

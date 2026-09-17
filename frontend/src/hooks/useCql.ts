@@ -7,6 +7,7 @@ import type { RootState } from '../store'
 import { extractApiError } from '../utils/errorUtils'
 import {
   setElmJson,
+  setElmSourceCql,
   setErrors,
   setWarnings,
   setIsTranslating,
@@ -30,14 +31,19 @@ export function useTranslate() {
       dispatch(setIsTranslating(true))
       return cqlApi.translate(request)
     },
-    onSuccess: (data: CqlTranslationResponse) => {
+    onSuccess: (data: CqlTranslationResponse, request: CqlTranslationRequest) => {
       dispatch(setIsTranslating(false))
       if (data.success) {
         dispatch(setElmJson(data.elmJson || null))
+        // Record the exact text this ELM came from so the execute path can verify
+        // it still matches before skipping re-translation. Only when we actually
+        // have ELM — otherwise there is nothing to reuse.
+        dispatch(setElmSourceCql(data.elmJson ? request.cql : null))
         dispatch(setErrors([]))
         dispatch(setWarnings(data.warnings || []))
       } else {
         dispatch(setElmJson(null))
+        dispatch(setElmSourceCql(null))
         dispatch(setErrors(data.errors || []))
         dispatch(setWarnings(data.warnings || []))
       }

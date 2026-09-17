@@ -27,6 +27,7 @@ public class RefreshTokenService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final JwtTokenProvider jwtTokenProvider;
     private final SecureRandom secureRandom = new SecureRandom();
 
@@ -69,7 +70,7 @@ public class RefreshTokenService {
 
         int tokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
         String accessToken = jwtTokenProvider.generateToken(
-                user.getUsername(), user.getRole().name(), user.getDepartment(), tokenVersion);
+                user.getUsername(), user.getRole().name(), user.getDepartment(), user.getTenantId(), tokenVersion);
 
         log.info("Created refresh token family {} for user {}", familyId, user.getUsername());
         return new TokenPair(accessToken, rawToken, jwtTokenProvider.getAccessExpirationMs());
@@ -109,6 +110,20 @@ public class RefreshTokenService {
             throw new InvalidRefreshTokenException("User account is disabled");
         }
 
+        // #700: same treatment when the user's clinic has been deactivated — refresh is
+        // the long-lived credential, so it must die with the tenant.
+        if (user.getTenantId() != null) {
+            boolean tenantActive = tenantRepository.findById(user.getTenantId())
+                    .map(t -> Boolean.TRUE.equals(t.getActive()))
+                    .orElse(false);
+            if (!tenantActive) {
+                log.warn("User {} of deactivated tenant {} attempted token refresh, revoking family {}",
+                        user.getUsername(), user.getTenantId(), oldToken.getFamilyId());
+                refreshTokenRepository.revokeByFamilyId(oldToken.getFamilyId());
+                throw new InvalidRefreshTokenException("Clinic account is deactivated");
+            }
+        }
+
         // Revoke old token
         oldToken.setRevoked(true);
         refreshTokenRepository.save(oldToken);
@@ -139,7 +154,7 @@ public class RefreshTokenService {
 
         int tokenVersion = user.getTokenVersion() != null ? user.getTokenVersion() : 0;
         String accessToken = jwtTokenProvider.generateToken(
-                user.getUsername(), user.getRole().name(), user.getDepartment(), tokenVersion);
+                user.getUsername(), user.getRole().name(), user.getDepartment(), user.getTenantId(), tokenVersion);
 
         log.debug("Rotated refresh token for family {} user {}", oldToken.getFamilyId(), user.getUsername());
         return new TokenPair(accessToken, newRawToken, jwtTokenProvider.getAccessExpirationMs());

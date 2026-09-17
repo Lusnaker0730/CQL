@@ -150,16 +150,17 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
         placeholder={t('operatorReference.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
-            </InputAdornment>
-          ),
-        }}
         sx={{ '& input': { fontSize: '0.85rem' } }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+              </InputAdornment>
+            ),
+          }
+        }}
       />
-
       {CATEGORIES.map((cat) => {
         const ops = filteredByCategory[cat]
         if (!ops || ops.length === 0) return null
@@ -181,9 +182,20 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
               expandIcon={<ExpandMoreIcon sx={{ fontSize: 18 }} />}
               sx={{ minHeight: 32, '& .MuiAccordionSummary-content': { my: 0.25 } }}
             >
-              <Typography variant="body2" fontWeight={500} fontSize="0.8rem">
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 500,
+                  fontSize: "0.8rem"
+                }}>
                 {cat}
-                <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                <Typography
+                  component="span"
+                  variant="caption"
+                  sx={{
+                    color: "text.secondary",
+                    ml: 0.5
+                  }}>
                   ({ops.length})
                 </Typography>
               </Typography>
@@ -206,13 +218,30 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
                     onClick={() => onInsert(op.snippet)}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight={600} sx={{ fontFamily: 'monospace', fontSize: '0.78rem' }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          fontFamily: 'monospace',
+                          fontSize: '0.78rem'
+                        }}>
                         {op.name}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: '0.7rem',
+                          display: 'block'
+                        }}>
                         {op.syntax}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
+                      <Typography
+                        variant="caption"
+                        sx={{
+                          color: "text.secondary",
+                          fontSize: '0.68rem'
+                        }}>
                         {op.description}
                       </Typography>
                       {op.example && (
@@ -245,8 +274,8 @@ export default function OperatorReference({ onInsert }: OperatorReferenceProps) 
               </Stack>
             </AccordionDetails>
           </Accordion>
-        )
+        );
       })}
     </Stack>
-  )
+  );
 }

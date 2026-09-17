@@ -51,8 +51,12 @@ export default function FhirServerUrlField({
       renderOption={(props, option) => (
         <li {...props} key={option.url}>
           <div>
-            <Typography variant="body2" fontWeight={600}>{option.label}</Typography>
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="body2" sx={{
+              fontWeight: 600
+            }}>{option.label}</Typography>
+            <Typography variant="caption" sx={{
+              color: "text.secondary"
+            }}>
               {option.description}
             </Typography>
           </div>
@@ -89,5 +93,5 @@ export default function FhirServerUrlField({
         />
       )}
     />
-  )
+  );
 }

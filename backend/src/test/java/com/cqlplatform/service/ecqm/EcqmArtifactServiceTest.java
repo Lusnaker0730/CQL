@@ -31,11 +31,22 @@ class EcqmArtifactServiceTest {
     @Mock
     private EcqmArtifactRepository repository;
 
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
     private EcqmArtifactService service;
 
     @BeforeEach
     void setUp() {
-        service = new EcqmArtifactService(repository);
+        service = new EcqmArtifactService(repository, tenantRepository);
+        // Phase 2: management ops derive tenant from TenantContext; set one so tests exercise
+        // the effectiveTenantId path without a repo stub.
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(7L);
+    }
+
+    @org.junit.jupiter.api.AfterEach
+    void clearTenant() {
+        com.cqlplatform.security.TenantContext.clear();
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
@@ -61,7 +72,7 @@ class EcqmArtifactServiceTest {
     void listByOwner_shouldReturnMappedSummaries() {
         EcqmArtifactEntity e1 = entity(1L, "alice");
         EcqmArtifactEntity e2 = entity(2L, "alice");
-        when(repository.findByOwnerUsername("alice")).thenReturn(List.of(e1, e2));
+        when(repository.findByTenantIdAndOwnerUsername(7L, "alice")).thenReturn(List.of(e1, e2));
 
         List<EcqmArtifactSummary> result = service.listByOwner("alice");
 
@@ -72,7 +83,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void listByOwner_emptyResult() {
-        when(repository.findByOwnerUsername("nobody")).thenReturn(List.of());
+        when(repository.findByTenantIdAndOwnerUsername(7L, "nobody")).thenReturn(List.of());
 
         assertThat(service.listByOwner("nobody")).isEmpty();
     }
@@ -81,7 +92,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void getById_found_shouldReturnResponse() {
-        when(repository.findById(42L)).thenReturn(Optional.of(entity(42L, "alice")));
+        when(repository.findByIdAndTenantId(42L, 7L)).thenReturn(Optional.of(entity(42L, "alice")));
 
         Optional<EcqmArtifactResponse> result = service.getById(42L);
 
@@ -92,7 +103,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void getById_missing_shouldReturnEmpty() {
-        when(repository.findById(999L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(999L, 7L)).thenReturn(Optional.empty());
 
         assertThat(service.getById(999L)).isEmpty();
     }
@@ -154,7 +165,7 @@ class EcqmArtifactServiceTest {
         EcqmArtifactEntity existing = entity(5L, "alice");
         existing.setDescription("original description");
         existing.setRationale("original rationale");
-        when(repository.findById(5L)).thenReturn(Optional.of(existing));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         EcqmArtifactRequest req = EcqmArtifactRequest.builder()
@@ -170,7 +181,7 @@ class EcqmArtifactServiceTest {
     void update_listFields_shouldReplaceEntireList() {
         EcqmArtifactEntity existing = entity(5L, "alice");
         existing.setBaseElementsList(List.of(Map.of("name", "old")));
-        when(repository.findById(5L)).thenReturn(Optional.of(existing));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         List<Map<String, Object>> newBE = List.of(
@@ -187,7 +198,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void update_byNonOwner_shouldThrow() {
-        when(repository.findById(5L)).thenReturn(Optional.of(entity(5L, "alice")));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(entity(5L, "alice")));
 
         EcqmArtifactRequest req = EcqmArtifactRequest.builder().description("x").build();
 
@@ -199,7 +210,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void update_missingArtifact_shouldThrow() {
-        when(repository.findById(404L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(404L, 7L)).thenReturn(Optional.empty());
         EcqmArtifactRequest req = EcqmArtifactRequest.builder().build();
 
         assertThatThrownBy(() -> service.update(404L, req, "alice"))
@@ -211,7 +222,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void delete_byOwner_shouldDelete() {
-        when(repository.findById(5L)).thenReturn(Optional.of(entity(5L, "alice")));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(entity(5L, "alice")));
 
         service.delete(5L, "alice");
 
@@ -220,7 +231,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void delete_byNonOwner_shouldThrow() {
-        when(repository.findById(5L)).thenReturn(Optional.of(entity(5L, "alice")));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(entity(5L, "alice")));
 
         assertThatThrownBy(() -> service.delete(5L, "mallory"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -230,7 +241,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void delete_missingArtifact_shouldThrow() {
-        when(repository.findById(404L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(404L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.delete(404L, "alice"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -245,7 +256,7 @@ class EcqmArtifactServiceTest {
         original.setCmsMeasureId("CMS-123");
         original.setStatus("active");
         original.setBaseElementsList(List.of(Map.of("name", "be1")));
-        when(repository.findById(5L)).thenReturn(Optional.of(original));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(original));
         when(repository.save(any())).thenAnswer(inv -> {
             EcqmArtifactEntity e = inv.getArgument(0);
             e.setId(99L);
@@ -271,7 +282,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void duplicate_byNonOwner_shouldThrow() {
-        when(repository.findById(5L)).thenReturn(Optional.of(entity(5L, "alice")));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(entity(5L, "alice")));
 
         assertThatThrownBy(() -> service.duplicate(5L, "mallory"))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -287,7 +298,7 @@ class EcqmArtifactServiceTest {
         originalBE.add(Map.of("name", "shared"));
         EcqmArtifactEntity original = entity(5L, "alice");
         original.setBaseElementsList(originalBE);
-        when(repository.findById(5L)).thenReturn(Optional.of(original));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(original));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         service.duplicate(5L, "alice");
@@ -300,7 +311,7 @@ class EcqmArtifactServiceTest {
 
     @Test
     void duplicate_missingArtifact_shouldThrow() {
-        when(repository.findById(404L)).thenReturn(Optional.empty());
+        when(repository.findByIdAndTenantId(404L, 7L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.duplicate(404L, "alice"))
                 .isInstanceOf(IllegalArgumentException.class)

@@ -16,6 +16,7 @@ import {
 } from '@mui/icons-material'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
+import StatusChip from '../common/StatusChip'
 import { useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { measureApi } from '../../api'
@@ -46,6 +47,13 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
   const [showSchedules, setShowSchedules] = useState(false)
   const [dateError, setDateError] = useState<string | null>(null)
   const [fhirError, setFhirError] = useState<string | null>(null)
+
+  // PAT-219: the backend refuses to evaluate a stored measure that is not `active`
+  // (409 Measure Not Evaluable). Surface that up front instead of after a click.
+  // An unsaved measure goes through the ad-hoc inline-CQL path, which has no
+  // lifecycle and is not gated.
+  const isStoredMeasure = measure.id != null
+  const isEvaluable = !isStoredMeasure || measure.status === 'active'
 
   const evaluateMutation = useMutation({
     mutationFn: () => {
@@ -85,14 +93,28 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
-      <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          alignItems: "center",
+          mb: 1
+        }}>
         <Typography variant="h6">
           {t('evaluation.title', { name: measure.title || measure.name })}
         </Typography>
         <HelpTooltip text={helpContent.measures.evaluate} />
       </Stack>
-
       <Stack spacing={2}>
+        {!isEvaluable && (
+          <Alert severity="warning" data-testid="measure-not-active-warning">
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <StatusChip status={measure.status || 'draft'} />
+              <span>{t('evaluation.notActiveWarning')}</span>
+            </Stack>
+          </Alert>
+        )}
+
         <FhirServerUrlField
           value={fhirServer}
           onChange={(value) => {
@@ -120,8 +142,10 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             onChange={(e) => { setPeriodStart(e.target.value); setDateError(null) }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
           <TextField
             label={t('evaluation.periodEnd')}
@@ -130,16 +154,18 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
             onChange={(e) => { setPeriodEnd(e.target.value); setDateError(null) }}
             size="small"
             fullWidth
-            InputLabelProps={{ shrink: true }}
             error={!!dateError}
             helperText={dateError}
+            slotProps={{
+              inputLabel: { shrink: true }
+            }}
           />
         </Stack>
 
         <Stack direction="row" spacing={1}>
           <GradientButton
             onClick={handleEvaluate}
-            disabled={evaluateMutation.isPending || (!cqlContent && !measure.cqlContent)}
+            disabled={!isEvaluable || evaluateMutation.isPending || (!cqlContent && !measure.cqlContent)}
             startIcon={
               evaluateMutation.isPending ? <CircularProgress size={20} color="inherit" /> : <AssessmentIcon />
             }
@@ -171,11 +197,16 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
         {result && <EvaluationResultCard result={result} />}
 
         {!result && !evaluateMutation.isPending && (
-          <Typography variant="body2" color="text.secondary" textAlign="center">
+          <Typography
+            variant="body2"
+            sx={{
+              color: "text.secondary",
+              textAlign: "center"
+            }}>
             {t('evaluation.emptyState')}
           </Typography>
         )}
       </Stack>
     </Box>
-  )
+  );
 }

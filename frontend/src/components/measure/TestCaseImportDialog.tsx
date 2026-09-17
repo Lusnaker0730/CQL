@@ -171,10 +171,18 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
               onClick={() => fileInputRef.current?.click()}
             >
               <UploadIcon sx={{ fontSize: 40, mb: 1, opacity: 0.5, color: 'primary.main' }} />
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 {t('importDialog.dropHint')}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: "text.secondary",
+                  mt: 0.5,
+                  display: 'block'
+                }}>
                 {t('importDialog.formatHint')}
               </Typography>
               <input
@@ -194,7 +202,12 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
           {/* Step 2: Preview */}
           {parsedCases.length > 0 && !result && (
             <>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Stack
+                direction="row"
+                sx={{
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}>
                 <Typography variant="subtitle2">
                   {t('importDialog.preview', { count: parsedCases.length, file: fileName })}
                 </Typography>
@@ -205,9 +218,14 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
                   <Stack
                     key={index}
                     direction="row"
-                    alignItems="center"
-                    sx={{ px: 2, py: 0.75, borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 0 } }}
-                  >
+                    sx={{
+                      alignItems: "center",
+                      px: 2,
+                      py: 0.75,
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      '&:last-child': { borderBottom: 0 }
+                    }}>
                     <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }} noWrap>
                       {tc.title}
                     </Typography>
@@ -245,7 +263,13 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
                   }
                 />
                 {dateShiftEnabled && (
-                  <Stack direction="row" spacing={2} alignItems="center" sx={{ pl: 4 }}>
+                  <Stack
+                    direction="row"
+                    spacing={2}
+                    sx={{
+                      alignItems: "center",
+                      pl: 4
+                    }}>
                     <TextField
                       type="number"
                       size="small"
@@ -255,7 +279,12 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
                       sx={{ width: 150 }}
                       helperText={t('importDialog.shiftDaysHelp')}
                     />
-                    <Typography variant="caption" color="text.secondary" sx={{ maxWidth: 300 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "text.secondary",
+                        maxWidth: 300
+                      }}>
                       {t('importDialog.shiftExplanation')}
                     </Typography>
                   </Stack>
@@ -268,7 +297,12 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
           {importMutation.isPending && (
             <Box>
               <LinearProgress variant="indeterminate" />
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mt: 1
+                }}>
                 {t('importDialog.importing', { count: parsedCases.length })}
               </Typography>
             </Box>
@@ -298,7 +332,14 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
               {result.errors.length > 0 && (
                 <Paper variant="outlined" sx={{ p: 1.5, maxHeight: 150, overflow: 'auto' }}>
                   {result.errors.map((err, i) => (
-                    <Typography key={i} variant="caption" color="error" display="block" sx={{ fontFamily: 'monospace' }}>
+                    <Typography
+                      key={i}
+                      variant="caption"
+                      color="error"
+                      sx={{
+                        display: "block",
+                        fontFamily: 'monospace'
+                      }}>
                       {err}
                     </Typography>
                   ))}
@@ -323,5 +364,5 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

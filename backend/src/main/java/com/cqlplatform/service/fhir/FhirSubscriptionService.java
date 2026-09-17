@@ -26,6 +26,18 @@ public class FhirSubscriptionService {
     private final FhirSubscriptionRepository subscriptionRepository;
     private final EhrConnectionService connectionService;
     private final FhirClientFactory fhirClientFactory;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Value("${server.port:8080}")
     private int serverPort;
@@ -59,6 +71,10 @@ public class FhirSubscriptionService {
         entity.setCallbackUrl(callbackUrl);
         entity.setReason(request.getReason());
         entity.setCreatedBy(SecurityUtils.getCurrentUsername("system"));
+        // Inherit the connection's tenant: getById above is tenant-scoped (PAT-180), so the
+        // connection always belongs to the caller — and a subscription's tenant can never
+        // diverge from the connection it hangs off.
+        entity.setTenantId(connection.getTenantId());
 
         try {
             var outcome = client.create().resource(subscription).execute();
@@ -80,14 +96,14 @@ public class FhirSubscriptionService {
     @Transactional(readOnly = true)
     public List<FhirSubscriptionEntity> listSubscriptions(Long connectionId) {
         if (connectionId != null) {
-            return subscriptionRepository.findByConnectionIdOrderByCreatedAtDesc(connectionId);
+            return subscriptionRepository.findByTenantIdAndConnectionIdOrderByCreatedAtDesc(effectiveTenantId(), connectionId);
         }
-        return subscriptionRepository.findAllByOrderByCreatedAtDesc();
+        return subscriptionRepository.findByTenantIdOrderByCreatedAtDesc(effectiveTenantId());
     }
 
     @Transactional(readOnly = true)
     public FhirSubscriptionEntity getSubscription(Long id) {
-        return subscriptionRepository.findById(id)
+        return subscriptionRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription not found: " + id));
     }
 

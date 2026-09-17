@@ -101,15 +101,14 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
               key={expr.name}
               direction="row"
               spacing={0.5}
-              alignItems="center"
               sx={{
+                alignItems: "center",
                 py: 0.5,
                 px: 0.5,
                 borderRadius: 0.5,
                 bgcolor: (theme) => alpha(theme.palette.primary.main, 0.04),
-                '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) },
-              }}
-            >
+                '&:hover': { bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) }
+              }}>
               <Tooltip title={t('baseElements.unmarkBase')}>
                 <IconButton size="small" onClick={() => togglePin(expr.name)} sx={{ p: 0.25 }}>
                   <PinIcon sx={{ fontSize: 16, color: 'primary.main' }} />
@@ -140,18 +139,29 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
                 }}
               />
             </Stack>
-          )
+          );
         })
       ) : (
-        <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', px: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            fontStyle: 'italic',
+            px: 0.5
+          }}>
           {t('baseElements.noBaseElements')}
         </Typography>
       )}
-
       {/* Suggestions: frequently referenced definitions */}
       {suggestions.length > 0 && (
         <>
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ pt: 0.5 }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              pt: 0.5
+            }}>
             {t('baseElements.title')} — {t('validation.hints')}
           </Typography>
           {suggestions.slice(0, 5).map((expr) => {
@@ -161,14 +171,13 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
                 key={expr.name}
                 direction="row"
                 spacing={0.5}
-                alignItems="center"
                 sx={{
+                  alignItems: "center",
                   py: 0.25,
                   px: 0.5,
                   borderRadius: 0.5,
-                  '&:hover': { bgcolor: 'rgba(0,0,0,0.03)' },
-                }}
-              >
+                  '&:hover': { bgcolor: 'rgba(0,0,0,0.03)' }
+                }}>
                 <Tooltip title={t('baseElements.markAsBase')}>
                   <IconButton size="small" onClick={() => togglePin(expr.name)} sx={{ p: 0.25 }}>
                     <PinOutlinedIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
@@ -191,10 +200,10 @@ export default function BaseElementsPanel({ structure, onGoTo }: BaseElementsPan
                   sx={{ height: 16, fontSize: '0.55rem', bgcolor: (theme) => alpha(theme.palette.primary.main, 0.08) }}
                 />
               </Stack>
-            )
+            );
           })}
         </>
       )}
     </Stack>
-  )
+  );
 }

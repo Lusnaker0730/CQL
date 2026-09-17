@@ -21,14 +21,15 @@ export default function TerminologyPage() {
             mb: 1,
           })}
         />
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" sx={{
+          color: "text.secondary"
+        }}>
           {t('page.subtitle')}
         </Typography>
       </Box>
-
       <Box sx={{ height: 'calc(100% - 90px)' }}>
         <TerminologyBrowser />
       </Box>
     </Box>
-  )
+  );
 }

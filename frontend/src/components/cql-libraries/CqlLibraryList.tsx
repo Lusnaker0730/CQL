@@ -282,11 +282,23 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
 
   return (
     <Paper sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1} flexWrap="wrap" gap={0.5}>
-        <Typography variant="subtitle1" fontWeight={700}>
+      <Stack
+        direction="row"
+        sx={{
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+          flexWrap: "wrap",
+          gap: 0.5
+        }}>
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 700
+        }}>
           {t('list.title')}
         </Typography>
-        <Stack direction="row" spacing={0.5} flexWrap="wrap">
+        <Stack direction="row" spacing={0.5} sx={{
+          flexWrap: "wrap"
+        }}>
           <Button size="small" startIcon={<UploadIcon />} onClick={() => setImportOpen(true)}>
             {t('list.importCql')}
           </Button>
@@ -295,17 +307,17 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
           </GradientButton>
         </Stack>
       </Stack>
-
       <TextField
         size="small"
         fullWidth
         placeholder={t('list.searchPlaceholder')}
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        InputProps={{ startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }}
         sx={{ mb: 0.5 }}
+        slotProps={{
+          input: { startAdornment: <SearchIcon sx={{ mr: 1, color: 'text.secondary' }} /> }
+        }}
       />
-
       <Tabs
         value={filterTab}
         onChange={(_, v) => setFilterTab(v)}
@@ -320,10 +332,8 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
         <Tab label={`${t('list.tabs.sharedWithMe')} (${tabCounts.shared})`} />
         <Tab label={`${t('list.tabs.public')} (${tabCounts.pub})`} />
       </Tabs>
-
       {/* Loading skeleton */}
       {isLoading && <TableSkeleton columns={7} />}
-
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" sx={{ minWidth: TABLE_MIN_WIDTH, ...TABLE_LAYOUT }}>
           <TableHead>
@@ -374,7 +384,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
           </Alert>
         )}
       </Box>
-
       {/* Actions menu */}
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
         <MenuItem onClick={handleEdit}>
@@ -402,7 +411,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
           <ListItemText sx={{ color: 'error.main' }}>{t('list.deleteLibrary')}</ListItemText>
         </MenuItem>
       </Menu>
-
       {/* Delete confirmation */}
       <ConfirmDeleteDialog
         open={deleteTarget !== null}
@@ -413,14 +421,12 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
         onConfirm={handleDeleteConfirm}
         isPending={deleteMutation.isPending}
       />
-
       {/* Share dialog */}
       <LibraryShareDialog
         open={shareTarget !== null}
         onClose={() => setShareTarget(null)}
         library={shareTarget}
       />
-
       {/* Import dialog */}
       <ImportLibraryDialog
         open={importOpen}
@@ -430,7 +436,6 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
           onSelect(lib.id)
         }}
       />
-
       {/* Version confirmation */}
       <Dialog open={versionTarget !== null} onClose={() => setVersionTarget(null)} maxWidth="xs" fullWidth>
         <DialogTitle>{t('list.versionConfirmTitle')}</DialogTitle>
@@ -451,7 +456,7 @@ export default function CqlLibraryList({ onSelect, onCreate }: CqlLibraryListPro
         </DialogActions>
       </Dialog>
     </Paper>
-  )
+  );
 }
 
 // ── Memoized row component ──────────────────────────────────────────
@@ -476,11 +481,19 @@ const LibraryRow = React.memo(function LibraryRow({
   return (
     <TableRow hover sx={{ cursor: 'pointer' }} onClick={() => onRowClick(lib.id)}>
       <TableCell sx={{ width: COL_W.name, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-        <Typography variant="body2" fontWeight={500} noWrap>
+        <Typography variant="body2" noWrap sx={{
+          fontWeight: 500
+        }}>
           {lib.name}
         </Typography>
         {lib.description && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{
+              color: "text.secondary",
+              display: "block"
+            }}>
             {lib.description}
           </Typography>
         )}
@@ -498,7 +511,9 @@ const LibraryRow = React.memo(function LibraryRow({
       </TableCell>
       <TableCell sx={{ width: COL_W.access }}>
         <Tooltip title={t(ACCESS_LABEL_KEYS[access] || ACCESS_LABEL_KEYS.private)}>
-          <Stack direction="row" spacing={0.5} alignItems="center">
+          <Stack direction="row" spacing={0.5} sx={{
+            alignItems: "center"
+          }}>
             {ACCESS_ICONS[access] || ACCESS_ICONS.private}
             <Typography variant="caption">
               {t(ACCESS_LABEL_KEYS[access] || ACCESS_LABEL_KEYS.private)}
@@ -519,5 +534,5 @@ const LibraryRow = React.memo(function LibraryRow({
         </IconButton>
       </TableCell>
     </TableRow>
-  )
+  );
 })

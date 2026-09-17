@@ -2,6 +2,7 @@ import { Box, Typography, Paper, Grid, Chip, Table, TableBody, TableCell, TableC
 import { useTranslation } from 'react-i18next'
 import CodeBlock from './CodeBlock'
 import { CQL_EXAMPLE_DIABETES } from '../../constants/cqlExamples'
+import { CARD_RADIUS, INNER_RADIUS } from '../../constants/layout'
 
 const PROFILES = [
   { resource: 'Patient', profile: 'Patient-twcore', descKey: 'patientDesc' },
@@ -25,18 +26,34 @@ export default function TwcoreGuide() {
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.twcore.title')}
       </Typography>
-
       <Grid container spacing={3} sx={{ mt: 1 }}>
         {/* Overview */}
         <Grid size={12}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.twcore.overview.title')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.8 }}>
+            <Typography
+              variant="body1"
+              sx={{
+                color: "text.secondary",
+                lineHeight: 1.8
+              }}>
               {t('learn.twcore.overview.content')}
             </Typography>
           </Paper>
@@ -44,11 +61,23 @@ export default function TwcoreGuide() {
 
         {/* Profiles Table */}
         <Grid size={{ xs: 12, md: 7 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.twcore.profiles.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.twcore.profiles.content')}
             </Typography>
             <TableContainer>
@@ -72,7 +101,9 @@ export default function TwcoreGuide() {
                         </Typography>
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" sx={{
+                          color: "text.secondary"
+                        }}>
                           {t(`learn.twcore.profiles.${descKey}`)}
                         </Typography>
                       </TableCell>
@@ -86,16 +117,28 @@ export default function TwcoreGuide() {
 
         {/* Code Systems */}
         <Grid size={{ xs: 12, md: 5 }}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider', height: '100%' }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.twcore.codeSystems.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.twcore.codeSystems.content')}
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               {CODE_SYSTEMS.map(({ key }) => (
-                <Box key={key} sx={{ p: 1.5, borderRadius: 2, bgcolor: 'action.hover' }}>
+                <Box key={key} sx={{ p: 1.5, borderRadius: INNER_RADIUS, bgcolor: 'action.hover' }}>
                   <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
                     {t(`learn.twcore.codeSystems.${key}`)}
                   </Typography>
@@ -107,11 +150,23 @@ export default function TwcoreGuide() {
 
         {/* Full Example */}
         <Grid size={12}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom color="primary.main">
+          <Paper elevation={0} sx={{ p: 3, borderRadius: CARD_RADIUS, border: '1px solid', borderColor: 'divider' }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{
+                fontWeight: 700,
+                color: "primary.main"
+              }}>
               {t('learn.twcore.example.title')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mb: 2,
+                lineHeight: 1.7
+              }}>
               {t('learn.twcore.example.description')}
             </Typography>
             <CodeBlock code={CQL_EXAMPLE_DIABETES} maxHeight={500} />
@@ -119,5 +174,5 @@ export default function TwcoreGuide() {
         </Grid>
       </Grid>
     </Box>
-  )
+  );
 }

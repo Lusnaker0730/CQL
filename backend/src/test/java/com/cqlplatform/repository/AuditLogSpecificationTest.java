@@ -37,7 +37,7 @@ class AuditLogSpecificationTest {
         // Build the spec with a username that contains a wildcard char (`%`)
         AuditLogSearchRequest req = new AuditLogSearchRequest();
         req.setUsername("admin%test");
-        var spec = AuditLogSpecification.fromSearchRequest(req);
+        var spec = AuditLogSpecification.fromSearchRequest(req, 7L);
 
         // Mock the Criteria machinery
         Root<AuditLogEntity> root = mockRoot();
@@ -72,7 +72,7 @@ class AuditLogSpecificationTest {
     void resourceTypeContains_invokesCriteriaBuilderLikeWithEscapeChar() {
         AuditLogSearchRequest req = new AuditLogSearchRequest();
         req.setResourceType("Patient_secret");
-        var spec = AuditLogSpecification.fromSearchRequest(req);
+        var spec = AuditLogSpecification.fromSearchRequest(req, 7L);
 
         Root<AuditLogEntity> root = mockRoot();
         CriteriaQuery<?> query = mock(CriteriaQuery.class);
@@ -100,7 +100,7 @@ class AuditLogSpecificationTest {
     @Test
     void noFilters_returnsConjunctionPredicate() {
         AuditLogSearchRequest req = new AuditLogSearchRequest();
-        var spec = AuditLogSpecification.fromSearchRequest(req);
+        var spec = AuditLogSpecification.fromSearchRequest(req, 7L);
 
         // toPredicate on a Specification.where(null).and(...).and(...) chain returns
         // null when nothing was added; the CriteriaQuery accepts null restriction.

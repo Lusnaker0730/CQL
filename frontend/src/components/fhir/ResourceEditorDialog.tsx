@@ -36,7 +36,7 @@ interface ResourceEditorDialogProps {
   resourceType: string
   resourceId?: string
   initialJson?: string
-  fhirServer: string
+  connectionId: number | null
   onClose: () => void
   onSaved: () => void
 }
@@ -64,7 +64,7 @@ export default function ResourceEditorDialog({
   resourceType,
   resourceId,
   initialJson,
-  fhirServer,
+  connectionId,
   onClose,
   onSaved,
 }: ResourceEditorDialogProps) {
@@ -97,9 +97,9 @@ export default function ResourceEditorDialog({
     mutationFn: () => {
       const json = getEditorValue()
       if (mode === 'create') {
-        return fhirApi.createResource(resourceType, json, fhirServer)
+        return fhirApi.createResource(resourceType, json, connectionId)
       }
-      return fhirApi.updateResource(resourceType, resourceId!, json, fhirServer)
+      return fhirApi.updateResource(resourceType, resourceId!, json, connectionId)
     },
     onSuccess: () => {
       onSaved()

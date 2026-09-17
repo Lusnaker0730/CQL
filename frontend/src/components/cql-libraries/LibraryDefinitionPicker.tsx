@@ -128,14 +128,18 @@ export default function LibraryDefinitionPicker({
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
+        <Stack
+          direction="row"
+          sx={{
+            alignItems: "center",
+            justifyContent: "space-between"
+          }}>
           <Typography variant="h6">{t('picker.title')}</Typography>
           <IconButton onClick={handleClose} size="small">
             <CloseIcon />
           </IconButton>
         </Stack>
       </DialogTitle>
-
       <DialogContent dividers>
         <Stepper activeStep={activeStep} sx={{ mb: 3 }}>
           {steps.map((label) => (
@@ -161,7 +165,12 @@ export default function LibraryDefinitionPicker({
                 <CircularProgress size={32} />
               </Box>
             ) : filteredLibraries.length === 0 ? (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 4
+                }}>
                 {t('list.noResults')}
               </Typography>
             ) : (
@@ -183,7 +192,9 @@ export default function LibraryDefinitionPicker({
                       onClick={() => handleSelectLibrary(lib)}
                     >
                       <TableCell>
-                        <Typography fontWeight={500}>{lib.name}</Typography>
+                        <Typography sx={{
+                          fontWeight: 500
+                        }}>{lib.name}</Typography>
                       </TableCell>
                       <TableCell>{lib.version}</TableCell>
                       <TableCell>{lib.ownerUsername || '-'}</TableCell>
@@ -200,14 +211,24 @@ export default function LibraryDefinitionPicker({
 
         {activeStep === 1 && selectedLibrary && (
           <Box>
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{
+                alignItems: "center",
+                mb: 2
+              }}>
               <IconButton onClick={handleBack} size="small">
                 <BackIcon />
               </IconButton>
-              <Typography variant="subtitle1" fontWeight={600}>
+              <Typography variant="subtitle1" sx={{
+                fontWeight: 600
+              }}>
                 {selectedLibrary.name}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{
+                color: "text.secondary"
+              }}>
                 v{selectedLibrary.version}
               </Typography>
             </Stack>
@@ -217,7 +238,12 @@ export default function LibraryDefinitionPicker({
                 <CircularProgress size={32} />
               </Box>
             ) : definitions.length === 0 ? (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+              <Typography
+                sx={{
+                  color: "text.secondary",
+                  textAlign: 'center',
+                  py: 4
+                }}>
                 {t('picker.noDefinitions')}
               </Typography>
             ) : (
@@ -240,7 +266,9 @@ export default function LibraryDefinitionPicker({
                       />
                       <ListItemText
                         primary={defName}
-                        primaryTypographyProps={{ fontFamily: 'monospace', fontSize: '0.9rem' }}
+                        slotProps={{
+                          primary: { sx: { fontFamily: 'monospace', fontSize: '0.9rem' } }
+                        }}
                       />
                     </ListItemButton>
                   ))}
@@ -271,7 +299,6 @@ export default function LibraryDefinitionPicker({
           </Box>
         )}
       </DialogContent>
-
       <DialogActions>
         {activeStep === 1 && (
           <Button onClick={handleBack}>{t('picker.back')}</Button>
@@ -288,5 +315,5 @@ export default function LibraryDefinitionPicker({
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

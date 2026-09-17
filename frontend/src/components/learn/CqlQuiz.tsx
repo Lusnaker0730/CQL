@@ -14,6 +14,7 @@ import {
 import { alpha, useTheme } from '@mui/material/styles'
 import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
+import { CARD_RADIUS, INNER_RADIUS } from '../../constants/layout'
 
 const QUESTION_COUNT = 10
 
@@ -103,14 +104,20 @@ export default function CqlQuiz() {
 
     return (
       <Box>
-        <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+        <Typography
+          variant="h4"
+          gutterBottom
+          sx={{
+            fontWeight: 700,
+            color: "secondary.main"
+          }}>
           {t('learn.quiz.title')}
         </Typography>
         <Paper
           elevation={0}
           sx={{
             p: 4,
-            borderRadius: 3,
+            borderRadius: CARD_RADIUS,
             border: '1px solid',
             borderColor: 'divider',
             textAlign: 'center',
@@ -119,19 +126,36 @@ export default function CqlQuiz() {
             mt: 4,
           }}
         >
-          <Typography variant="h3" fontWeight={800} color="primary.main" gutterBottom>
+          <Typography
+            variant="h3"
+            gutterBottom
+            sx={{
+              fontWeight: 800,
+              color: "primary.main"
+            }}>
             {totalCorrect} / {QUESTION_COUNT}
           </Typography>
           <Typography variant="h6" gutterBottom>
             {t('learn.quiz.score', { score: totalCorrect, total: QUESTION_COUNT })}
           </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 3, lineHeight: 1.7 }}>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "text.secondary",
+              mb: 3,
+              lineHeight: 1.7
+            }}>
             {t(`learn.quiz.${feedbackKey}`)}
           </Typography>
 
           {missedTopics.length > 0 && (
             <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "text.secondary",
+                  mb: 1
+                }}>
                 {t('learn.quiz.reviewTopics')}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -155,25 +179,39 @@ export default function CqlQuiz() {
           </Button>
         </Paper>
       </Box>
-    )
+    );
   }
 
   return (
     <Box>
-      <Typography variant="h4" fontWeight={700} gutterBottom color="secondary.main">
+      <Typography
+        variant="h4"
+        gutterBottom
+        sx={{
+          fontWeight: 700,
+          color: "secondary.main"
+        }}>
         {t('learn.quiz.title')}
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography
+        variant="body1"
+        sx={{
+          color: "text.secondary",
+          mb: 3
+        }}>
         {t('learn.quiz.subtitle')}
       </Typography>
-
       {/* Progress */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {t('learn.quiz.question', { current: currentQ + 1, total: QUESTION_COUNT })}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography variant="caption" sx={{
+            color: "text.secondary"
+          }}>
             {Math.round(((currentQ + (checked ? 1 : 0)) / QUESTION_COUNT) * 100)}%
           </Typography>
         </Box>
@@ -183,18 +221,22 @@ export default function CqlQuiz() {
           sx={{ height: 6, borderRadius: 3 }}
         />
       </Box>
-
       <Paper
         elevation={0}
         sx={{
           p: 3,
-          borderRadius: 3,
+          borderRadius: CARD_RADIUS,
           border: '1px solid',
           borderColor: 'divider',
           maxWidth: 700,
         }}
       >
-        <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>
+        <Typography
+          variant="h6"
+          sx={{
+            fontWeight: 700,
+            mb: 3
+          }}>
           {question.question}
         </Typography>
 
@@ -222,7 +264,7 @@ export default function CqlQuiz() {
                   mb: 1,
                   p: 1,
                   mx: 0,
-                  borderRadius: 2,
+                  borderRadius: INNER_RADIUS,
                   bgcolor,
                   border: '1px solid',
                   borderColor: checked && index === question.answer ? 'success.main' :
@@ -240,7 +282,9 @@ export default function CqlQuiz() {
             severity={selectedAnswer === question.answer ? 'success' : 'error'}
             sx={{ mt: 2, mb: 2 }}
           >
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{
+              fontWeight: 600
+            }}>
               {selectedAnswer === question.answer ? t('learn.quiz.correct') : t('learn.quiz.incorrect')}
             </Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
@@ -267,5 +311,5 @@ export default function CqlQuiz() {
         </Box>
       </Paper>
     </Box>
-  )
+  );
 }

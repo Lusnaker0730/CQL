@@ -102,10 +102,16 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-
       {/* Style toggle */}
-      <Stack direction="row" alignItems="center" spacing={1}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary"
+          }}>
           {t('conditional.style')}
         </Typography>
         <ToggleButtonGroup
@@ -122,7 +128,6 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-
       {/* Branches */}
       {branches.map((branch, idx) => (
         <Box
@@ -136,8 +141,19 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
           }}
         >
           <Stack spacing={0.75}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Typography variant="caption" fontWeight={600} color="primary.main" sx={{ fontFamily: 'monospace' }}>
+            <Stack
+              direction="row"
+              sx={{
+                alignItems: "center",
+                justifyContent: "space-between"
+              }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 600,
+                  color: "primary.main",
+                  fontFamily: 'monospace'
+                }}>
                 {style === 'if'
                   ? (idx === 0 ? t('conditional.if') : t('conditional.elseIf'))
                   : t('conditional.when')
@@ -159,7 +175,13 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
               onChange={(e) => handleBranchChange(branch.id, 'condition', e.target.value)}
               sx={monoSx}
             />
-            <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                fontWeight: 600,
+                color: "text.secondary",
+                fontFamily: 'monospace'
+              }}>
               {t('conditional.then')}
             </Typography>
             <TextField
@@ -173,7 +195,6 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
           </Stack>
         </Box>
       ))}
-
       <Button
         size="small"
         startIcon={<AddIcon />}
@@ -182,7 +203,6 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
       >
         {t('conditional.addBranch')}
       </Button>
-
       {/* Else clause */}
       <Box
         sx={{
@@ -194,7 +214,13 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
         }}
       >
         <Stack spacing={0.75}>
-          <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          <Typography
+            variant="caption"
+            sx={{
+              fontWeight: 600,
+              color: "text.secondary",
+              fontFamily: 'monospace'
+            }}>
             {t('conditional.else')}
           </Typography>
           <TextField
@@ -207,12 +233,12 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
           />
         </Stack>
       </Box>
-
       {/* CQL Preview */}
       <CqlPreviewBox code={cqlPreview} />
-
       {/* Action buttons */}
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{
+        alignItems: "center"
+      }}>
         <GradientButton onClick={handleInsert} disabled={!cqlPreview}>
           {t('common.insert')}
         </GradientButton>
@@ -229,5 +255,5 @@ export default function ConditionalBuilder({ onInsert, onCancel }: ConditionalBu
         <Button size="small" onClick={onCancel}>{t('common.cancel')}</Button>
       </Stack>
     </Stack>
-  )
+  );
 }

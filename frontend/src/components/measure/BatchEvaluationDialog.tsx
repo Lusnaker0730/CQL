@@ -82,7 +82,9 @@ export default function BatchEvaluationDialog({
       <DialogTitle>{t('batch.title')}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{
+            color: "text.secondary"
+          }}>
             {t('batch.description', { count: measureIds.length })}
           </Typography>
 
@@ -104,8 +106,10 @@ export default function BatchEvaluationDialog({
               onChange={(e) => setPeriodStart(e.target.value)}
               size="small"
               fullWidth
-              InputLabelProps={{ shrink: true }}
               disabled={batchMutation.isPending}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
             <TextField
               label={t('batch.periodEnd')}
@@ -114,14 +118,22 @@ export default function BatchEvaluationDialog({
               onChange={(e) => setPeriodEnd(e.target.value)}
               size="small"
               fullWidth
-              InputLabelProps={{ shrink: true }}
               disabled={batchMutation.isPending}
+              slotProps={{
+                inputLabel: { shrink: true }
+              }}
             />
           </Stack>
 
           {batchMutation.isPending && (
             <Box>
-              <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+              <Stack
+                direction="row"
+                spacing={1}
+                sx={{
+                  alignItems: "center",
+                  mb: 1
+                }}>
                 <CircularProgress size={20} />
                 <Typography variant="body2">
                   {t('batch.evaluating')}
@@ -189,7 +201,9 @@ export default function BatchEvaluationDialog({
                                 color={getScoreChipColor(score * 100)}
                               />
                             ) : (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" sx={{
+                                color: "text.secondary"
+                              }}>
                                 &mdash;
                               </Typography>
                             )}
@@ -200,13 +214,15 @@ export default function BatchEvaluationDialog({
                                 {r.errorMessage}
                               </Typography>
                             ) : (
-                              <Typography variant="body2" color="text.secondary">
+                              <Typography variant="body2" sx={{
+                                color: "text.secondary"
+                              }}>
                                 &mdash;
                               </Typography>
                             )}
                           </TableCell>
                         </TableRow>
-                      )
+                      );
                     })}
                   </TableBody>
                 </Table>
@@ -229,5 +245,5 @@ export default function BatchEvaluationDialog({
         )}
       </DialogActions>
     </Dialog>
-  )
+  );
 }

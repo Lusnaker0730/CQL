@@ -32,4 +32,11 @@ public class MeasureEvaluationRequest {
 
     @Size(max = 500)
     private String fhirServerUrl;
+
+    /**
+     * ID of a stored, authenticated {@code EhrConnection} to evaluate the measure against.
+     * When set, the FHIR URL + credentials come from that connection (clinic runs eCQM on
+     * its own secured FHIR server) and {@code fhirServerUrl} is ignored. See Phase 1.
+     */
+    private Long connectionId;
 }

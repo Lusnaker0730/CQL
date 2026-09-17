@@ -39,7 +39,14 @@ export default function ElementField({ element, path, value, onChange, initialCh
   if (depth >= 3) {
     return (
       <Box sx={{ mb: 1 }}>
-        <Typography variant="caption" fontWeight={600} color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontWeight: 600,
+            color: "text.secondary",
+            display: 'block',
+            mb: 0.5
+          }}>
           {element.name} {t('testCaseBuilder.fields.jsonSuffix')}
         </Typography>
         <Box sx={{ border: 1, borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
@@ -80,7 +87,7 @@ export default function ElementField({ element, path, value, onChange, initialCh
           </Alert>
         )}
       </Box>
-    )
+    );
   }
 
   // Handle choice types

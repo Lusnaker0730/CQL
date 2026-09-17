@@ -49,11 +49,17 @@ export default function TerminologyLookupDrawer() {
         {/* Header */}
         <Stack
           direction="row"
-          justifyContent="space-between"
-          alignItems="center"
-          sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}
-        >
-          <Typography variant="subtitle1" fontWeight={600}>
+          sx={{
+            justifyContent: "space-between",
+            alignItems: "center",
+            px: 2,
+            py: 1,
+            borderBottom: 1,
+            borderColor: 'divider'
+          }}>
+          <Typography variant="subtitle1" sx={{
+            fontWeight: 600
+          }}>
             {t('drawer.title')}
           </Typography>
           <IconButton size="small" onClick={closeDrawer}>
@@ -96,5 +102,5 @@ export default function TerminologyLookupDrawer() {
         </Box>
       </Box>
     </Drawer>
-  )
+  );
 }

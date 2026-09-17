@@ -40,12 +40,11 @@ import CdsDebugPanel from './CdsDebugPanel'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { alpha } from '@mui/material/styles'
 import {
-  useCdsServices,
   useInvokeCdsService,
   useCdsServiceConfigs,
   useSubmitCdsFeedback,
 } from '../../hooks/useCdsHooks'
-import type { CdsServiceDefinition, CdsCard, CdsResponse } from '../../types'
+import type { CdsServiceConfigResponse, CdsCard, CdsResponse } from '../../types'
 import CriticalCardDialog from './CriticalCardDialog'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
@@ -100,8 +99,11 @@ interface InvokeServicePanelProps {
 }
 
 export default function InvokeServicePanel({ initialService = '' }: InvokeServicePanelProps = {}) {
-  const { data: servicesData, isLoading: loadingServices, isError: servicesError } = useCdsServices()
-  const { data: serviceConfigs } = useCdsServiceConfigs()
+  // BUG-141: the service dropdown must be fed by the authenticated,
+  // tenant-scoped /cds/services list. The old anonymous discovery endpoint
+  // (useCdsServices) was emptied by BUG-139's tenant-isolation change, so it
+  // returned nothing and no service ever appeared here.
+  const { data: serviceConfigs, isLoading: loadingServices, isError: servicesError } = useCdsServiceConfigs()
   const dispatch = useDispatch()
   const cqlContent = useSelector((state: RootState) => state.editor.cqlContent)
   const invokeMutation = useInvokeCdsService()
@@ -139,9 +141,12 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
   // overwrite user edits when they switch the service dropdown.
   const lastAutoLoadedCqlRef = useRef<string>('')
 
+  // Only enabled services are invocable (the backend's in-memory registry only
+  // holds enabled ones); a disabled service selected here would just return a
+  // "Service not found" card.
   const services = useMemo(
-    () => (Array.isArray(servicesData?.services) ? servicesData.services : []),
-    [servicesData?.services]
+    () => (Array.isArray(serviceConfigs) ? serviceConfigs.filter((s) => s.enabled) : []),
+    [serviceConfigs]
   )
   const allCards = useMemo(() => cdsResponse?.cards ?? [], [cdsResponse?.cards])
 
@@ -333,26 +338,26 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
             them reliably. */}
         <InputLabel id="invoke-service-label">{t('invoke.serviceLabel')}</InputLabel>
         <Select labelId="invoke-service-label" value={selectedService} onChange={(e) => setSelectedService(e.target.value)} label={t('invoke.serviceLabel')}>
-          {services.map((service: CdsServiceDefinition) => (
+          {services.map((service: CdsServiceConfigResponse) => (
             <MenuItem key={service.id} value={service.id}>
               {service.title} ({service.hook})
             </MenuItem>
           ))}
         </Select>
       </FormControl>
-
       {selectedService && (() => {
         const service = services.find((s) => s.id === selectedService)
         if (!service) return null
         return (
           <Box>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{
+              color: "text.secondary"
+            }}>
               {service.description}
             </Typography>
           </Box>
-        )
+        );
       })()}
-
       <FhirServerUrlField
         value={fhirServer}
         onChange={(value) => {
@@ -362,7 +367,6 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
         error={!!fhirServerError}
         helperText={fhirServerError}
       />
-
       {stringFields.map((field: CdsContextField) => (
         <TextField
           // Explicit, predictable id makes the <label htmlFor=...> ↔ <input id=...>
@@ -380,8 +384,13 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           required={field.required}
         />
       ))}
-
-      <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+      <Stack
+        direction="row"
+        spacing={1}
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between"
+        }}>
         <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('sandbox.debugMode')} />
         <GradientButton
           onClick={handleInvoke}
@@ -391,21 +400,15 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           {invokeMutation.isPending ? t('invoke.invoking') : t('invoke.invokeButton')}
         </GradientButton>
       </Stack>
-
       {cdsResponse?.debug && <CdsDebugPanel debug={cdsResponse.debug} />}
-
       <Divider />
-
       {loadingServices && <CircularProgress />}
-
       {servicesError && (
         <Alert severity="error">{t('invoke.loadError')}</Alert>
       )}
-
       {invokeMutation.isError && (
         <Alert severity="error">{t('invoke.invokeError', { error: extractApiError(invokeMutation.error) })}</Alert>
       )}
-
       {/* Critical Card Dialog */}
       {currentCritical && (
         <CriticalCardDialog
@@ -415,7 +418,6 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           onOverride={handleOverrideCritical}
         />
       )}
-
       {normalCards.length > 0 && (
         <Box>
           <Typography variant="subtitle1" gutterBottom>
@@ -437,9 +439,20 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
                 })}
               >
                 <CardContent>
-                  <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{
+                      alignItems: "center",
+                      mb: 1
+                    }}>
                     {getIndicatorIcon(card.indicator)}
-                    <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.primary' }}>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{
+                        fontWeight: "bold",
+                        color: 'text.primary'
+                      }}>
                       {card.summary}
                     </Typography>
                     <Chip
@@ -450,19 +463,28 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
                   </Stack>
 
                   {card.detail && (
-                    <Typography variant="body2" color="text.secondary" paragraph>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "text.secondary",
+                        marginBottom: "16px"
+                      }}>
                       {card.detail}
                     </Typography>
                   )}
 
                   {card.source && (
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" sx={{
+                      color: "text.secondary"
+                    }}>
                       {t('invoke.source', { label: card.source.label })}
                     </Typography>
                   )}
 
                   {card.suggestions && card.suggestions.length > 0 && (
-                    <Box mt={2}>
+                    <Box sx={{
+                      mt: 2
+                    }}>
                       <Typography variant="subtitle2">{t('invoke.suggestions')}</Typography>
                       <List dense>
                         {card.suggestions.map((suggestion) => (
@@ -494,9 +516,13 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
                   )}
 
                   {card.links && card.links.length > 0 && (
-                    <Box mt={2}>
+                    <Box sx={{
+                      mt: 2
+                    }}>
                       <Typography variant="subtitle2">{t('invoke.links')}</Typography>
-                      <Stack direction="row" spacing={1} mt={1}>
+                      <Stack direction="row" spacing={1} sx={{
+                        mt: 1
+                      }}>
                         {card.links.map((link, i) => (
                           <Button
                             key={`${link.label}-${i}`}
@@ -534,7 +560,6 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           </Stack>
         </Box>
       )}
-
       {cdsResponse?.systemActions && cdsResponse.systemActions.length > 0 && (
         <Alert severity="info" sx={{ mt: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
@@ -552,13 +577,16 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           </List>
         </Alert>
       )}
-
       {allCards.length === 0 && !invokeMutation.isPending && selectedService && (
-        <Typography variant="body2" color="text.secondary" textAlign="center">
+        <Typography
+          variant="body2"
+          sx={{
+            color: "text.secondary",
+            textAlign: "center"
+          }}>
           {t('invoke.noCards')}
         </Typography>
       )}
-
       <Dialog open={overrideDialogOpen} onClose={() => setOverrideDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('invoke.overrideDialogTitle')}</DialogTitle>
         <DialogContent>
@@ -579,7 +607,6 @@ export default function InvokeServicePanel({ initialService = '' }: InvokeServic
           </Button>
         </DialogActions>
       </Dialog>
-
     </Stack>
-  )
+  );
 }

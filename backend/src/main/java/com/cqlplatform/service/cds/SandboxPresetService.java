@@ -20,10 +20,22 @@ public class SandboxPresetService {
 
     private final SandboxPresetRepository presetRepository;
     private final OwnershipVerifier ownershipVerifier;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    /** Caller's tenant ?? default — see EhrConnectionService for the canonical pattern. */
+    private Long effectiveTenantId() {
+        Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+        if (tenantId != null) {
+            return tenantId;
+        }
+        return tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
+    }
 
     @Transactional(readOnly = true)
     public List<SandboxPresetResponse> listAccessible(String username) {
-        return presetRepository.findAccessible(username).stream()
+        return presetRepository.findAccessible(username, effectiveTenantId()).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -34,6 +46,7 @@ public class SandboxPresetService {
                 .name(request.getName())
                 .description(request.getDescription())
                 .ownerUsername(username)
+                .tenantId(effectiveTenantId())
                 .serviceId(request.getServiceId())
                 .patientId(request.getPatientId())
                 .prefetchJson(request.getPrefetchJson())
@@ -47,7 +60,9 @@ public class SandboxPresetService {
 
     @Transactional
     public SandboxPresetResponse update(Long id, SandboxPresetRequest request) {
-        SandboxPresetEntity entity = presetRepository.findById(id)
+        // Tenant-scoped (BUG-134): a preset in another tenant reads as not-found, which is what
+        // confines the ROLE_ADMIN bypass in verifyOwnership below to the caller's own tenant.
+        SandboxPresetEntity entity = presetRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Preset not found: " + id));
 
         ownershipVerifier.verifyOwnership(entity.getOwnerUsername());
@@ -66,7 +81,7 @@ public class SandboxPresetService {
 
     @Transactional
     public void delete(Long id) {
-        SandboxPresetEntity entity = presetRepository.findById(id)
+        SandboxPresetEntity entity = presetRepository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Preset not found: " + id));
 
         ownershipVerifier.verifyOwnership(entity.getOwnerUsername());

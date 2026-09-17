@@ -71,10 +71,20 @@ export default function ForgotPasswordPage() {
             >
               <MedicalIcon sx={{ fontSize: 32, color: 'common.white' }} />
             </Box>
-            <Typography variant="h5" fontWeight={700} color="text.primary">
+            <Typography
+              variant="h5"
+              sx={{
+                fontWeight: 700,
+                color: "text.primary"
+              }}>
               {t('auth.resetPassword')}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: "text.secondary",
+                mt: 0.5
+              }}>
               {t('auth.resetPasswordSubtitle')}
             </Typography>
           </Box>
@@ -142,5 +152,5 @@ export default function ForgotPasswordPage() {
         </CardContent>
       </Card>
     </Box>
-  )
+  );
 }

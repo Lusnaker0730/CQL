@@ -6,8 +6,21 @@
     "tabTwCoreIg": "TW Core IG",
     "tabEhrConnections": "EHR 連線"
   },
+  "bundleUpload": {
+    "title": "匯入 FHIR bundle 檔案",
+    "description": "上傳從健康存摺（全民健保行動快易通）或其他系統匯出的 FHIR bundle。不需要 EHR 連線 —— 系統會將 bundle 匯入為您診所的病人。",
+    "chooseFile": "選擇檔案",
+    "import": "匯入",
+    "importing": "匯入中…",
+    "validate": "驗證 TW Core 一致性（大檔較慢）",
+    "success": "已匯入病人 {{name}}（{{count}} 筆資源）。",
+    "conformance": "{{valid}}/{{total}} 筆資源符合 TW Core。",
+    "error": "匯入失敗：{{message}}"
+  },
   "browser": {
     "title": "FHIR 瀏覽器",
+    "connectionLabel": "EHR 連線",
+    "sandboxOption": "沙盒（預設）",
     "resourceTypeLabel": "資源類型",
     "tabSearch": "搜尋",
     "tabRead": "讀取",

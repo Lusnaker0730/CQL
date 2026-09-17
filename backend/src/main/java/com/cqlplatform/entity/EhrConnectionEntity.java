@@ -58,6 +58,14 @@ public class EhrConnectionEntity {
     @Column(length = 100)
     private String department;
 
+    /**
+     * Tenant (clinic) that owns this connection — the isolation boundary (Phase 2).
+     * Assigned server-side on create; existing rows were backfilled to the default tenant.
+     */
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.READ_ONLY)
+    @Column(name = "tenant_id", nullable = false)
+    private Long tenantId;
+
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(length = 20)
     private String status = "untested";

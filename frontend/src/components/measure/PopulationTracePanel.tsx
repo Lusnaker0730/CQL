@@ -17,7 +17,7 @@ import {
 import {
   CheckCircle as TrueIcon,
   Cancel as FalseIcon,
-  RemoveCircleOutline as UnknownIcon,
+  RemoveCircleOutlined as UnknownIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
@@ -49,7 +49,9 @@ export default function PopulationTracePanel({ trace }: Props) {
       {groups.map((group, idx) => (
         <Accordion key={group.groupId ?? idx} defaultExpanded={idx === 0}>
           <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-            <Typography variant="body2" fontWeight={600}>
+            <Typography variant="body2" sx={{
+              fontWeight: 600
+            }}>
               {group.groupId ?? t('populationTrace.defaultGroupName', { index: idx + 1 })}
               {group.scoringType && (
                 <Chip size="small" sx={{ ml: 1 }} label={group.scoringType} variant="outlined" />
@@ -62,7 +64,7 @@ export default function PopulationTracePanel({ trace }: Props) {
         </Accordion>
       ))}
     </Stack>
-  )
+  );
 }
 
 function GroupContent({ group }: { group: GroupTrace }) {
@@ -71,7 +73,13 @@ function GroupContent({ group }: { group: GroupTrace }) {
   return (
     <Box>
       {group.description && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: "text.secondary",
+            display: 'block',
+            mb: 1
+          }}>
           {group.description}
         </Typography>
       )}
@@ -97,7 +105,7 @@ function GroupContent({ group }: { group: GroupTrace }) {
         </Table>
       </TableContainer>
     </Box>
-  )
+  );
 }
 
 function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
@@ -111,11 +119,18 @@ function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
     <TableRow hover sx={{ opacity: dimmed ? 0.65 : 1 }}>
       <TableCell>
         <Box sx={{ pl: indentLevel * 2, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Typography variant="body2" fontWeight={500}>
+          <Typography variant="body2" sx={{
+            fontWeight: 500
+          }}>
             {entry.displayName}
           </Typography>
           {entry.criteriaExpression && entry.criteriaExpression !== entry.displayName && (
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: "text.secondary",
+                fontFamily: 'monospace'
+              }}>
               ← {entry.criteriaExpression}
             </Typography>
           )}
@@ -128,7 +143,9 @@ function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
         <BooleanIcon value={entry.effectiveResult} emphasis />
       </TableCell>
       <TableCell>
-        <Typography variant="caption" color="text.secondary">
+        <Typography variant="caption" sx={{
+          color: "text.secondary"
+        }}>
           {t(`populationTrace.reasons.${entry.reasonCode}`, {
             defaultValue: entry.reasonCode,
             ...(entry.reasonInputs ?? {}),
@@ -136,7 +153,7 @@ function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
         </Typography>
       </TableCell>
     </TableRow>
-  )
+  );
 }
 
 function BooleanIcon({ value, emphasis }: { value: boolean | null | undefined; emphasis?: boolean }) {

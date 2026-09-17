@@ -31,6 +31,9 @@ class RefreshTokenServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
+
+    @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @InjectMocks
@@ -53,7 +56,7 @@ class RefreshTokenServiceTest {
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L);
         when(jwtTokenProvider.getAbsoluteSessionMs()).thenReturn(2592000000L);
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("access-jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), nullable(Long.class), anyInt())).thenReturn("access-jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RefreshTokenService.TokenPair pair = refreshTokenService.createTokenPair(testUser);
@@ -90,7 +93,7 @@ class RefreshTokenServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L);
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("new-access-jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), nullable(Long.class), anyInt())).thenReturn("new-access-jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         RefreshTokenService.TokenPair pair = refreshTokenService.refreshTokens(rawToken);
@@ -212,6 +215,41 @@ class RefreshTokenServiceTest {
     }
 
     @Test
+    void refreshTokens_deactivatedTenant_shouldRevokeFamilyAndThrow() {
+        String rawToken = "deactivated-tenant-token";
+        String hash = DigestUtils.sha256Hex(rawToken);
+
+        UserEntity clinicUser = UserEntity.builder()
+                .id(3L)
+                .username("clinicuser")
+                .role(UserEntity.Role.USER)
+                .enabled(true)
+                .tenantId(9L)
+                .build();
+
+        RefreshTokenEntity token = RefreshTokenEntity.builder()
+                .id(11L)
+                .tokenHash(hash)
+                .userId(3L)
+                .familyId("family-9")
+                .expiresAt(LocalDateTime.now().plusDays(7))
+                .absoluteExpiresAt(LocalDateTime.now().plusDays(30))
+                .revoked(false)
+                .build();
+
+        when(refreshTokenRepository.findByTokenHash(hash)).thenReturn(Optional.of(token));
+        when(userRepository.findById(3L)).thenReturn(Optional.of(clinicUser));
+        when(tenantRepository.findById(9L)).thenReturn(Optional.of(
+                com.cqlplatform.entity.TenantEntity.builder().id(9L).code("clinic-b").active(false).build()));
+
+        assertThatThrownBy(() -> refreshTokenService.refreshTokens(rawToken))
+                .isInstanceOf(RefreshTokenService.InvalidRefreshTokenException.class)
+                .hasMessageContaining("deactivated");
+
+        verify(refreshTokenRepository).revokeByFamilyId("family-9");
+    }
+
+    @Test
     void refreshTokens_slidingWindowCappedAtAbsoluteExpiry() {
         String rawToken = "near-abs-token";
         String hash = DigestUtils.sha256Hex(rawToken);
@@ -233,7 +271,7 @@ class RefreshTokenServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
         when(jwtTokenProvider.getRefreshExpirationMs()).thenReturn(604800000L); // 7 days
         when(jwtTokenProvider.getAccessExpirationMs()).thenReturn(900000L);
-        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), anyInt())).thenReturn("jwt");
+        when(jwtTokenProvider.generateToken(anyString(), anyString(), any(), nullable(Long.class), anyInt())).thenReturn("jwt");
         when(refreshTokenRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
         refreshTokenService.refreshTokens(rawToken);
