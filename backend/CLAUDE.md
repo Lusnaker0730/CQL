@@ -1,4 +1,4 @@
-# Backend — Spring Boot 4.0 / Java 25
+# Backend — Spring Boot 4.1 / Java 25
 
 ## 架構：Controller → Service → Repository
 
@@ -70,7 +70,7 @@ public class XxxService {
 模板目錄：`src/main/resources/templates/cql/`
 ```
 artifact.ftl, ecqm-artifact.ftl    — 主模板
-modifiers/   (19 files)            — 修飾器模板
+modifiers/   (23 files)            — 修飾器模板
 elements/    (3 files)             — AgeRange, Gender, GenericResource
 fragments/   (2 files)             — cds-card, error-statement
 parameters/  (1 file)              — defaults
@@ -80,8 +80,8 @@ ecqm/        (1 file)              — standard-sde
 ## 資料庫
 
 - PostgreSQL (prod & dev) / H2 (test only)
-- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V40）
-- 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份）
+- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V69；V56 是 Java migration，在 `src/main/java/db/migration/`）
+- 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份；CI `migration-test` job 會數量比對，缺一個就紅）
 - JPA `ddl-auto=validate`（不會自動建表）
 - 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔 + 對應 `rollback_V{N+1}__description.sql`
 - Production `baseline-on-migrate: false`，Docker/dev 環境才為 `true`
