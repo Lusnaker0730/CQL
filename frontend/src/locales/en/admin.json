@@ -38,6 +38,7 @@
     },
     "errors": {
       "usernameExists": "That username is already taken.",
+      "invalidInput": "Please check your input. The password needs at least 8 characters including an uppercase letter, a lowercase letter, and a digit; the username must be 3–50 characters.",
       "createFailed": "Failed to create the staff account.",
       "resetFailed": "Failed to reset the password.",
       "updateRoleFailed": "Failed to change the role.",
@@ -129,7 +130,8 @@
       "userToggled": "{{username}} has been {{action}}d"
     },
     "errors": {
-      "usernameExists": "Username already exists or invalid input",
+      "usernameExists": "That username is already taken.",
+      "invalidInput": "Please check your input. The password needs at least 8 characters including an uppercase letter, a lowercase letter, and a digit; the username must be 3–50 characters.",
       "createFailed": "Failed to create user",
       "resetFailed": "Failed to reset password",
       "updateRoleFailed": "Failed to update role",
