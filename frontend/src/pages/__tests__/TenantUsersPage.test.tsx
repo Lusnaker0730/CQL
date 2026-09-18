@@ -98,4 +98,47 @@ describe('TenantUsersPage', () => {
       expect(screen.getByText('tenantUsers.noUsersFound')).toBeInTheDocument()
     })
   })
+
+  const openCreateAndFill = async (user: ReturnType<typeof userEvent.setup>, password: string) => {
+    await waitFor(() => expect(screen.getByText('tenantUsers.createUser')).toBeInTheDocument())
+    await user.click(screen.getByText('tenantUsers.createUser'))
+    await user.type(screen.getByLabelText(/usernameLabel/i), 'newstaff')
+    await user.type(screen.getByLabelText(/passwordLabel/i), password)
+  }
+
+  it('keeps the create button disabled for a password that lacks upper/lower/digit', async () => {
+    const user = userEvent.setup()
+    render(<TenantUsersPage />)
+    // 9 chars but all lowercase+digit, no uppercase — long enough to have previously
+    // passed the button, but the server would 400.
+    await openCreateAndFill(user, 'weakpass1')
+    expect(screen.getByText('tenantUsers.createDialog.createButton').closest('button')).toBeDisabled()
+  })
+
+  it('shows the validation reason (not "username taken") on a 400', async () => {
+    vi.mocked(tenantUserApi.createUser).mockRejectedValue({
+      response: { status: 400, data: { details: ['password: must contain at least one lowercase letter, one uppercase letter, and one digit'] } },
+    })
+    const user = userEvent.setup()
+    render(<TenantUsersPage />)
+    await openCreateAndFill(user, 'Passw0rd')
+    await user.click(screen.getByText('tenantUsers.createDialog.createButton'))
+    await waitFor(() => {
+      expect(screen.getByText(/must contain at least one lowercase/)).toBeInTheDocument()
+    })
+    expect(screen.queryByText('tenantUsers.errors.usernameExists')).not.toBeInTheDocument()
+  })
+
+  it('shows "username taken" only on a 409 conflict', async () => {
+    vi.mocked(tenantUserApi.createUser).mockRejectedValue({
+      response: { status: 409, data: { message: 'User with username already exists' } },
+    })
+    const user = userEvent.setup()
+    render(<TenantUsersPage />)
+    await openCreateAndFill(user, 'Passw0rd')
+    await user.click(screen.getByText('tenantUsers.createDialog.createButton'))
+    await waitFor(() => {
+      expect(screen.getByText('tenantUsers.errors.usernameExists')).toBeInTheDocument()
+    })
+  })
 })
