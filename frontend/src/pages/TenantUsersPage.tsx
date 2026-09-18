@@ -43,6 +43,12 @@ import { getStoredUsername } from '../utils/validation'
 
 const ROLES = ['USER', 'DEPARTMENT_ADMIN', 'ADMIN'] as const
 
+// Mirrors the backend TenantCreateUserRequest.password rule so the dialog rejects a
+// non-compliant password up front (a >=8 length alone passed the button but the server
+// still 400s without upper/lower/digit — which used to surface as a misleading
+// "username taken" message).
+const PASSWORD_RE = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,100}$/
+
 export default function TenantUsersPage() {
   const { t } = useTranslation('admin')
   const { t: tc } = useTranslation('common')
@@ -103,11 +109,21 @@ export default function TenantUsersPage() {
       setSuccess(t('tenantUsers.success.userCreated'))
       refreshUsers()
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { error?: string }; status?: number } }
-      if (axiosErr.response?.status === 409 || axiosErr.response?.status === 400) {
+      const axiosErr = err as {
+        response?: { data?: { message?: string; details?: string[]; error?: string }; status?: number }
+      }
+      const status = axiosErr.response?.status
+      const data = axiosErr.response?.data
+      if (status === 409) {
+        // Only a genuine duplicate username is a conflict.
         setError(t('tenantUsers.errors.usernameExists'))
+      } else if (status === 400) {
+        // Validation failure (most often the password policy). Show the server's
+        // specific reason when present, else a localized hint.
+        const detail = data?.details?.length ? data.details.join('; ') : data?.message
+        setError(detail || t('tenantUsers.errors.invalidInput'))
       } else {
-        setError(axiosErr.response?.data?.error || t('tenantUsers.errors.createFailed'))
+        setError(data?.message || t('tenantUsers.errors.createFailed'))
       }
     } finally {
       setCreateLoading(false)
@@ -358,6 +374,7 @@ export default function TenantUsersPage() {
               onChange={(e) => setCreateForm((prev) => ({ ...prev, password: e.target.value }))}
               fullWidth
               required
+              error={createForm.password.length > 0 && !PASSWORD_RE.test(createForm.password)}
               helperText={t('tenantUsers.createDialog.passwordHelperText')}
               slotProps={{ htmlInput: { maxLength: 100 } }}
             />
@@ -390,7 +407,7 @@ export default function TenantUsersPage() {
           <Button
             onClick={handleCreateUser}
             variant="contained"
-            disabled={createLoading || !createForm.username || createForm.password.length < 8}
+            disabled={createLoading || !createForm.username || !PASSWORD_RE.test(createForm.password)}
             startIcon={createLoading ? <CircularProgress size={16} /> : undefined}
             sx={{ borderRadius: 2 }}
           >
