@@ -13,7 +13,7 @@ This document covers the step-by-step deployment of the **Password Reset** featu
 ## Prerequisites
 
 - Java 21, Maven 3.9+
-- Node.js 20+, npm
+- Node.js 22+, npm
 - PostgreSQL 16 (production) or H2 (development)
 - SMTP mail server (production) or local dev SMTP (e.g., MailHog/MailPit)
 - Existing CQL Platform deployment (commit `f232795` or later)
