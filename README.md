@@ -340,7 +340,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 ## Prerequisites
 
 - Java 25+
-- Node.js 18+
+- Node.js 22+
 - Maven 3.9+
 - PostgreSQL 16 (or use the bundled `docker-compose.dev-pg.yml`)
 - Docker & Docker Compose (recommended for dev)
