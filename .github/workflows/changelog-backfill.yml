@@ -51,7 +51,7 @@ jobs:
 
     steps:
       - name: Checkout main (full history)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Need history so `git log --grep` can find the commits referenced
           # in CHANGE_LOG. fetch-depth:0 fetches everything.
@@ -59,7 +59,7 @@ jobs:
           token: ${{ secrets.CHANGELOG_PAT || secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
