@@ -178,7 +178,7 @@
 | BCryptPasswordEncoder | `SecurityConfig.java:150` |
 | Audit log PHI access flag + 365 day retention | `AuditLogEntity`, `AuditFilter`, `application.yml:221` |
 | Flyway migrations + rollback scripts + lock-retry | `db/migration/*` + `db/rollback/*` |
-| Dockerfile multi-stage + 非 root | `docker/Dockerfile.backend:18` |
+| Dockerfile multi-stage + 非 root | `backend/Dockerfile:19` |
 | Resilience4j circuit breakers | `application.yml:283-287` |
 | Smoke harness 15 scenarios（eCQM + CDS）| `scripts/smoke/` |
 | i18n + authoring error hints | `PAT-088/089/092` |

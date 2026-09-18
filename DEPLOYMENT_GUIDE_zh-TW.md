@@ -388,7 +388,7 @@ AI_CLOUD_TIMEOUT=60
 ### 6.1 Backend（Spring Boot 4.0）
 
 **映像建置**：多階段 Docker Build
-- 建置階段：`maven:3.9-eclipse-temurin-25`
+- 建置階段：`maven:3-eclipse-temurin-26`（`backend/Dockerfile`；dependabot 維護版本）
 - 執行階段：`eclipse-temurin:25-jre-alpine`（非 root 使用者 `appuser`）
 
 **主要相依版本**：Spring Boot 4.0.6 / HAPI FHIR 8.8.1 / Spring Security 6.5.9 / Jackson 3.1.1 / Tomcat 10.1.54 / CQL Framework 4.5.0
