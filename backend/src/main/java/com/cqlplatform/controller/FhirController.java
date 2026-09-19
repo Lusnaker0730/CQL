@@ -32,6 +32,7 @@ public class FhirController {
     private final FhirContext fhirContext;
     private final FhirStructureDefinitionService structureDefinitionService;
     private final com.cqlplatform.service.fhir.EhrConnectionService connectionService;
+    private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
     /**
      * PAT-212 — resolve the target for a browse/CRUD request. A connectionId is resolved through
@@ -475,7 +476,18 @@ public class FhirController {
     @Operation(summary = "Expand ValueSet", description = "Expand a ValueSet (auto-routes VSAC URLs to VSAC service)")
     public ResponseEntity<String> expandValueSet(
             @RequestParam String url,
-            @RequestParam(required = false) String filter) {
+            @RequestParam(required = false) String filter,
+            @RequestParam(required = false) String valueSetVersion) {
+
+        // PAT-230: this installation's own value sets come first — and are answered here, not inside
+        // terminologyService.expandValueSet, whose cache is keyed by URL for the whole process (a
+        // tenant's value set must not be served to another tenant, nor go stale after an edit).
+        var platform = platformValueSets.resolveForCaller(url, valueSetVersion);
+        if (platform.isPresent()) {
+            com.fasterxml.jackson.databind.node.ObjectNode resource = platformValueSets.toFhir(platform.get().valueSet());
+            applyExpansionFilter(resource, filter);
+            return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(resource.toPrettyString());
+        }
 
         ValueSet expanded;
         // Detect VSAC URLs and route to VsacService which has proper auth
@@ -522,9 +534,22 @@ public class FhirController {
     public ResponseEntity<Map<String, Object>> validateCode(
             @RequestParam String system,
             @RequestParam String code,
-            @RequestParam String valueSet) {
+            @RequestParam(required = false) String valueSet,
+            @RequestParam(required = false) String url) {
 
-        boolean valid = terminologyService.validateCode(system, code, valueSet);
+        // PAT-230: the frontend has always sent the FHIR-standard `url` while this endpoint required
+        // `valueSet`, so the Code Validation tab could only ever get a 400. Both are accepted now.
+        if (valueSet == null || valueSet.isBlank()) valueSet = url;
+        if (valueSet == null || valueSet.isBlank()) {
+            throw new com.cqlplatform.exception.ValidationException("valueSet (or url) is required");
+        }
+        final String valueSetUrl = valueSet;
+        // This installation's own value sets are checked here, outside the process-wide codeValidation cache.
+        var platform = platformValueSets.resolveForCaller(valueSetUrl, null);
+        boolean valid = platform.isPresent()
+                ? platform.get().valueSet().getConcepts().stream()
+                        .anyMatch(c -> code.equals(c.getCode()) && system.equals(c.getSystem()))
+                : terminologyService.validateCode(system, code, valueSetUrl);
         return ResponseEntity.ok(Map.of(
                 "result", valid,
                 "system", system,
@@ -565,12 +590,42 @@ public class FhirController {
         return ResponseEntity.ok(results);
     }
 
+    /** Keep only expansion entries whose code or display contains the filter (case-insensitive). */
+    private static void applyExpansionFilter(com.fasterxml.jackson.databind.node.ObjectNode resource, String filter) {
+        if (filter == null || filter.isBlank()) return;
+        String needle = filter.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!(resource.path("expansion").path("contains") instanceof com.fasterxml.jackson.databind.node.ArrayNode array)) return;
+        for (java.util.Iterator<com.fasterxml.jackson.databind.JsonNode> it = array.iterator(); it.hasNext();) {
+            com.fasterxml.jackson.databind.JsonNode c = it.next();
+            boolean match = c.path("code").asText("").toLowerCase(java.util.Locale.ROOT).contains(needle)
+                    || c.path("display").asText("").toLowerCase(java.util.Locale.ROOT).contains(needle);
+            if (!match) it.remove();
+        }
+        ((com.fasterxml.jackson.databind.node.ObjectNode) resource.path("expansion")).put("total", array.size());
+    }
+
     @GetMapping("/ValueSet")
-    @Operation(summary = "Search ValueSets", description = "Search for ValueSets (terminology server with VSAC fallback)")
+    @Operation(summary = "Search ValueSets", description = "This installation's own value sets first, then the terminology server (VSAC fallback)")
     public ResponseEntity<List<Map<String, String>>> searchValueSets(
             @RequestParam(required = false) String title) {
 
         String searchTitle = title != null ? title : "";
+        // PAT-230: platform value sets lead the list — they are the ones the author's own hospital
+        // maintains. One entry per URL (newest active, else newest draft), like an unversioned reference.
+        List<Map<String, String>> platformResults = new java.util.ArrayList<>();
+        java.util.Set<String> platformUrls = new java.util.LinkedHashSet<>();
+        for (var vs : platformValueSets.searchForCaller(searchTitle)) {
+            platformUrls.add(vs.getUrl());
+            platformResults.add(Map.of(
+                    "id", String.valueOf(vs.getId()),
+                    "url", vs.getUrl(),
+                    "name", vs.getName(),
+                    "title", vs.getTitle() != null ? vs.getTitle() : vs.getName(),
+                    "version", vs.getVersion(),
+                    "status", vs.getStatus(),
+                    "source", "platform"));
+        }
+
         List<ValueSet> valueSets = terminologyService.searchValueSets(searchTitle);
 
         // Fallback to VSAC if terminology server returned no results
@@ -587,9 +642,13 @@ public class FhirController {
                         "id", vs.getId() != null ? vs.getId() : "",
                         "url", vs.getUrl() != null ? vs.getUrl() : "",
                         "name", vs.getName() != null ? vs.getName() : "",
-                        "title", vs.getTitle() != null ? vs.getTitle() : ""
+                        "title", vs.getTitle() != null ? vs.getTitle() : "",
+                        "source", "remote"
                 ))
+                .filter(m -> !platformUrls.contains(m.get("url")))
                 .toList();
-        return ResponseEntity.ok(results);
+        List<Map<String, String>> merged = new java.util.ArrayList<>(platformResults);
+        merged.addAll(results);
+        return ResponseEntity.ok(merged);
     }
 }

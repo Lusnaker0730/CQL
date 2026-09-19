@@ -50,6 +50,8 @@ public class FhirMeasureBundleService {
     private final VsacService vsacService;
     /** Absent when implementation guides are disabled. */
     private final ObjectProvider<FhirImplementationGuideService> igServiceProvider;
+    /** PAT-230: this installation's own value sets — the first place a reference is looked up. */
+    private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /** A bundle together with the conformance report of exactly that bundle. */
@@ -165,10 +167,28 @@ public class FhirMeasureBundleService {
     }
 
     /**
-     * Adds the full value set when it can be resolved (loaded implementation guides first, then
-     * VSAC for NLM URLs); otherwise a stub, and the report says the package is not self-contained.
+     * Adds the full value set when it can be resolved (this installation's own value sets first,
+     * then loaded implementation guides, then VSAC for NLM URLs); otherwise a stub, and the report
+     * says the package is not self-contained.
      */
     private void addValueSet(ArrayNode entries, ValueSetRef ref, MeasureExportConformance report) {
+        var platform = platformValueSets.resolveForCaller(ref.url(), ref.version());
+        if (platform.isPresent()) {
+            var vs = platform.get().valueSet();
+            addEntry(entries, platformValueSets.toFhir(vs));
+            report.getValueSets().add(new MeasureExportConformance.ValueSetStatus(ref.url(), ref.name(), true, "platform"));
+            String label = "Value set '" + (ref.name() != null ? ref.name() : ref.url()) + "'";
+            if (platform.get().isDraft()) {
+                report.add(MeasureExportConformance.WARNING, "ValueSet", label + " is packaged from DRAFT version "
+                        + vs.getVersion() + ": its codes can still change here. Activate it before sharing the package.");
+            } else if (!platform.get().pinned()) {
+                report.add(MeasureExportConformance.INFO, "ValueSet", label + " is referenced without a version; the package carries "
+                        + "version " + vs.getVersion() + " (newest active). Pin it in CQL (version '" + vs.getVersion()
+                        + "') if the receiver must use exactly these codes.");
+            }
+            return;
+        }
+
         ValueSet resolved = null;
         String source = "none";
         FhirImplementationGuideService igService = igServiceProvider.getIfAvailable();

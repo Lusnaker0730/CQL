@@ -44,11 +44,15 @@ class FhirMeasureBundleImportServiceTest {
     @Mock private FhirMeasureService fhirMeasureService;
     @Mock private FhirLibraryService fhirLibraryService;
     @Mock private CqlLibraryService cqlLibraryService;
+    @Mock private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
     @InjectMocks private FhirMeasureBundleImportService service;
 
     @BeforeEach
     void setUp() {
         lenient().when(cqlLibraryService.getLibraryByNameAndVersion(anyString(), anyString())).thenReturn(Optional.empty());
+        lenient().when(platformValueSets.importFhirIfAbsent(any(JsonNode.class))).thenReturn(
+                new com.cqlplatform.service.terminology.PlatformValueSetService.ImportOutcome(
+                        com.cqlplatform.model.terminology.PlatformValueSet.builder().id(5L).url("https://x/ValueSet/a").version("1.0.0").build(), true));
         lenient().when(fhirMeasureService.importFhirMeasure(any(JsonNode.class), any()))
                 .thenReturn(MeasureDefinition.builder().id(1L).name("DiabetesHbA1cControl").version("1.2.0").build());
     }
@@ -86,6 +90,27 @@ class FhirMeasureBundleImportServiceTest {
         assertThat(imported.getValue().path("name").asText()).isEqualTo("HospitalCommon");
         assertThat(result.librariesImported()).isEqualTo(1);
         assertThat(result.valueSetsFound()).isEqualTo(1);
+        // PAT-230: the package's value set is stored, not just counted.
+        assertThat(result.valueSetsImported()).isEqualTo(1);
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void valueSetAlreadyHere_orWithoutCodes_isSkippedWithAReason_andTheMeasureStillImports() throws Exception {
+        when(platformValueSets.importFhirIfAbsent(any(JsonNode.class)))
+                .thenReturn(new com.cqlplatform.service.terminology.PlatformValueSetService.ImportOutcome(
+                        com.cqlplatform.model.terminology.PlatformValueSet.builder().id(5L).url("https://x/ValueSet/a").version("1.0.0").build(), false));
+        BundleImportResult existing = service.importBundle(bundle(null, library("DiabetesHbA1cControl", "1.2.0", null, MAIN_CQL)));
+        assertThat(existing.valueSetsSkipped()).isEqualTo(1);
+        assertThat(existing.warnings()).singleElement().asString().contains("already exists here").contains("https://x/ValueSet/a");
+
+        when(platformValueSets.importFhirIfAbsent(any(JsonNode.class)))
+                .thenThrow(new com.cqlplatform.exception.ValidationException("ValueSet cannot be imported",
+                        java.util.List.of("The definition is rule-based and the resource carries no expansion.")));
+        BundleImportResult stub = service.importBundle(bundle(null, library("DiabetesHbA1cControl", "1.2.0", null, MAIN_CQL)));
+        assertThat(stub.valueSetsImported()).isZero();
+        assertThat(stub.warnings()).singleElement().asString().contains("was not imported").contains("rule-based");
+        assertThat(stub.measure()).isNotNull();
     }
 
     @Test

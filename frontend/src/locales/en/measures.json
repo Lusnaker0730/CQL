@@ -137,7 +137,7 @@
       "measurePlaceholder": "Paste a FHIR Measure resource JSON here...",
       "importing": "Importing...",
       "import": "Import",
-      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
+      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped; {{valueSets}} of {{valueSetsFound}} value sets stored as draft value sets of your organisation.",
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
       "exportError": "Export failed: {{error}}",

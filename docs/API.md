@@ -1083,11 +1083,51 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 
 | 端點 | 方法 | 說明 |
 |------|------|------|
-| `/api/fhir/ValueSet?title=` | GET | 搜尋 ValueSet |
-| `/api/fhir/ValueSet/$expand?url=&filter=` | GET | 展開 ValueSet |
-| `/api/fhir/CodeSystem/$validate-code?system=&code=&valueSet=` | GET | 驗證代碼 |
+| `/api/fhir/ValueSet?title=` | GET | 搜尋 ValueSet。本單位自有的 value set 排在最前（每個 URL 一筆：最新 active，否則最新 draft），每筆結果帶 `source`（`platform` / `remote`），平台結果另有 `version`、`status`（PAT-230） |
+| `/api/fhir/ValueSet/$expand?url=&filter=&valueSetVersion=` | GET | 展開 ValueSet。先查本單位自有的 value set（`valueSetVersion` 可釘選版本），查不到才走 IG / VSAC / 術語伺服器 |
+| `/api/fhir/CodeSystem/$validate-code?system=&code=&url=` | GET | 驗證代碼。value set 以 `url`（FHIR 標準）或 `valueSet` 傳入皆可；本單位自有的 value set 在本機判斷 |
 | `/api/fhir/CodeSystem/$lookup?system=&code=` | GET | 查詢代碼資訊 |
 | `/api/fhir/CodeSystem/$search-codes?system=&text=&maxResults=20` | GET | 搜尋代碼 |
+
+---
+
+### 5.4.1 本單位自有的 value set（PAT-230）
+
+基礎路徑 `/api/value-sets`，一律以呼叫者的租戶為範圍（他租戶的 id 回 404）。一筆資料 = 一個 value set 的一個版本，以 canonical `url` + `version` 識別。內容為明確的代碼清單；以規則定義的 value set 不在平台內求值。
+
+生命週期：`draft`（可編輯、可刪除）→ `active`（代碼凍結）→ `retired`。要修改已啟用版本的代碼，請建立新版本。CQL 以 `valueset "X": '<url>' version '1.2.0'` 釘選時解析到該版本；未釘選時解析到最新的 `active`，尚無 `active` 時解析到最新的 `draft`；`retired` 只在被釘選時解析。
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/api/value-sets?search=` | GET | 清單（每個版本一筆，不含代碼） |
+| `/api/value-sets/{id}` | GET | 單一版本，含 `concepts` |
+| `/api/value-sets/{id}/versions` | GET | 同一 URL 的所有版本 |
+| `/api/value-sets` | POST | 建立（201）。`url` 留空時由 `name` 與 `FHIR_CANONICAL_BASE` 產生；`version` 預設 `1.0.0`；狀態一律 `draft`、擁有者為呼叫者（body 內的 `status` / `ownerUsername` 不採用） |
+| `/api/value-sets/{id}` | PUT | 編輯草稿（`url`、`version` 不可改）。非 `draft` 回 400 |
+| `/api/value-sets/{id}/versions` | POST | body `{ "version": "1.1.0" }`；以相同代碼建立新的 `draft`（201） |
+| `/api/value-sets/{id}/activate` | POST | `draft` → `active`。空的 value set 回 400 |
+| `/api/value-sets/{id}/retire` | POST | `active` → `retired` |
+| `/api/value-sets/{id}` | DELETE | 僅 `draft`（204） |
+| `/api/value-sets/{id}/fhir` | GET | 匯出為 FHIR R4 ValueSet（`compose` 依代碼系統分組，另附相同代碼的 `expansion`）。匯入後未修改者原樣輸出原資源，僅 `status` 以本機為準 |
+| `/api/value-sets/import/fhir` | POST | 匯入 FHIR R4 ValueSet（201，狀態 `draft`）。需有 `url` 與代碼：讀 `compose.include[].concept`；定義含規則（整個代碼系統、filter、exclude、巢狀 value set）時改用 `expansion.contains`，兩者皆無回 400。同 URL 同版本已存在回 409 |
+
+Request / response body：
+
+```json
+{
+  "url": "https://quality.example-hospital.tw/fhir/ValueSet/HbA1cOrders",
+  "version": "1.0.0",
+  "name": "HbA1cOrders",
+  "title": "HbA1c 醫令代碼",
+  "description": "...",
+  "publisher": "...",
+  "concepts": [{ "system": "http://loinc.org", "code": "4548-4", "display": "HbA1c" }]
+}
+```
+
+回應另含唯讀欄位 `id`、`status`、`conceptCount`、`origin`（`authored` / `imported`）、`ownerUsername`、`createdAt`、`updatedAt`。代碼會去除前後空白與重複（同 system + 代碼系統版本 + code，保留第一筆）；每筆都需有 `system` 與 `code`，上限 20,000 筆。驗證錯誤回 400 並在 `details` 列出所有問題。
+
+指標交換封裝（§4.2）會內嵌本單位自有 value set 的完整代碼（conformance 報告的 `source` 為 `platform`；引用到 `draft` 版本時為 warning，未釘選版本時為 info）。`POST /api/measures/import/bundle` 會把封裝內的 ValueSet 存為本租戶的 `draft` value set，回應另含 `valueSetsImported`、`valueSetsSkipped`、`warnings`：同 URL 同版本已存在者保留本機內容，沒有代碼者略過，兩者都會在 `warnings` 說明。
 
 ---
 

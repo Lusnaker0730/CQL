@@ -51,6 +51,11 @@ public class FhirCanonicalResolver {
         return base + "/Library/" + idPart(name);
     }
 
+    /** PAT-230: canonical URL of a value set authored in this installation. */
+    public String valueSetUrl(String name) {
+        return base + "/ValueSet/" + idPart(name);
+    }
+
     /** {@code url|version} — how FHIR pins a canonical reference to a business version. */
     public static String versioned(String url, String version) {
         return version == null || version.isBlank() ? url : url + "|" + version;
