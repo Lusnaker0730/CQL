@@ -57,7 +57,7 @@ jobs:
 
       - name: Build backend image (GHA cache shared with the Docker Build job)
         if: steps.gate.outputs.run == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: backend
           push: false
