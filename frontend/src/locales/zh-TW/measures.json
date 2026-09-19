@@ -182,7 +182,8 @@
       "cqlOnly": "僅 CQL",
       "elmOnly": "僅 ELM",
       "hqmfXml": "HQMF (XML)",
-      "humanReadable": "人類可讀文件 (HTML)"
+      "humanReadable": "人類可讀文件 (HTML)",
+      "packageCheck": "交換封裝檢查"
     },
     "versionMenu": {
       "createVersion": "建立版本",
@@ -1058,5 +1059,27 @@
       "type": "類型",
       "noChoices": "此欄位無可用的選擇型別。"
     }
+  },
+  "exportConformance": {
+    "title": "交換封裝檢查",
+    "loading": "正在檢查封裝",
+    "ready": "這個封裝可以被其他單位的系統匯入並執行。",
+    "notReady": "封裝有錯誤：其他單位無法用它執行這個指標。",
+    "measureProfiles": "Measure 宣告符合的 profile",
+    "libraryProfiles": "主要 Library 宣告符合的 profile",
+    "noProfiles": "目前沒有宣告任何 profile，請看下方的檢查結果補齊缺少的內容。",
+    "valueSets": "Value set",
+    "valueSetName": "Value set",
+    "valueSetPackaged": "封裝內容",
+    "valueSetIncluded": "完整定義（{{source}}）",
+    "valueSetNameOnly": "僅有 URL",
+    "issues": "檢查結果",
+    "noIssues": "沒有需要修正的項目。",
+    "severity": {
+      "error": "錯誤",
+      "warning": "警告",
+      "info": "提示"
+    },
+    "canonicalBaseHint": "Canonical URL 目前使用預設的佔位網址。對外分享封裝前，請管理員把 FHIR_CANONICAL_BASE 設成貴單位擁有的網域。"
   }
 }

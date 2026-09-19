@@ -1,0 +1,27 @@
+{
+  "type": "measure-package",
+  "periodStart": "2024-01-01",
+  "periodEnd": "2024-06-30",
+  "score": 66.67,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 4,
+    "denominator": 3,
+    "numerator": 2
+  },
+  "uploadLibrary": "library.cql",
+  "importAsVersion": "1.0.0-roundtrip",
+  "expectLibrariesSkipped": 1,
+  "package": {
+    "measureProfiles": [
+      "http://hl7.org/fhir/uv/crmi/StructureDefinition/crmi-shareablemeasure",
+      "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/computable-measure-cqfm",
+      "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/proportion-measure-cqfm"
+    ],
+    "libraries": ["SmokeMeasurePackageRoundTrip", "SmokePackageUtil"],
+    "dependsOn": ["/Library/SmokePackageUtil|1.0.0", "/Library/FHIRHelpers|4.0.1"],
+    "populationBasis": "boolean",
+    "improvementNotation": "increase"
+  },
+  "_note": "PAT-229 exchange-package round trip. A proportion measure that `include`s an uploaded library (SmokePackageUtil) is published and evaluated, exported through GET /export/bundle (JSON + XML) and GET /export/conformance, then the JSON package is re-imported through POST /import/bundle with Measure.version rewritten to importAsVersion (same name + version would be a duplicate — this is what 'the other hospital sent us their next version' looks like). The import lands as draft, is walked through submit-for-review + approve, and evaluated. populations/score are asserted on the IMPORTED measure by lib/assert.sh; lib/assert-measure-package.sh asserts the package shape (profiles, canonical Measure.library, no Measure.dataRequirement, Library CQL + ELM content, depends-on, fullUrl = url), the conformance report, that the import carries the CQL, and that both evaluations are identical. Before PAT-229 the imported measure had populations but no CQL and could not be evaluated at all. Ages at 2024-06-30: p1(74)/p2(69)/p3(59)/p4(44)/p5(14) → IP 4, denominator (>=50) 3, numerator (>=65) 2 → 66.67."
+}

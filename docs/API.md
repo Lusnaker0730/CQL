@@ -752,12 +752,54 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 |------|------|
 | `POST /api/measures/import/fhir` | 匯入 FHIR Measure 資源 |
 | `GET /api/measures/{id}/fhir` | 匯出為 FHIR Measure 資源 |
-| `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出完整 FHIR Bundle（Measure + Library + ValueSet） |
+| `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出交換封裝：Measure + 主要 Library（CQL + ELM）+ CQL `include` 的相依 Library + ValueSet（PAT-229，見下） |
+| `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
 | `GET /api/measures/{id}/export/elm` | 匯出 ELM JSON |
 | `POST /api/measures/import/bundle` | 匯入 FHIR Bundle |
 | `GET /api/measures/{id}/export/hqmf` | 匯出 HQMF R2.1 XML（CMS 申報） |
 | `GET /api/measures/{id}/export/human-readable` | 匯出人類可讀 HTML 敘述文件 |
+
+所有匯出端點皆經讀取權限檢查（public / shared，或擁有者、管理員）；跨租戶一律 404。
+
+#### 交換封裝（PAT-229）
+
+封裝依 HL7 Quality Measure IG 5.0.0（STU5）、CRMI 2.0.0、Using CQL with FHIR 2.0.0：
+
+- `Bundle.type = collection`，每個 entry 的 `fullUrl` 即該資源的 canonical `url`。
+- **Measure**：絕對 canonical `url`；`library` 只有一筆，為主要 Library 的 `url|version`；母群 `criteria.language = text/cql-identifier`；group 與 population 帶 `id`；`cqfm-populationBasis`、`cqfm-scoringUnit`、measure-observation 的 `cqfm-aggregateMethod` / `cqfm-criteriaReference`；supplemental data 與 risk adjustment 以 `usage` 區分；資料需求放在 contained 的 `effective-data-requirements` Library（以 `crmi-effectiveDataRequirements` 指向），**不**放在 Measure 上。
+- **`meta.profile` 只在條件成立時宣告**（`crmi-shareablemeasure` 需 title 與 description；`crmi-publishablemeasure` 另需狀態為 active 且有日期；`computable-measure-cqfm` 需有 CQL、有效的 group，非 cohort 指標另需 improvementNotation；scoring 專屬 profile 如 `proportion-measure-cqfm` 另需母群組合符合該 scoring）。缺的內容不填預設值，而是列在 conformance 報告。
+- **`status`** 只會是 `draft` / `active` / `retired`；平台的 `in-review` 對應為 `draft`。
+- **Library**：主要 Library 帶 `text/cql` 與 `application/elm+json`、`relatedArtifact depends-on`、`parameter`、`dataRequirement`。名稱與版本取自 CQL 的 `library` 宣告，不是指標名稱。相依 Library 由 ELM `includes` 逐層找出；`FHIRHelpers` 為標準函式庫，不封裝。
+- **ValueSet**：由已載入的 IG 或 VSAC 解析得到者附完整定義；解析不到者以真實 URL 附上、`status = unknown`，並列入報告。
+- `format=xml` 為 HAPI 由同一份 JSON 轉出的完整 FHIR XML。
+- 從其他工具匯入且**未修改**的指標再匯出時，原樣回傳原資源（含本平台不認識的擴充欄位），只有 `status` 以本機生命週期為準；修改過則由定義重建，並保留原資源中平台不建模的根元素。
+
+Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL` + `/fhir`；兩者皆無時使用佔位網址，報告的 `canonicalBaseConfigured` 為 `false`。
+
+`GET /api/measures/{id}/export/conformance` 回應：
+
+```json
+{
+  "profiles": ["http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/computable-measure-cqfm"],
+  "libraryProfiles": ["http://hl7.org/fhir/uv/cql/StructureDefinition/cql-library"],
+  "issues": [{ "severity": "warning", "element": "ValueSet", "message": "..." }],
+  "valueSets": [{ "url": "https://.../ValueSet/diabetes", "name": "Diabetes", "included": true, "source": "ig" }],
+  "canonicalBaseConfigured": true,
+  "exchangeReady": true
+}
+```
+
+`severity` 為 `error` / `warning` / `info`；有任何 `error`（例如 CQL 無法翻譯）時 `exchangeReady = false`，代表接收方無法由此封裝執行指標。`valueSets[].source` 為 `ig` / `vsac` / `none`。
+
+#### 匯入封裝
+
+`POST /api/measures/import/bundle`（body 為 FHIR Bundle JSON）回傳 `{ measure, librariesImported, librariesSkipped, valueSetsFound }`。
+
+- 主要 Library 依 `Measure.library` 判定：canonical URL 相符 → 名稱或 id 相符 → Bundle 內只有一個 Library。都不成立時不猜測：Library 全部存為共用 Library，指標不帶 CQL。
+- 主要 Library 的 CQL 成為指標邏輯；相依 Library 存為共用 Library，本機已有同名同版本者略過（計入 `librariesSkipped`，**不比對內容**）。
+- 匯入的指標一律為 `draft`、擁有者為呼叫者；封裝內的 `status` 不採用，須經送審與核准才可評估。同名同版本已存在時回 400。
+- body 不是 JSON 或不是 JSON 物件時回 400。
 
 ---
 

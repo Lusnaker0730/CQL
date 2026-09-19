@@ -878,6 +878,33 @@ export interface RetrieveTrace {
 }
 
 // Test Case types
+/** One finding of the exchange-package conformance report (PAT-229). */
+export interface ConformanceIssue {
+  severity: 'error' | 'warning' | 'info'
+  element: string
+  message: string
+}
+
+export interface ValueSetPackagingStatus {
+  url: string
+  name?: string
+  /** True when the package carries the full definition rather than just the URL. */
+  included: boolean
+  /** ig | vsac | none */
+  source: string
+}
+
+/** What an exported measure package conforms to (HL7 Quality Measure IG / CRMI), and what it lacks. */
+export interface MeasureExportConformance {
+  profiles: string[]
+  libraryProfiles: string[]
+  issues: ConformanceIssue[]
+  valueSets: ValueSetPackagingStatus[]
+  canonicalBaseConfigured: boolean
+  /** False when the report contains an error: the receiver could not run the package. */
+  exchangeReady: boolean
+}
+
 export interface TestCase {
   id?: number
   measureDefinitionId?: number

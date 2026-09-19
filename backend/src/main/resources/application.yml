@@ -225,6 +225,10 @@ cql:
 
 # FHIR Configuration
 fhir:
+  # PAT-229: base of the canonical URLs this installation publishes for its measures and
+  # libraries (https://<your-domain>/fhir). Falls back to APP_BASE_URL + /fhir; with neither
+  # set, exported packages use a localhost placeholder and the conformance report says so.
+  canonical-base: ${FHIR_CANONICAL_BASE:}
   server:
     url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
   terminology:
