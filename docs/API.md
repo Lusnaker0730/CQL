@@ -925,6 +925,32 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 }
 ```
 
+**結構化期望值 `expectedValues`（PAT-228，可選）**：扁平的 `expectedPopulations` 無法區分多個 population group，也不能斷言 measure observation 數值與 stratifier 落點。提供 `expectedValues` 時由它決定 pass / fail，`expectedPopulations` 不參與比對；未提供時行為與過去相同。
+
+```json
+{
+  "title": "兩次住院",
+  "patientBundleJson": "{\"resourceType\":\"Bundle\",...}",
+  "expectedValues": {
+    "groups": [
+      {
+        "groupId": "group-1",
+        "populations": { "initial-population": 1, "measure-population": 1 },
+        "observations": [2, 4],
+        "stratifiers": { "strat-elderly": "true" }
+      }
+    ]
+  }
+}
+```
+
+- `populations`：該 group 各母群**階層生效後**的計數（被分母排除的病人，分子為 0），與正式評估同一套規則；未列出的母群視為期望 0。評估目前以病人為單位，值為 0 或 1。
+- `observations`：不分順序的數值清單（浮點容差 1e-6）；省略代表不斷言，空陣列代表期望沒有數值。
+- `stratifiers`：`stratifierId` → 期望落點（criteria stratifier 為 `"true"` / `"false"`）；只比對有列出的項目。
+- 儲存時若 group / 母群 / stratifier 不存在於該指標、計數為負或數值非數字，回 **400** 並於 `details` 列出原因。
+
+執行結果（`/run`）在有 `expectedValues` 時回傳 `valueComparisons`（`groupId` / `kind` = `population`｜`observation`｜`stratifier` / `key` / `expected` / `actual` / `match`）；每次成功執行都會回傳 `actualValues`（同 `expectedValues` 的形狀），可直接作為期望值的起點。
+
 ---
 
 ### 4.9 版本管理

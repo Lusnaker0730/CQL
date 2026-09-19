@@ -14,7 +14,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import GradientButton from '../common/GradientButton'
-import type { TestCase, BatchTestCaseImportResult } from '../../types'
+import type { TestCase, BatchTestCaseImportResult, TestCaseExpectedValues } from '../../types'
 import { extractApiError } from '../../utils/errorUtils'
 
 interface TestCaseImportDialogProps {
@@ -28,7 +28,15 @@ interface ParsedTestCase {
   description: string
   series?: string
   expectedPopulations: Record<string, boolean>
+  /** PAT-228 structured expectations, passed through as exported; the server validates them. */
+  expectedValues?: TestCaseExpectedValues
   patientBundleJson: string
+}
+
+/** Accepts only the `{ groups: [...] }` shape; anything else is dropped rather than sent. */
+function structuredExpectation(raw: unknown): TestCaseExpectedValues | undefined {
+  const groups = (raw as { groups?: unknown } | null | undefined)?.groups
+  return Array.isArray(groups) && groups.length > 0 ? (raw as TestCaseExpectedValues) : undefined
 }
 
 export default function TestCaseImportDialog({ open, onClose, measureId }: TestCaseImportDialogProps) {
@@ -50,6 +58,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
         description: pc.description,
         series: pc.series,
         expectedPopulations: pc.expectedPopulations,
+        expectedValues: pc.expectedValues,
         patientBundleJson: pc.patientBundleJson,
       }))
       return measureApi.batchImportTestCases(
@@ -104,6 +113,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
           description: (item.description as string) || '',
           series: (item.series as string) || (item.groupName as string) || undefined,
           expectedPopulations: expectedPops,
+          expectedValues: structuredExpectation(item.expectedValues),
           patientBundleJson: typeof bundleJson === 'string' ? bundleJson : JSON.stringify(bundleJson),
         })
       }

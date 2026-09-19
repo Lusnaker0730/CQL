@@ -7,6 +7,8 @@ import com.cqlplatform.model.measure.PopulationDefinition;
 import com.cqlplatform.model.measure.PopulationMembershipTrace;
 import com.cqlplatform.model.measure.PopulationMembershipTrace.GroupTrace;
 import com.cqlplatform.model.measure.PopulationMembershipTrace.PopulationTraceEntry;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import com.cqlplatform.model.measure.TestCaseExpectedValues;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -260,6 +262,90 @@ public class PopulationEvaluator {
             return values;
         }
         return List.of();
+    }
+
+    /**
+     * CQL define names that carry one group's continuous-variable observation values.
+     *
+     * <p>{@code EcqmCqlBuilder.appendObservationWrapper} emits ONE wrapper define per group:
+     * {@code "Measure Observation Values{suffix}"} (episode-based) or
+     * {@code "Measure Observation Value{suffix}"} (patient-based), where the suffix is
+     * {@code " N"} (1-indexed) for multi-group measures and empty for a single group.
+     * {@code ObservationDefinition.criteriaExpression} holds the FUNCTION name, which never
+     * surfaces as a standalone result, so the wrapper has to be looked up instead (issue #539).
+     *
+     * @return the names to try, or {@code null} when the group declares no observations —
+     *         {@link #aggregateCvPatientResults} then falls back to the unsuffixed defines
+     */
+    public List<String> observationExpressionNames(List<GroupDefinition> groupDefs, GroupDefinition group) {
+        if (group == null || group.getObservations() == null || group.getObservations().isEmpty()) {
+            return null;
+        }
+        int groupIdx = groupDefs != null ? groupDefs.indexOf(group) : -1;
+        String suffix = groupDefs != null && groupDefs.size() > 1 && groupIdx >= 0 ? " " + (groupIdx + 1) : "";
+        return List.of(OBSERVATION_VALUES_EXPR + suffix, OBSERVATION_VALUE_EXPR + suffix);
+    }
+
+    /**
+     * What ONE patient contributes to one population group, computed with exactly the rules the
+     * production evaluation applies per patient (PAT-228). The test case runner compares these
+     * values with the expectation, so a passing test means "the report counts this patient the
+     * same way" — it deliberately does not re-implement the population hierarchy.
+     *
+     * <ul>
+     *   <li>populations — effective counts after the scoring type's hierarchy (proportion /
+     *       cohort, ratio, or continuous-variable), keyed by the group's own
+     *       {@link PopulationDefinition#getPopulationType()}. Patient-based: 0 or 1.</li>
+     *   <li>observations — continuous-variable: this group's wrapper define, only when the
+     *       patient is in the effective Measure Population. Other scoring types: the unsuffixed
+     *       observation defines, which production collects once per patient and not per group —
+     *       so they are reported on the first group only.</li>
+     * </ul>
+     *
+     * @param groupDefs  all groups of the measure (the index decides the multi-group suffix)
+     * @param allResults the patient's full CQL results map
+     */
+    public TestCaseExpectedValues.GroupValues evaluateSinglePatient(
+            String scoringType, List<GroupDefinition> groupDefs, GroupDefinition group,
+            Map<String, CqlExecutionResponse.ExpressionResult> allResults) {
+        boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
+        boolean isRatio = ScoringTypeConstants.RATIO.equals(scoringType);
+
+        Map<String, CqlExecutionResponse.ExpressionResult> canonical = buildExpressionMap(group, allResults);
+        Map<String, Integer> counts = isCv ? initializeCvPopulationCounts() : initializePopulationCounts();
+        List<Double> observations = new ArrayList<>();
+
+        if (isCv) {
+            aggregateCvPatientResults(counts, canonical, allResults,
+                    observationExpressionNames(groupDefs, group), observations);
+        } else {
+            if (isRatio) {
+                aggregateRatioPatientResults(counts, canonical);
+            } else {
+                aggregatePatientResults(counts, canonical);
+            }
+            boolean firstGroup = groupDefs == null || groupDefs.isEmpty() || groupDefs.indexOf(group) <= 0;
+            if (firstGroup) {
+                List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+                if (values.isEmpty()) {
+                    values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
+                }
+                observations.addAll(values);
+            }
+        }
+
+        Map<String, Integer> byType = new LinkedHashMap<>();
+        if (group.getPopulations() != null) {
+            for (PopulationDefinition pop : group.getPopulations()) {
+                if (pop.getPopulationType() == null) continue;
+                byType.put(pop.getPopulationType(), counts.getOrDefault(toDisplayName(pop.getPopulationType()), 0));
+            }
+        }
+        return TestCaseExpectedValues.GroupValues.builder()
+                .groupId(group.getGroupId())
+                .populations(byType)
+                .observations(observations)
+                .build();
     }
 
     /**
