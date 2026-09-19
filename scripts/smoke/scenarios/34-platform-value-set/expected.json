@@ -1,0 +1,51 @@
+{
+  "type": "platform-value-set",
+  "periodStart": "2025-01-01",
+  "periodEnd": "2025-06-30",
+  "valueSet": {
+    "url": "https://smoke.example.tw/fhir/ValueSet/SmokeHbA1cOrders",
+    "name": "SmokeHbA1cOrders",
+    "title": "Smoke HbA1c Orders",
+    "version": "1.0.0",
+    "concepts": [
+      {
+        "system": "http://loinc.org",
+        "code": "4548-4",
+        "display": "HbA1c"
+      }
+    ]
+  },
+  "nextVersion": {
+    "version": "2.0.0",
+    "concepts": [
+      {
+        "system": "http://loinc.org",
+        "code": "4548-4",
+        "display": "HbA1c"
+      },
+      {
+        "system": "http://loinc.org",
+        "code": "17856-6",
+        "display": "HbA1c by HPLC"
+      }
+    ]
+  },
+  "score": 25.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 4,
+    "denominator": 4,
+    "numerator": 1
+  },
+  "afterNextVersion": {
+    "score": 50.0,
+    "scoreTolerance": 0.5,
+    "populations": {
+      "initial-population": 4,
+      "denominator": 4,
+      "numerator": 2
+    }
+  },
+  "expectedCqlDeclaration": "valueset \"Smoke HbA1c Orders\": 'https://smoke.example.tw/fhir/ValueSet/SmokeHbA1cOrders'",
+  "_note": "PAT-230 end to end on the real stack. (1) A value set is created through POST /api/value-sets with one LOINC code and activated. (2) An eCQM whose numerator is `exists [Observation: \"Smoke HbA1c Orders\"]` is published; the artifact stores the value set the way the picker does ({name, oid: url}). The generated CQL must declare the URL (it used to declare the NAME as the URL, so nothing could resolve it). (3) Evaluate: adults p1-p4 are IP/denominator; only p1 has an Observation coded 4548-4 -> numerator 1, 25%. p3's glucose Observation and child p5's HbA1c must not count. (4) Version 2.0.0 adds 17856-6 and is activated; the measure references the value set unversioned, so the SAME measure now resolves the newest active version: p2 joins -> numerator 2, 50%. Version 1.0.0 must still hold exactly one code. (5) The exchange package embeds the platform value set in full (source=platform, version 2.0.0, both codes) and the conformance report has no 'could not be resolved' warning for it."
+}

@@ -137,7 +137,7 @@
       "measurePlaceholder": "在此貼上 FHIR Measure 資源 JSON...",
       "importing": "匯入中...",
       "import": "匯入",
-      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
+      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過；{{valueSetsFound}} 個 value set 中有 {{valueSets}} 個已存為本單位的草稿 value set。",
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
       "exportError": "匯出失敗：{{error}}",
@@ -182,7 +182,8 @@
       "cqlOnly": "僅 CQL",
       "elmOnly": "僅 ELM",
       "hqmfXml": "HQMF (XML)",
-      "humanReadable": "人類可讀文件 (HTML)"
+      "humanReadable": "人類可讀文件 (HTML)",
+      "packageCheck": "交換封裝檢查"
     },
     "versionMenu": {
       "createVersion": "建立版本",
@@ -579,7 +580,24 @@
       "invalidJson": "無效的 JSON"
     },
     "draftRestored": "已還原先前未儲存的草稿。",
-    "discardDraft": "捨棄草稿"
+    "discardDraft": "捨棄草稿",
+    "structured": {
+      "toggle": "分 group 期望值（母群、observation、stratifier）",
+      "toggleHint": "比對時使用與正式指標評估相同的規則，測試通過即代表報表會以同樣方式計入這位病人。",
+      "legacyWarning": "這個指標有多個 population group、measure observation 或 stratifier。下方的簡易開關無法區分 group，也不會檢查 observation 與 stratifier，請開啟「分 group 期望值」來測試。",
+      "group": "Group {{id}}",
+      "populationsHint": "請設定母群階層生效「之後」的歸屬：被分母排除的病人不算在分子內。",
+      "patientBasedNote": "母群目前以病人為單位計算（在或不在），評估尚未支援以 episode 計數。",
+      "assertObservations": "檢查 measure observation 數值",
+      "observations": "期望的 observation 數值",
+      "observationsPlaceholder": "例如 30, 45",
+      "observationsHint": "每個 observation 一個數值，順序不拘；留空代表期望沒有任何數值。",
+      "observationsInvalid": "不是數字：{{tokens}}",
+      "stratifiers": "期望的分層落點",
+      "stratifierHint": "留空代表不檢查這個 stratifier",
+      "useActual": "帶入上次執行的實際值",
+      "noGroups": "這個指標尚未定義 population group，沒有可逐 group 設定的項目。"
+    }
   },
   "testCaseResult": {
     "pass": "通過",
@@ -589,12 +607,20 @@
       "population": "族群",
       "expected": "預期",
       "actual": "實際",
-      "result": "結果"
+      "result": "結果",
+      "group": "Group",
+      "item": "項目"
     },
     "yes": "是",
     "no": "否",
     "na": "-",
-    "ms": "ms"
+    "ms": "ms",
+    "kinds": {
+      "observation": "Observation 數值",
+      "stratifier": "Stratifier {{id}}"
+    },
+    "structuredTable": "分 group 比對結果",
+    "noStratum": "（未落入任何分層）"
   },
   "evaluationResult": {
     "populationLabels": {
@@ -1058,5 +1084,27 @@
       "type": "類型",
       "noChoices": "此欄位無可用的選擇型別。"
     }
+  },
+  "exportConformance": {
+    "title": "交換封裝檢查",
+    "loading": "正在檢查封裝",
+    "ready": "這個封裝可以被其他單位的系統匯入並執行。",
+    "notReady": "封裝有錯誤：其他單位無法用它執行這個指標。",
+    "measureProfiles": "Measure 宣告符合的 profile",
+    "libraryProfiles": "主要 Library 宣告符合的 profile",
+    "noProfiles": "目前沒有宣告任何 profile，請看下方的檢查結果補齊缺少的內容。",
+    "valueSets": "Value set",
+    "valueSetName": "Value set",
+    "valueSetPackaged": "封裝內容",
+    "valueSetIncluded": "完整定義（{{source}}）",
+    "valueSetNameOnly": "僅有 URL",
+    "issues": "檢查結果",
+    "noIssues": "沒有需要修正的項目。",
+    "severity": {
+      "error": "錯誤",
+      "warning": "警告",
+      "info": "提示"
+    },
+    "canonicalBaseHint": "Canonical URL 目前使用預設的佔位網址。對外分享封裝前，請管理員把 FHIR_CANONICAL_BASE 設成貴單位擁有的網域。"
   }
 }

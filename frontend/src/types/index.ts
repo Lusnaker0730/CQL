@@ -713,6 +713,54 @@ export interface ValueSetSearchResult {
   url: string
   name: string
   title: string
+  /**
+   * PAT-230: 'platform' = this installation's own value set, 'remote' = terminology server / VSAC
+   * (both set by the backend); 'local' = bundled implementation guide (set by the browse tab).
+   */
+  source?: 'platform' | 'remote' | 'local'
+  /** Platform value sets only: the version an unversioned reference resolves to, and its status. */
+  version?: string
+  status?: string
+}
+
+/** PAT-230 — one code of a platform value set. */
+export interface ValueSetConcept {
+  system: string
+  /** Code system version, when pinned. */
+  version?: string
+  code: string
+  display?: string
+}
+
+export type PlatformValueSetStatus = 'draft' | 'active' | 'retired'
+
+/** PAT-230 — one version of a value set this installation owns. List responses omit `concepts`. */
+export interface PlatformValueSet {
+  id: number
+  url: string
+  version: string
+  name: string
+  title?: string
+  description?: string
+  status: PlatformValueSetStatus
+  publisher?: string
+  concepts?: ValueSetConcept[]
+  conceptCount: number
+  origin: 'authored' | 'imported'
+  ownerUsername: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** What the author may set; status, owner and origin are the server's. */
+export interface PlatformValueSetInput {
+  url?: string
+  version?: string
+  name: string
+  title?: string
+  description?: string
+  publisher?: string
+  concepts: ValueSetConcept[]
 }
 
 export interface ValueSetExpansion {
@@ -878,6 +926,33 @@ export interface RetrieveTrace {
 }
 
 // Test Case types
+/** One finding of the exchange-package conformance report (PAT-229). */
+export interface ConformanceIssue {
+  severity: 'error' | 'warning' | 'info'
+  element: string
+  message: string
+}
+
+export interface ValueSetPackagingStatus {
+  url: string
+  name?: string
+  /** True when the package carries the full definition rather than just the URL. */
+  included: boolean
+  /** ig | vsac | none */
+  source: string
+}
+
+/** What an exported measure package conforms to (HL7 Quality Measure IG / CRMI), and what it lacks. */
+export interface MeasureExportConformance {
+  profiles: string[]
+  libraryProfiles: string[]
+  issues: ConformanceIssue[]
+  valueSets: ValueSetPackagingStatus[]
+  canonicalBaseConfigured: boolean
+  /** False when the report contains an error: the receiver could not run the package. */
+  exchangeReady: boolean
+}
+
 export interface TestCase {
   id?: number
   measureDefinitionId?: number
@@ -885,6 +960,9 @@ export interface TestCase {
   description?: string
   patientBundleJson?: string
   expectedPopulations?: Record<string, boolean>
+  /** Structured expectations per population group (PAT-228). When present the run compares
+   *  against these and ignores the flat `expectedPopulations` map. */
+  expectedValues?: TestCaseExpectedValues | null
   status?: string
   lastRunResultJson?: string
   lastRunActualPopulations?: Record<string, boolean>
@@ -902,6 +980,11 @@ export interface TestCaseRunResult {
   expectedPopulations?: Record<string, boolean>
   actualPopulations?: Record<string, boolean>
   comparisons?: PopulationComparison[]
+  /** Structured expectation this run compared against; absent for legacy test cases. */
+  expectedValues?: TestCaseExpectedValues
+  /** Structured actual values (production evaluation rules); present on every successful run. */
+  actualValues?: TestCaseExpectedValues
+  valueComparisons?: ValueComparison[]
   errorMessage?: string
   executionTimeMs?: number
   // Debug mode additions (only populated when run with debugMode=true)
@@ -909,6 +992,30 @@ export interface TestCaseRunResult {
   populationTrace?: PopulationMembershipTrace
   coverage?: CoverageResult
   phaseError?: PhaseError
+}
+
+/** Expected (or actual) values of one population group of a test case (PAT-228). */
+export interface TestCaseGroupValues {
+  groupId: string
+  /** Effective count per population type, after the scoring type's population hierarchy. */
+  populations?: Record<string, number>
+  /** Measure observation values (order-insensitive). Absent / null = not asserted. */
+  observations?: number[] | null
+  /** stratifierId → expected stratum value ('true' / 'false' for criteria stratifiers). */
+  stratifiers?: Record<string, string>
+}
+
+export interface TestCaseExpectedValues {
+  groups: TestCaseGroupValues[]
+}
+
+export interface ValueComparison {
+  groupId: string
+  kind: 'population' | 'observation' | 'stratifier'
+  key: string
+  expected?: string
+  actual?: string
+  match: boolean
 }
 
 export interface PopulationComparison {
@@ -1024,6 +1131,11 @@ export interface BundleImportResult {
   librariesImported: number
   librariesSkipped: number
   valueSetsFound: number
+  /** PAT-230: stored as this tenant's own (draft) value sets. */
+  valueSetsImported?: number
+  /** Already here (kept as they are) or came without codes — `warnings` says which. */
+  valueSetsSkipped?: number
+  warnings?: string[]
 }
 
 // Dashboard types

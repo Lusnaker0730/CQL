@@ -137,7 +137,7 @@
       "measurePlaceholder": "Paste a FHIR Measure resource JSON here...",
       "importing": "Importing...",
       "import": "Import",
-      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
+      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped; {{valueSets}} of {{valueSetsFound}} value sets stored as draft value sets of your organisation.",
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
       "exportError": "Export failed: {{error}}",
@@ -182,7 +182,8 @@
       "cqlOnly": "CQL Only",
       "elmOnly": "ELM Only",
       "hqmfXml": "HQMF (XML)",
-      "humanReadable": "Human Readable (HTML)"
+      "humanReadable": "Human Readable (HTML)",
+      "packageCheck": "Exchange package check"
     },
     "versionMenu": {
       "createVersion": "Create Version",
@@ -579,7 +580,24 @@
       "invalidJson": "Invalid JSON"
     },
     "draftRestored": "Restored unsaved draft from a previous session.",
-    "discardDraft": "Discard Draft"
+    "discardDraft": "Discard Draft",
+    "structured": {
+      "toggle": "Per-group expectations (populations, observations, stratifiers)",
+      "toggleHint": "Compared with the same rules the measure evaluation applies to a patient, so a passing test means the report counts this patient the same way.",
+      "legacyWarning": "This measure has several population groups, measure observations or stratifiers. The simple switches below cannot tell groups apart and do not check observations or stratifiers — turn on per-group expectations to test them.",
+      "group": "Group {{id}}",
+      "populationsHint": "Set the membership you expect AFTER the population hierarchy — a patient removed by a denominator exclusion is not in the numerator.",
+      "patientBasedNote": "Populations are counted per patient (in or out): the evaluation does not count episodes yet.",
+      "assertObservations": "Check measure observation values",
+      "observations": "Expected observation values",
+      "observationsPlaceholder": "e.g. 30, 45",
+      "observationsHint": "One value per observation, in any order. Leave empty to expect none.",
+      "observationsInvalid": "Not a number: {{tokens}}",
+      "stratifiers": "Expected stratum",
+      "stratifierHint": "Leave empty to not check this stratifier",
+      "useActual": "Fill in from the last run's actual values",
+      "noGroups": "This measure has no population groups defined, so there is nothing to set per group."
+    }
   },
   "testCaseResult": {
     "pass": "Pass",
@@ -589,12 +607,20 @@
       "population": "Population",
       "expected": "Expected",
       "actual": "Actual",
-      "result": "Result"
+      "result": "Result",
+      "group": "Group",
+      "item": "Item"
     },
     "yes": "Yes",
     "no": "No",
     "na": "-",
-    "ms": "ms"
+    "ms": "ms",
+    "kinds": {
+      "observation": "Observation values",
+      "stratifier": "Stratifier {{id}}"
+    },
+    "structuredTable": "Per-group comparison",
+    "noStratum": "(no stratum)"
   },
   "evaluationResult": {
     "populationLabels": {
@@ -1058,5 +1084,27 @@
       "type": "Type",
       "noChoices": "No choice types available for this element."
     }
+  },
+  "exportConformance": {
+    "title": "Exchange package check",
+    "loading": "Checking the package",
+    "ready": "The package can be run by another installation.",
+    "notReady": "The package has errors: another installation could not run this measure from it.",
+    "measureProfiles": "Profiles the Measure claims",
+    "libraryProfiles": "Profiles the primary Library claims",
+    "noProfiles": "No profile is claimed yet. See the findings below for what is missing.",
+    "valueSets": "Value sets",
+    "valueSetName": "Value set",
+    "valueSetPackaged": "In the package",
+    "valueSetIncluded": "Full definition ({{source}})",
+    "valueSetNameOnly": "URL only",
+    "issues": "Findings",
+    "noIssues": "Nothing to fix.",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Note"
+    },
+    "canonicalBaseHint": "Canonical URLs use a placeholder. Ask an administrator to set FHIR_CANONICAL_BASE to a domain your organisation owns before sharing packages."
   }
 }

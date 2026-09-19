@@ -359,7 +359,8 @@
     "addAll": "全部新增",
     "colCode": "代碼",
     "colDisplay": "顯示名稱",
-    "colChinese": "中文"
+    "colChinese": "中文",
+    "platformSource": "本單位 · v{{version}} · {{status}}"
   },
   "chooseCode": {
     "title": "選擇代碼",

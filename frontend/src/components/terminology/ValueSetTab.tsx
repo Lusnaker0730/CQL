@@ -58,10 +58,11 @@ export default function ValueSetTab() {
 
   // Merge results based on source
   const searchResults = useMemo(() => {
-    const results: (ValueSetSearchResult & { source?: string })[] = []
+    const results: ValueSetSearchResult[] = []
     if (source === 'remote' || source === 'both') {
       if (remoteResults) {
-        results.push(...remoteResults.map(r => ({ ...r, source: 'remote' as const })))
+        // PAT-230: the backend marks this installation's own value sets; keep that mark.
+        results.push(...remoteResults.map(r => ({ ...r, source: r.source ?? ('remote' as const) })))
       }
     }
     if (source === 'local' || source === 'both') {
@@ -211,10 +212,11 @@ export default function ValueSetTab() {
                       </Typography>
                       {vs.source && (
                         <Chip
-                          label={vs.source === 'local' ? t('valueSet.chipLocalIg') : t('valueSet.chipRemote')}
+                          label={vs.source === 'platform' ? t('valueSet.chipPlatform')
+                            : vs.source === 'local' ? t('valueSet.chipLocalIg') : t('valueSet.chipRemote')}
                           size="small"
                           variant="outlined"
-                          color={vs.source === 'local' ? 'success' : 'default'}
+                          color={vs.source === 'platform' ? 'primary' : vs.source === 'local' ? 'success' : 'default'}
                           sx={{ height: 20, fontSize: '0.65rem' }}
                         />
                       )}

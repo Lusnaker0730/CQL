@@ -379,8 +379,212 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             rm -rf "$guard_tmp"
             ;;
 
+        measure-package)
+            # PAT-229 exchange-package round trip: publish → evaluate → export the
+            # HL7 Quality Measure IG package (JSON, XML, conformance report) →
+            # import it back as a new version → approve → evaluate. The imported
+            # measure must compute what the exported one does; before PAT-229 it
+            # arrived without its CQL and could not be evaluated at all.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            import_version=$(jq -r '.importAsVersion' "$expected_file" | tr -d '\r')
+
+            if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
+                failed_scenarios+=("$name"); continue
+            fi
+            upload_lib=$(jq -r '.uploadLibrary // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$upload_lib" ]; then
+                if ! bash "$SCRIPT_DIR/lib/upload-library.sh" "$scenario_dir/$upload_lib"; then
+                    failed_scenarios+=("$name"); continue
+                fi
+            fi
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            pkg_tmp=$(mktemp -d)
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$pkg_tmp/original.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/export-package.sh" "$measure_id" "$pkg_tmp"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            # Same name + version would be refused as a duplicate: import it as the
+            # "next version the other organisation sent us".
+            jq --arg v "$import_version" \
+                '(.entry[].resource | select(.resourceType == "Measure") | .version) = $v' \
+                "$pkg_tmp/bundle.json" > "$pkg_tmp/import.json"
+            if ! bash "$SCRIPT_DIR/lib/import-package.sh" "$pkg_tmp/import.json" > "$pkg_tmp/import-result.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            imported_id=$(jq -r '.measure.id // empty' "$pkg_tmp/import-result.json" | tr -d '\r')
+            if [ -z "$imported_id" ]; then
+                echo "    ✗ import result has no .measure.id" >&2
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$imported_id"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$imported_id" "$period_start" "$period_end" > "$pkg_tmp/imported.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            package_ok=1
+            bash "$SCRIPT_DIR/lib/assert.sh" "$pkg_tmp/imported.json" "$expected_file" "$imported_id" || package_ok=0
+            bash "$SCRIPT_DIR/lib/assert-measure-package.sh" "$pkg_tmp" "$expected_file" || package_ok=0
+            if [ "$package_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                # Keep the package next to the logs: the jq assertions are hard to debug without it.
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$pkg_tmp" "$SMOKE_LOG_DIR/$name-package" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$pkg_tmp"
+            ;;
+
+        test-case-expectations)
+            # PAT-228 structured test-case expectations. An eCQM is published, then a test
+            # case is created with per-group expected populations + observation values and
+            # run (must pass), the expectation is made wrong and run again (must fail on
+            # the observation row), and an expectation for a group the measure does not
+            # have must be refused on save. Test cases evaluate an in-memory bundle against
+            # the CURRENT calendar year, so nothing is seeded into FHIR and the bundle's
+            # dates are generated here.
+            measure_file="$scenario_dir/measure.json"
+            tc_bundle_file="$scenario_dir/testcase-bundle.json"
+            for f in "$measure_file" "$tc_bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name")
+                continue
+            fi
+            tc_tmp=$(mktemp -d)
+            tc_year=$(date +%Y)
+            tc_bundle=$(sed "s/__YEAR__/$tc_year/g" "$tc_bundle_file")
+            tc_group=$(jq -r '.groupId' "$expected_file" | tr -d '\r')
+            # $1 = observation list to expect, $2 = group id, $3 = output file
+            build_test_case() {
+                jq -n --arg bundle "$tc_bundle" --arg group "$2" --argjson obs "$1" \
+                    --argjson pops "$(jq -c '.expectedPopulations' "$expected_file")" \
+                    '{title: "smoke-32 two inpatient stays", patientBundleJson: $bundle,
+                      expectedValues: {groups: [{groupId: $group, populations: $pops, observations: $obs}]}}' > "$3"
+            }
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "$tc_group" "$tc_tmp/create.json"
+            build_test_case "$(jq -c '.wrongObservations' "$expected_file")" "$tc_group" "$tc_tmp/wrong.json"
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "group-does-not-exist" "$tc_tmp/bad-group.json"
+
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/create.json" > "$tc_tmp/create.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            tc_id=$(sed '1,/^---HTTP_STATUS_BODY---$/d' "$tc_tmp/create.raw" | jq -r '.id // empty')
+            if [ -z "$tc_id" ]; then
+                echo "    ✗ test case was not created: $(head -c 400 "$tc_tmp/create.raw")" >&2
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            echo "  created test case #$tc_id" >&2
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-pass.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" PUT "$measure_id" "/$tc_id" "$tc_tmp/wrong.json" > "$tc_tmp/update.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-fail.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/bad-group.json" > "$tc_tmp/bad-group.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if bash "$SCRIPT_DIR/lib/assert-test-case-expectations.sh" "$tc_tmp/run-pass.raw" "$tc_tmp/run-fail.raw" \
+                    "$tc_tmp/bad-group.raw" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$tc_tmp"
+            ;;
+
+        platform-value-set)
+            # PAT-230: a value set this installation owns, used by a measure. Create +
+            # activate v1 → publish an eCQM whose numerator retrieves by that value set →
+            # evaluate (v1 codes) → create + activate v2 with one more code → evaluate the
+            # SAME measure again (unversioned reference → newest active) → the exchange
+            # package must embed the codes. Also locks the generator fix: the CQL header
+            # declares the value set's URL, not its name.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            vs_tmp=$(mktemp -d)
+            vs_ok=1
+            vs_step() { # run a step; on failure mark the scenario failed and stop the chain
+                [ "$vs_ok" = "1" ] || return 0
+                "$@" || vs_ok=0
+            }
+            vs_url=$(jq -r '.valueSet.url' "$expected_file" | tr -d '\r')
+            vs_title=$(jq -r '.valueSet.title' "$expected_file" | tr -d '\r')
+            jq '.valueSet' "$expected_file" > "$vs_tmp/create.json"
+            jq '{version: .nextVersion.version}' "$expected_file" > "$vs_tmp/new-version.json"
+            jq '.valueSet + {concepts: .nextVersion.concepts}' "$expected_file" > "$vs_tmp/update.json"
+            jq '.afterNextVersion' "$expected_file" > "$vs_tmp/expected-v2.json"
+
+            vs_step bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST /value-sets "$vs_tmp/create.json" > "$vs_tmp/created.json"'
+            v1_id=$(jq -r '.id // empty' "$vs_tmp/created.json" 2>/dev/null | tr -d '\r') || true
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/activate" > /dev/null'
+            [ "$vs_ok" = "1" ] && echo "  value set #$v1_id created and activated" >&2
+            if [ "$vs_ok" = "1" ]; then
+                measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file") || vs_ok=0
+            fi
+            vs_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$vs_tmp/eval-v1.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/versions" "$vs_tmp/new-version.json" > "$vs_tmp/v2.json"'
+            v2_id=$(jq -r '.id // empty' "$vs_tmp/v2.json" 2>/dev/null | tr -d '\r') || true
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" PUT "/value-sets/$v2_id" "$vs_tmp/update.json" > /dev/null'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v2_id/activate" > /dev/null'
+            [ "$vs_ok" = "1" ] && echo "  version $(jq -r '.nextVersion.version' "$expected_file" | tr -d '\r') (#$v2_id) activated" >&2
+            vs_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$vs_tmp/eval-v2.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/get-measure.sh" "$measure_id" > "$vs_tmp/measure.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/value-sets/$v1_id" > "$vs_tmp/v1.json"'
+            vs_step bash "$SCRIPT_DIR/lib/export-package.sh" "$measure_id" "$vs_tmp"
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/fhir/ValueSet/\$expand?url=$(jq -rn --arg u "$vs_url" "\$u|@uri")" > "$vs_tmp/expand.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/fhir/ValueSet?title=$(jq -rn --arg u "$vs_title" "\$u|@uri")" > "$vs_tmp/search.json"'
+
+            if [ "$vs_ok" = "1" ]; then
+                echo "    — with version $(jq -r '.valueSet.version' "$expected_file" | tr -d '\r'):"
+                bash "$SCRIPT_DIR/lib/assert.sh" "$vs_tmp/eval-v1.json" "$expected_file" "$measure_id" || vs_ok=0
+                echo "    — with version $(jq -r '.nextVersion.version' "$expected_file" | tr -d '\r'):"
+                bash "$SCRIPT_DIR/lib/assert.sh" "$vs_tmp/eval-v2.json" "$vs_tmp/expected-v2.json" "$measure_id" || vs_ok=0
+                bash "$SCRIPT_DIR/lib/assert-platform-value-set.sh" "$vs_tmp" "$expected_file" || vs_ok=0
+            fi
+            if [ "$vs_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$vs_tmp" "$SMOKE_LOG_DIR/$name-files" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$vs_tmp"
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set)" >&2
             failed_scenarios+=("$name")
             ;;
     esac
