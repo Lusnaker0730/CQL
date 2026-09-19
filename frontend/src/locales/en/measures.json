@@ -579,7 +579,24 @@
       "invalidJson": "Invalid JSON"
     },
     "draftRestored": "Restored unsaved draft from a previous session.",
-    "discardDraft": "Discard Draft"
+    "discardDraft": "Discard Draft",
+    "structured": {
+      "toggle": "Per-group expectations (populations, observations, stratifiers)",
+      "toggleHint": "Compared with the same rules the measure evaluation applies to a patient, so a passing test means the report counts this patient the same way.",
+      "legacyWarning": "This measure has several population groups, measure observations or stratifiers. The simple switches below cannot tell groups apart and do not check observations or stratifiers — turn on per-group expectations to test them.",
+      "group": "Group {{id}}",
+      "populationsHint": "Set the membership you expect AFTER the population hierarchy — a patient removed by a denominator exclusion is not in the numerator.",
+      "patientBasedNote": "Populations are counted per patient (in or out): the evaluation does not count episodes yet.",
+      "assertObservations": "Check measure observation values",
+      "observations": "Expected observation values",
+      "observationsPlaceholder": "e.g. 30, 45",
+      "observationsHint": "One value per observation, in any order. Leave empty to expect none.",
+      "observationsInvalid": "Not a number: {{tokens}}",
+      "stratifiers": "Expected stratum",
+      "stratifierHint": "Leave empty to not check this stratifier",
+      "useActual": "Fill in from the last run's actual values",
+      "noGroups": "This measure has no population groups defined, so there is nothing to set per group."
+    }
   },
   "testCaseResult": {
     "pass": "Pass",
@@ -589,12 +606,20 @@
       "population": "Population",
       "expected": "Expected",
       "actual": "Actual",
-      "result": "Result"
+      "result": "Result",
+      "group": "Group",
+      "item": "Item"
     },
     "yes": "Yes",
     "no": "No",
     "na": "-",
-    "ms": "ms"
+    "ms": "ms",
+    "kinds": {
+      "observation": "Observation values",
+      "stratifier": "Stratifier {{id}}"
+    },
+    "structuredTable": "Per-group comparison",
+    "noStratum": "(no stratum)"
   },
   "evaluationResult": {
     "populationLabels": {

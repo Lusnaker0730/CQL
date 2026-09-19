@@ -29,6 +29,19 @@ public class TestCaseRunResult {
     /** Per-population pass/fail detail */
     private List<PopulationComparison> comparisons;
 
+    /** Structured expectations this run compared against (PAT-228); null for legacy test cases. */
+    private TestCaseExpectedValues expectedValues;
+
+    /**
+     * Structured actual values — per group effective population counts, observation values and
+     * stratifier values, computed with the production evaluation rules. Filled on every
+     * successful run (also for legacy test cases) so the UI can offer "use actual as expected".
+     */
+    private TestCaseExpectedValues actualValues;
+
+    /** Per-item detail of the structured comparison; null for legacy test cases. */
+    private List<ValueComparison> valueComparisons;
+
     /** Error message if execution failed */
     private String errorMessage;
 
@@ -55,6 +68,28 @@ public class TestCaseRunResult {
         private String populationType;
         private Boolean expected;
         private Boolean actual;
+        private boolean match;
+    }
+
+    /** One compared item of a structured expectation. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public static class ValueComparison {
+        public static final String KIND_POPULATION = "population";
+        public static final String KIND_OBSERVATION = "observation";
+        public static final String KIND_STRATIFIER = "stratifier";
+
+        private String groupId;
+        /** population | observation | stratifier */
+        private String kind;
+        /** Population type, stratifier id, or "values" for the observation list. */
+        private String key;
+        /** Rendered for display: a count, a sorted value list, or a stratum value. */
+        private String expected;
+        private String actual;
         private boolean match;
     }
 

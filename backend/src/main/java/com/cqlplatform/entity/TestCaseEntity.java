@@ -43,6 +43,14 @@ public class TestCaseEntity {
     @Builder.Default
     private Map<String, Boolean> expectedPopulationMap = new LinkedHashMap<>();
 
+    /**
+     * Structured expectations as JSON ({@code TestCaseExpectedValues}); NULL = legacy boolean
+     * map only (V71, PAT-228). Kept as the raw string and (de)serialized by the service: a
+     * persistent field is dirty-checked, a transient object behind {@code @PreUpdate} is not.
+     */
+    @Column(name = "expected_values", columnDefinition = "TEXT")
+    private String expectedValues;
+
     @Column(name = "status", length = 20)
     @Builder.Default
     private String status = "pending";
