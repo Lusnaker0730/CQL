@@ -40,6 +40,11 @@ public class XxxService {
 - **禁止** `@Autowired` 在欄位上，用 `@RequiredArgsConstructor` + `final`
 - **禁止**在 Service 層處理 HTTP 狀態碼
 
+### Jackson 2 / 3 並存（PAT-229）
+- Spring Boot 4 的 HTTP 訊息轉換器是 **Jackson 3**（`tools.jackson`）；專案自己的 `ObjectMapper` 與 FHIR 服務用的是 **Jackson 2**（`com.fasterxml.jackson.databind`）。一般 DTO 兩邊都吃得下（註解套件相同），**樹型別不行**
+- Controller 要收 / 回 raw FHIR JSON 時照舊宣告 Jackson 2 的 `JsonNode` / `ObjectNode`——`config/Jackson2TreeBridgeConfig` 註冊的 Jackson 3 module 負責轉換。沒有它時 `@RequestBody JsonNode` 一律 500、回傳的 `ObjectNode` 會被寫成 `{"array":false,…,"nodeType":"OBJECT"}`（2026-09-19 在 Boot 4.1.0 實測五個 FHIR 匯入 / 匯出端點都是這樣壞的，單元測試全綠；推測自 2026-05 升 Boot 4.0 起就如此，未回頭驗證舊版）
+- 新增這類端點**一定要有 MockMvc 測試**走過真的轉換器（範本：`FhirJsonBodyEndpointsTest`）；只測 service 抓不到
+
 ## 例外處理
 
 `GlobalExceptionHandler` 統一映射例外到 HTTP 回應：

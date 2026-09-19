@@ -33,6 +33,7 @@ import {
   LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import { Menu, MenuItem } from '@mui/material'
+import MeasureExportConformanceDialog from './MeasureExportConformanceDialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MeasureDefinition } from '../../types'
 import { measureApi } from '../../api'
@@ -80,6 +81,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [auditDialogOpen, setAuditDialogOpen] = useState(false)
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  const [conformanceOpen, setConformanceOpen] = useState(false)
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -532,6 +534,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         open={Boolean(exportAnchor)}
         onClose={() => setExportAnchor(null)}
       >
+        <MenuItem onClick={() => { setExportAnchor(null); setConformanceOpen(true) }}>
+          {t('editor.exportFormats.packageCheck')}
+        </MenuItem>
+        <Divider />
         <MenuItem onClick={() => handleExport('bundle-json')}>{t('editor.exportFormats.fhirJson')}</MenuItem>
         <MenuItem onClick={() => handleExport('bundle-xml')}>{t('editor.exportFormats.fhirXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('cql')}>{t('editor.exportFormats.cqlOnly')}</MenuItem>
@@ -539,6 +545,14 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
+      {measure.id != null && (
+        <MeasureExportConformanceDialog
+          measureId={measure.id}
+          open={conformanceOpen}
+          onClose={() => setConformanceOpen(false)}
+          onExport={(format) => { setConformanceOpen(false); void handleExport(format) }}
+        />
+      )}
       <Menu
         anchorEl={versionAnchor}
         open={Boolean(versionAnchor)}

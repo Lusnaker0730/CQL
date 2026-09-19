@@ -180,6 +180,8 @@ public class MeasureController {
     @GetMapping("/{id}/fhir")
     @Operation(summary = "Export as FHIR Measure", description = "Export a measure definition as a FHIR Measure resource")
     public ResponseEntity<ObjectNode> exportFhirMeasure(@PathVariable Long id) {
+        // PAT-229: same read gate as every other export (this one used to skip it).
+        requireReadableMeasure(id);
         ObjectNode fhirMeasure = fhirMeasureService.exportAsFhirMeasure(id);
         return ResponseEntity.ok(fhirMeasure);
     }
@@ -210,6 +212,15 @@ public class MeasureController {
         } catch (Exception e) {
             throw new CqlExecutionException("Failed to serialize bundle: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/export/conformance")
+    @Operation(summary = "Export conformance report",
+            description = "Which HL7 Quality Measure IG / CRMI profiles the exported package claims, what keeps it "
+                    + "from claiming more, and whether every value set could be included")
+    public ResponseEntity<com.cqlplatform.model.measure.MeasureExportConformance> exportConformance(@PathVariable Long id) {
+        requireReadableMeasure(id);
+        return ResponseEntity.ok(bundleService.exportConformance(id));
     }
 
     @GetMapping("/{id}/export/cql")

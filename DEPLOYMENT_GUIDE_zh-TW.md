@@ -229,6 +229,7 @@ Prometheus 指標 `tenant_rls_effective` = 0，功能照舊（隔離仍靠程式
 |------|------|--------|
 | `CORS_ALLOWED_ORIGINS` | 允許的跨域來源（逗號分隔） | 空（僅同源） |
 | `APP_BASE_URL` | 應用程式公開 URL（用於密碼重設信件等） | — |
+| `FHIR_CANONICAL_BASE` | 匯出指標交換封裝時，Measure / Library canonical URL 的基底（PAT-229），例如 `https://quality.example-hospital.tw/fhir`。應為貴單位擁有的網域；不需要真的可連線，但一經對外分享就不應再更動（接收方以它識別資源）。未設定時使用 `APP_BASE_URL` + `/fhir`；兩者皆無時使用佔位網址，且「交換封裝檢查」會提出警告。 | 空 |
 | `SMART_ISSUER` | SMART on FHIR issuer URL | — |
 | `SMART_AUTH_ENDPOINT` | SMART 授權端點 | — |
 | `SMART_TOKEN_ENDPOINT` | SMART Token 端點 | — |

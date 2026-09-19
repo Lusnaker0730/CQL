@@ -23,6 +23,7 @@ import type {
   ThresholdAlert,
   MeasureThreshold,
   QualityReportData,
+  MeasureExportConformance,
 } from '../types'
 import { api } from './client'
 
@@ -363,6 +364,12 @@ export const measureApi = {
   exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
   exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
   exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
+
+  /** PAT-229: profiles the exchange package claims, what is missing, and value set packaging status. */
+  getExportConformance: async (id: number): Promise<MeasureExportConformance> => {
+    const response = await api.get<MeasureExportConformance>(`/measures/${id}/export/conformance`)
+    return response.data
+  },
 
   importBundle: async (json: unknown): Promise<BundleImportResult> => {
     const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
