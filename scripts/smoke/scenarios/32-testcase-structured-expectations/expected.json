@@ -1,0 +1,11 @@
+{
+  "type": "test-case-expectations",
+  "groupId": "group-1",
+  "expectedPopulations": {
+    "initial-population": 1,
+    "measure-population": 1
+  },
+  "expectedObservations": [2, 4],
+  "wrongObservations": [2, 5],
+  "_note": "PAT-228. Test cases evaluate against the CURRENT calendar year, so run.sh substitutes __YEAR__ in testcase-bundle.json. One patient with two inpatient stays of 2 and 4 days: effective populations are patient-based (IP=1, MP=1) while the observation wrapper yields one value per episode → [2, 4]. The scenario runs the test case with that expectation (must pass), changes the expectation to [2, 5] (must fail on the observation row only, still reporting actual [2, 4]), and tries to save an expectation for a non-existent group (must be refused with 400)."
+}

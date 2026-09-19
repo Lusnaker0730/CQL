@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { AUTOSAVE_FAST_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import { extractApiError } from '../../utils/errorUtils'
@@ -24,6 +24,7 @@ import {
   ViewModule as BuilderIcon,
   Code as JsonIcon,
   CloudDownload as EhrImportIcon,
+  AutoFixHigh as UseActualIcon,
 } from '@mui/icons-material'
 import Editor from '../common/MonacoEditor'
 import GradientButton from '../common/GradientButton'
@@ -38,7 +39,14 @@ import {
   parseFromBundle,
 } from '../../contexts/BundleBuilderContext'
 import VisualBundleBuilder from '../testcase-builder/VisualBundleBuilder'
-import type { TestCase, MeasureDefinition } from '../../types'
+import TestCaseExpectedValuesEditor from './TestCaseExpectedValuesEditor'
+import {
+  actualValuesFromLastRun,
+  alignExpectedValues,
+  measureNeedsStructuredExpectations,
+  toLegacyPopulationMap,
+} from '../../utils/testCaseExpectedValues'
+import type { TestCase, MeasureDefinition, TestCaseExpectedValues } from '../../types'
 import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
 import { TEST_CASE } from '../../constants/fieldConstraints'
 
@@ -120,6 +128,23 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       'numerator': false,
     }
   )
+  // PAT-228: structured (per-group) expectations. On for test cases that already have them and,
+  // for NEW test cases, whenever the flat boolean map cannot describe the measure.
+  const [useStructured, setUseStructured] = useState<boolean>(
+    () => !!testCase?.expectedValues?.groups?.length
+      || (!testCase?.id && measureNeedsStructuredExpectations(measure)),
+  )
+  const [expectedValues, setExpectedValues] = useState<TestCaseExpectedValues>(
+    () => alignExpectedValues(measure, testCase?.expectedValues),
+  )
+  const [structuredValid, setStructuredValid] = useState(true)
+  // Bumped whenever expectedValues is replaced wholesale, to remount the structured editor
+  // (it keeps the raw observation text in local state).
+  const [structuredRevision, setStructuredRevision] = useState(0)
+  const lastRunActualValues = useMemo(
+    () => actualValuesFromLastRun(testCase?.lastRunResultJson),
+    [testCase?.lastRunResultJson],
+  )
   const [bundleError, setBundleError] = useState<string | null>(null)
   const [series, setSeries] = useState(testCase?.series || '')
   const existingSeries: string[] = []
@@ -137,6 +162,8 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     description,
     bundleJson,
     expectedPops,
+    useStructured,
+    expectedValues,
     series,
   })
 
@@ -149,6 +176,11 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       setDescription(restoredDraft.description)
       setBundleJson(restoredDraft.bundleJson)
       setExpectedPops(restoredDraft.expectedPops)
+      if (restoredDraft.useStructured !== undefined) setUseStructured(restoredDraft.useStructured)
+      if (restoredDraft.expectedValues) {
+        setExpectedValues(alignExpectedValues(measure, restoredDraft.expectedValues))
+        setStructuredRevision((r) => r + 1)
+      }
       setSeries(restoredDraft.series)
       setShowDraftAlert(true)
       try {
@@ -160,7 +192,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // Invalid JSON in draft — user can fix in JSON tab
       }
     }
-  }, [restoredDraft, dispatch])
+  }, [restoredDraft, dispatch, measure])
 
   // Track whether sync is in progress to prevent loops
   const syncingRef = useRef(false)
@@ -197,6 +229,9 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
       const json = testCase.patientBundleJson || DEFAULT_BUNDLE
       setBundleJson(json)
       setExpectedPops(testCase.expectedPopulations || {})
+      setUseStructured(!!testCase.expectedValues?.groups?.length)
+      setExpectedValues(alignExpectedValues(measure, testCase.expectedValues))
+      setStructuredRevision((r) => r + 1)
       setSeries(testCase.series || '')
       setIsDirty(false)
       try {
@@ -206,7 +241,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         // ignore
       }
     }
-  }, [testCase, dispatch])
+  }, [testCase, dispatch, measure])
 
   // Sync: Visual Builder → JSON (when entries change)
   useEffect(() => {
@@ -285,7 +320,10 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         title,
         description,
         patientBundleJson: bundleJson,
-        expectedPopulations: expectedPops,
+        // The flat map is still sent (first group) so list chips keep working; the run ignores
+        // it once expectedValues is present. null clears a previously stored structured form.
+        expectedPopulations: useStructured ? toLegacyPopulationMap(expectedValues) : expectedPops,
+        expectedValues: useStructured ? expectedValues : null,
         series: series || undefined,
       }
       if (isNew) {
@@ -303,6 +341,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
   const handleSave = () => {
     if (!title.trim()) return
     if (bundleJson.trim() && !validateBundle(bundleJson)) return
+    if (useStructured && !structuredValid) return
     saveMutation.mutate()
   }
 
@@ -332,7 +371,7 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           </Button>
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!title.trim() || saveMutation.isPending || readOnly}
+            disabled={!title.trim() || saveMutation.isPending || readOnly || (useStructured && !structuredValid)}
             onClick={handleSave}
           >
             {saveMutation.isPending ? t('testCaseEditor.saving') : t('testCaseEditor.save')}
@@ -363,6 +402,10 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
                 setExpectedPops(testCase?.expectedPopulations || {
                   'initial-population': true, 'denominator': true, 'numerator': false,
                 })
+                setUseStructured(!!testCase?.expectedValues?.groups?.length
+                  || (!testCase?.id && measureNeedsStructuredExpectations(measure)))
+                setExpectedValues(alignExpectedValues(measure, testCase?.expectedValues))
+                setStructuredRevision((r) => r + 1)
                 setSeries(testCase?.series || '')
                 try {
                   const entries = parseFromBundle(json)
@@ -427,31 +470,82 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
 
         <Divider />
 
-        <Typography variant="subtitle2" sx={{
-          color: "text.secondary"
-        }}>
-          {t('testCaseEditor.expectedPopulations')}
-        </Typography>
-
-        <Paper variant="outlined" sx={{ p: 1.5 }}>
-          <Stack spacing={0.5}>
-            {POPULATION_KEYS.map((key) => (
-              <FormControlLabel
-                key={key}
-                control={
-                  <Switch
-                    size="small"
-                    checked={!!expectedPops[key]}
-                    onChange={() => togglePopulation(key)}
-                  />
-                }
-                label={
-                  <Typography variant="body2">{t(`testCaseEditor.populationTypes.${key}`)}</Typography>
-                }
+        <Stack direction="row" sx={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="subtitle2" sx={{
+            color: "text.secondary"
+          }}>
+            {t('testCaseEditor.expectedPopulations')}
+          </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                size="small"
+                disabled={readOnly}
+                checked={useStructured}
+                onChange={(e) => { setUseStructured(e.target.checked); setIsDirty(true) }}
+                slotProps={{ input: { 'aria-label': 'structured expectations' } }}
               />
-            ))}
+            }
+            label={<Typography variant="body2">{t('testCaseEditor.structured.toggle')}</Typography>}
+          />
+        </Stack>
+
+        {useStructured ? (
+          <Stack spacing={1}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+              {t('testCaseEditor.structured.toggleHint')}
+            </Typography>
+            {lastRunActualValues && !readOnly && (
+              <Box>
+                <Button
+                  size="small"
+                  startIcon={<UseActualIcon />}
+                  onClick={() => {
+                    // Adopting the actual values means "this is right" — observations become asserted.
+                    setExpectedValues(alignExpectedValues(measure, lastRunActualValues))
+                    setStructuredRevision((r) => r + 1)
+                    setIsDirty(true)
+                  }}
+                >
+                  {t('testCaseEditor.structured.useActual')}
+                </Button>
+              </Box>
+            )}
+            <TestCaseExpectedValuesEditor
+              key={structuredRevision}
+              measure={measure}
+              value={expectedValues}
+              onChange={(next) => { setExpectedValues(next); setIsDirty(true) }}
+              onValidityChange={setStructuredValid}
+              readOnly={readOnly}
+            />
           </Stack>
-        </Paper>
+        ) : (
+          <Paper variant="outlined" sx={{ p: 1.5 }}>
+            <Stack spacing={0.5}>
+              {POPULATION_KEYS.map((key) => (
+                <FormControlLabel
+                  key={key}
+                  control={
+                    <Switch
+                      size="small"
+                      checked={!!expectedPops[key]}
+                      onChange={() => togglePopulation(key)}
+                    />
+                  }
+                  label={
+                    <Typography variant="body2">{t(`testCaseEditor.populationTypes.${key}`)}</Typography>
+                  }
+                />
+              ))}
+            </Stack>
+            {measureNeedsStructuredExpectations(measure) && (
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                {t('testCaseEditor.structured.legacyWarning')}
+              </Alert>
+            )}
+          </Paper>
+        )}
 
         <Divider />
 

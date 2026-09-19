@@ -2,6 +2,7 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.TestCaseEntity;
 import com.cqlplatform.exception.BundleParseException;
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
@@ -35,9 +36,13 @@ public class TestCaseService {
     private final DateShiftService dateShiftService;
     private final FhirContext fhirContext;
     private final PopulationEvaluator populationEvaluator;
+    private final StratifierEvaluator stratifierEvaluator;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+
+    /** Observation values are doubles out of the CQL engine; compare with a small tolerance. */
+    private static final double OBSERVATION_TOLERANCE = 1e-6;
 
     // ===== CRUD =====
 
@@ -57,8 +62,9 @@ public class TestCaseService {
     @Transactional
     public TestCase create(Long measureDefinitionId, TestCase testCase) {
         // Verify measure exists
-        definitionService.getById(measureDefinitionId)
+        MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+        validateExpectedValues(measure, testCase.getExpectedValues());
 
         TestCaseEntity entity = modelToEntity(testCase);
         entity.setMeasureDefinitionId(measureDefinitionId);
@@ -72,11 +78,19 @@ public class TestCaseService {
         TestCaseEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
 
+        if (testCase.getExpectedValues() != null && !testCase.getExpectedValues().isEmpty()) {
+            Long measureId = entity.getMeasureDefinitionId();
+            MeasureDefinition measure = definitionService.getById(measureId)
+                    .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureId));
+            validateExpectedValues(measure, testCase.getExpectedValues());
+        }
+
         entity.setTitle(testCase.getTitle());
         entity.setDescription(testCase.getDescription());
         entity.setPatientBundleJson(testCase.getPatientBundleJson());
         entity.setExpectedPopulationMap(testCase.getExpectedPopulations() != null
                 ? testCase.getExpectedPopulations() : new LinkedHashMap<>());
+        entity.setExpectedValues(writeExpectedValues(testCase.getExpectedValues()));
         entity.setSeries(testCase.getSeries());
         entity.setSortOrder(testCase.getSortOrder() != null ? testCase.getSortOrder() : 0);
 
@@ -275,18 +289,38 @@ public class TestCaseService {
             currentPhase = "POPULATION_EVAL";
             Map<String, Boolean> actualPopulations = buildActualPopulations(execResponse, measure);
             Map<String, Boolean> expectedPopulations = entity.getExpectedPopulationMap();
-            List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
-                    expectedPopulations, actualPopulations);
-            boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
+            // Structured actual values are computed on every run (also for legacy test cases)
+            // so the editor can offer them as a starting point for a structured expectation.
+            TestCaseExpectedValues actualValues = buildActualValues(measure, execResponse);
+            // Strict on purpose: if a stored structured expectation cannot be read, the run is an
+            // ERROR. Quietly comparing the legacy boolean map instead would report a pass / fail
+            // for something the author is no longer testing.
+            TestCaseExpectedValues expectedValues = readExpectedValuesStrict(entity.getExpectedValues());
 
             TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
                     .testCaseId(entity.getId())
                     .testCaseTitle(entity.getTitle())
-                    .status(allMatch ? "pass" : "fail")
                     .expectedPopulations(expectedPopulations)
                     .actualPopulations(actualPopulations)
-                    .comparisons(comparisons)
-                    .executionTimeMs(System.currentTimeMillis() - startTime);
+                    .actualValues(actualValues);
+
+            if (expectedValues != null && !expectedValues.isEmpty()) {
+                // PAT-228: the structured expectation decides pass / fail; the flat boolean map
+                // is ignored because it cannot tell groups apart and sees raw define results.
+                List<TestCaseRunResult.ValueComparison> valueComparisons =
+                        compareValues(expectedValues, actualValues);
+                boolean allMatch = valueComparisons.stream().allMatch(TestCaseRunResult.ValueComparison::isMatch);
+                b.status(allMatch ? "pass" : "fail")
+                 .expectedValues(expectedValues)
+                 .valueComparisons(valueComparisons);
+            } else {
+                List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
+                        expectedPopulations, actualPopulations);
+                boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
+                b.status(allMatch ? "pass" : "fail")
+                 .comparisons(comparisons);
+            }
+            b.executionTimeMs(System.currentTimeMillis() - startTime);
 
             if (debugMode) {
                 b.debugTrace(execResponse.getDebugTrace())
@@ -417,6 +451,228 @@ public class TestCaseService {
         return comparisons;
     }
 
+    // ===== Structured expected values (PAT-228) =====
+
+    /** The id a group is addressed by; groups without one are numbered like the evaluation does. */
+    static String effectiveGroupId(GroupDefinition group, int index) {
+        return group.getGroupId() != null && !group.getGroupId().isBlank()
+                ? group.getGroupId() : "group-" + (index + 1);
+    }
+
+    /**
+     * Per group: what this patient contributes — effective population counts and observation
+     * values from {@link PopulationEvaluator#evaluateSinglePatient} (the production rules), plus
+     * the stratum the patient falls into for each stratifier. {@code null} when the measure has
+     * no group definitions (nothing structured to describe).
+     */
+    private TestCaseExpectedValues buildActualValues(MeasureDefinition measure, CqlExecutionResponse response) {
+        List<GroupDefinition> groups = measure.getGroupDefinitions();
+        Map<String, CqlExecutionResponse.ExpressionResult> results = response.getResults();
+        if (groups == null || groups.isEmpty() || results == null) return null;
+
+        List<TestCaseExpectedValues.GroupValues> out = new ArrayList<>();
+        for (int i = 0; i < groups.size(); i++) {
+            GroupDefinition group = groups.get(i);
+            TestCaseExpectedValues.GroupValues values =
+                    populationEvaluator.evaluateSinglePatient(measure.getScoringType(), groups, group, results);
+            if (values == null) continue;
+            values.setGroupId(effectiveGroupId(group, i));
+
+            if (group.getStratifiers() != null && !group.getStratifiers().isEmpty()) {
+                Map<String, String> strata = new LinkedHashMap<>();
+                for (StratifierDefinition stratifier : group.getStratifiers()) {
+                    if (stratifier.getStratifierId() == null) continue;
+                    String stratum = stratifierEvaluator.resolveStratumValue(stratifier, results);
+                    strata.put(stratifier.getStratifierId(), stratum != null ? stratum : "");
+                }
+                values.setStratifiers(strata);
+            }
+            out.add(values);
+        }
+        return TestCaseExpectedValues.builder().groups(out).build();
+    }
+
+    /**
+     * Compares every group the expectation lists. Within a group: all populations (one the
+     * expectation omits is expected to be 0), the observation values when asserted
+     * (order-insensitive), and only the stratifiers that are listed.
+     */
+    private List<TestCaseRunResult.ValueComparison> compareValues(TestCaseExpectedValues expected,
+                                                                  TestCaseExpectedValues actual) {
+        Map<String, TestCaseExpectedValues.GroupValues> actualByGroup = new LinkedHashMap<>();
+        if (actual != null && actual.getGroups() != null) {
+            for (TestCaseExpectedValues.GroupValues g : actual.getGroups()) {
+                actualByGroup.put(g.getGroupId(), g);
+            }
+        }
+
+        List<TestCaseRunResult.ValueComparison> comparisons = new ArrayList<>();
+        for (TestCaseExpectedValues.GroupValues exp : expected.getGroups()) {
+            String groupId = exp.getGroupId();
+            TestCaseExpectedValues.GroupValues act = actualByGroup.get(groupId);
+            if (act == null) {
+                // The measure changed after the expectation was saved — never a silent pass.
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_POPULATION)
+                        .key("*").expected("group exists").actual("group not in measure").match(false).build());
+                continue;
+            }
+
+            Map<String, Integer> expPops = exp.getPopulations() != null ? exp.getPopulations() : Map.of();
+            Map<String, Integer> actPops = act.getPopulations() != null ? act.getPopulations() : Map.of();
+            Set<String> popKeys = new LinkedHashSet<>(actPops.keySet());
+            popKeys.addAll(expPops.keySet());
+            for (String key : popKeys) {
+                int e = expPops.getOrDefault(key, 0) != null ? expPops.getOrDefault(key, 0) : 0;
+                int a = actPops.getOrDefault(key, 0) != null ? actPops.getOrDefault(key, 0) : 0;
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_POPULATION)
+                        .key(key).expected(String.valueOf(e)).actual(String.valueOf(a)).match(e == a).build());
+            }
+
+            if (exp.getObservations() != null) {
+                List<Double> e = sortedValues(exp.getObservations());
+                List<Double> a = sortedValues(act.getObservations());
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_OBSERVATION)
+                        .key("values").expected(renderValues(e)).actual(renderValues(a))
+                        .match(sameValues(e, a)).build());
+            }
+
+            if (exp.getStratifiers() != null) {
+                Map<String, String> actStrata = act.getStratifiers() != null ? act.getStratifiers() : Map.of();
+                for (Map.Entry<String, String> entry : exp.getStratifiers().entrySet()) {
+                    String e = entry.getValue() != null ? entry.getValue().trim() : "";
+                    String a = actStrata.getOrDefault(entry.getKey(), "");
+                    comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                            .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_STRATIFIER)
+                            .key(entry.getKey()).expected(e).actual(a).match(e.equalsIgnoreCase(a)).build());
+                }
+            }
+        }
+        return comparisons;
+    }
+
+    private List<Double> sortedValues(List<Double> values) {
+        if (values == null) return List.of();
+        return values.stream().filter(Objects::nonNull).sorted().toList();
+    }
+
+    private boolean sameValues(List<Double> expected, List<Double> actual) {
+        if (expected.size() != actual.size()) return false;
+        for (int i = 0; i < expected.size(); i++) {
+            if (Math.abs(expected.get(i) - actual.get(i)) > OBSERVATION_TOLERANCE) return false;
+        }
+        return true;
+    }
+
+    /** {@code [30, 45.5]} — integers without a trailing ".0" so the UI reads naturally. */
+    private String renderValues(List<Double> values) {
+        return values.stream()
+                .map(v -> v == Math.rint(v) && !Double.isInfinite(v) ? String.valueOf(v.longValue()) : String.valueOf(v))
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    /**
+     * Rejects an expectation that cannot match the measure — an unknown group, population or
+     * stratifier would otherwise produce a test that fails (or worse, passes) for a reason the
+     * author never sees. Checked on save; a measure edited afterwards is caught at run time.
+     */
+    private void validateExpectedValues(MeasureDefinition measure, TestCaseExpectedValues expected) {
+        if (expected == null || expected.isEmpty()) return;
+
+        List<GroupDefinition> groups = measure.getGroupDefinitions() != null
+                ? measure.getGroupDefinitions() : List.of();
+        Map<String, GroupDefinition> byId = new LinkedHashMap<>();
+        for (int i = 0; i < groups.size(); i++) {
+            byId.put(effectiveGroupId(groups.get(i), i), groups.get(i));
+        }
+
+        List<String> problems = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (TestCaseExpectedValues.GroupValues values : expected.getGroups()) {
+            String groupId = values.getGroupId();
+            GroupDefinition group = groupId != null ? byId.get(groupId) : null;
+            if (group == null) {
+                problems.add("Unknown population group '" + groupId + "' (measure has: " + byId.keySet() + ")");
+                continue;
+            }
+            if (!seen.add(groupId)) {
+                problems.add("Population group '" + groupId + "' is listed more than once");
+            }
+
+            Set<String> populationTypes = new HashSet<>();
+            if (group.getPopulations() != null) {
+                group.getPopulations().forEach(p -> populationTypes.add(p.getPopulationType()));
+            }
+            if (values.getPopulations() != null) {
+                values.getPopulations().forEach((type, count) -> {
+                    if (!populationTypes.contains(type)) {
+                        problems.add("Group '" + groupId + "' has no population '" + type + "'");
+                    } else if (count == null || count < 0) {
+                        problems.add("Group '" + groupId + "' population '" + type + "' needs a count of 0 or more");
+                    }
+                });
+            }
+
+            if (values.getObservations() != null) {
+                for (Double v : values.getObservations()) {
+                    if (v == null || v.isNaN() || v.isInfinite()) {
+                        problems.add("Group '" + groupId + "' has an observation value that is not a number");
+                        break;
+                    }
+                }
+            }
+
+            Set<String> stratifierIds = new HashSet<>();
+            if (group.getStratifiers() != null) {
+                group.getStratifiers().forEach(s -> stratifierIds.add(s.getStratifierId()));
+            }
+            if (values.getStratifiers() != null) {
+                for (String stratifierId : values.getStratifiers().keySet()) {
+                    if (!stratifierIds.contains(stratifierId)) {
+                        problems.add("Group '" + groupId + "' has no stratifier '" + stratifierId + "'");
+                    }
+                }
+            }
+        }
+
+        if (!problems.isEmpty()) {
+            throw new ValidationException("Expected values do not match the measure", problems);
+        }
+    }
+
+    /** Lenient read for listing / editing: an unreadable value shows up as "no structured expectation". */
+    private TestCaseExpectedValues readExpectedValues(String json) {
+        try {
+            return readExpectedValuesStrict(json);
+        } catch (IllegalStateException e) {
+            log.warn("Could not read structured expected values: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Strict read for runs — see the call site for why a run must not fall back silently. */
+    private TestCaseExpectedValues readExpectedValuesStrict(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return MAPPER.readValue(json, TestCaseExpectedValues.class);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Stored expected values of this test case could not be read: " + e.getMessage(), e);
+        }
+    }
+
+    /** {@code null} (not "{}") when there is nothing structured, so the column stays NULL. */
+    private String writeExpectedValues(TestCaseExpectedValues values) {
+        if (values == null || values.isEmpty()) return null;
+        try {
+            return MAPPER.writeValueAsString(values);
+        } catch (Exception e) {
+            throw new ValidationException("Expected values could not be stored: " + e.getMessage());
+        }
+    }
+
     private List<Resource> parseBundleResources(String bundleJson) {
         List<Resource> resources = new ArrayList<>();
         if (bundleJson == null || bundleJson.isBlank()) return resources;
@@ -477,6 +733,7 @@ public class TestCaseService {
                 .description(entity.getDescription())
                 .patientBundleJson(entity.getPatientBundleJson())
                 .expectedPopulations(entity.getExpectedPopulationMap())
+                .expectedValues(readExpectedValues(entity.getExpectedValues()))
                 .status(entity.getStatus())
                 .lastRunResultJson(entity.getLastRunResultJson())
                 .lastRunActualPopulations(entity.getLastRunActualPopulationMap())
@@ -495,6 +752,7 @@ public class TestCaseService {
                 .patientBundleJson(model.getPatientBundleJson())
                 .expectedPopulationMap(model.getExpectedPopulations() != null
                         ? model.getExpectedPopulations() : new LinkedHashMap<>())
+                .expectedValues(writeExpectedValues(model.getExpectedValues()))
                 .status(model.getStatus() != null ? model.getStatus() : "pending")
                 .series(model.getSeries())
                 .sortOrder(model.getSortOrder() != null ? model.getSortOrder() : 0)

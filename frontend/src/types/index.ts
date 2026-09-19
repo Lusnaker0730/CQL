@@ -912,6 +912,9 @@ export interface TestCase {
   description?: string
   patientBundleJson?: string
   expectedPopulations?: Record<string, boolean>
+  /** Structured expectations per population group (PAT-228). When present the run compares
+   *  against these and ignores the flat `expectedPopulations` map. */
+  expectedValues?: TestCaseExpectedValues | null
   status?: string
   lastRunResultJson?: string
   lastRunActualPopulations?: Record<string, boolean>
@@ -929,6 +932,11 @@ export interface TestCaseRunResult {
   expectedPopulations?: Record<string, boolean>
   actualPopulations?: Record<string, boolean>
   comparisons?: PopulationComparison[]
+  /** Structured expectation this run compared against; absent for legacy test cases. */
+  expectedValues?: TestCaseExpectedValues
+  /** Structured actual values (production evaluation rules); present on every successful run. */
+  actualValues?: TestCaseExpectedValues
+  valueComparisons?: ValueComparison[]
   errorMessage?: string
   executionTimeMs?: number
   // Debug mode additions (only populated when run with debugMode=true)
@@ -936,6 +944,30 @@ export interface TestCaseRunResult {
   populationTrace?: PopulationMembershipTrace
   coverage?: CoverageResult
   phaseError?: PhaseError
+}
+
+/** Expected (or actual) values of one population group of a test case (PAT-228). */
+export interface TestCaseGroupValues {
+  groupId: string
+  /** Effective count per population type, after the scoring type's population hierarchy. */
+  populations?: Record<string, number>
+  /** Measure observation values (order-insensitive). Absent / null = not asserted. */
+  observations?: number[] | null
+  /** stratifierId → expected stratum value ('true' / 'false' for criteria stratifiers). */
+  stratifiers?: Record<string, string>
+}
+
+export interface TestCaseExpectedValues {
+  groups: TestCaseGroupValues[]
+}
+
+export interface ValueComparison {
+  groupId: string
+  kind: 'population' | 'observation' | 'stratifier'
+  key: string
+  expected?: string
+  actual?: string
+  match: boolean
 }
 
 export interface PopulationComparison {

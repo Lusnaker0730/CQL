@@ -42,6 +42,31 @@ public class StratifierEvaluator {
     }
 
     /**
+     * The stratum one patient falls into for a stratifier, as the evaluation keys it: the
+     * string form of the stratifier expression's value ({@code "true"} / {@code "false"} for
+     * criteria stratifiers). {@code null} when the expression is missing from the results or
+     * evaluates to null — such a patient is in no stratum.
+     *
+     * <p>Single source of the rule: the production aggregation below and the test case runner
+     * (PAT-228) both go through it, so an expected stratum in a test means exactly what a
+     * report would show.
+     *
+     * @param rawResults full CQL results map (stratifier defines are suffixed per group and
+     *                   only exist here, not in the canonical population view)
+     */
+    public String resolveStratumValue(StratifierDefinition stratifier,
+                                      Map<String, CqlExecutionResponse.ExpressionResult> rawResults) {
+        if (stratifier == null || stratifier.getCriteriaExpression() == null || rawResults == null) {
+            return null;
+        }
+        CqlExecutionResponse.ExpressionResult stratResult = rawResults.get(stratifier.getCriteriaExpression());
+        if (stratResult == null) return null;
+        String strataValue = String.valueOf(stratResult.getValue());
+        // Same skip rule the aggregation always had (a null value renders as "null").
+        return "null".equals(strataValue) ? null : strataValue;
+    }
+
+    /**
      * Evaluates stratifiers for a single patient and accumulates into the stratification data.
      * Single-input overload for callers that don't need to distinguish stratifier-expression
      * lookup from population lookup (single-group measures where the CQL define names match
@@ -75,13 +100,9 @@ public class StratifierEvaluator {
                                            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
         for (StratifierDefinition stratifier : stratifiers) {
             String stratId = stratifier.getStratifierId();
-            String expression = stratifier.getCriteriaExpression();
 
-            CqlExecutionResponse.ExpressionResult stratResult = rawResults.get(expression);
-            if (stratResult == null) continue;
-
-            String strataValue = String.valueOf(stratResult.getValue());
-            if ("null".equals(strataValue)) continue;
+            String strataValue = resolveStratumValue(stratifier, rawResults);
+            if (strataValue == null) continue;
 
             Map<String, Map<String, Integer>> strataMap = stratificationData
                     .computeIfAbsent(stratId, k -> new HashMap<>());

@@ -452,8 +452,68 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             rm -rf "$pkg_tmp"
             ;;
 
+        test-case-expectations)
+            # PAT-228 structured test-case expectations. An eCQM is published, then a test
+            # case is created with per-group expected populations + observation values and
+            # run (must pass), the expectation is made wrong and run again (must fail on
+            # the observation row), and an expectation for a group the measure does not
+            # have must be refused on save. Test cases evaluate an in-memory bundle against
+            # the CURRENT calendar year, so nothing is seeded into FHIR and the bundle's
+            # dates are generated here.
+            measure_file="$scenario_dir/measure.json"
+            tc_bundle_file="$scenario_dir/testcase-bundle.json"
+            for f in "$measure_file" "$tc_bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name")
+                continue
+            fi
+            tc_tmp=$(mktemp -d)
+            tc_year=$(date +%Y)
+            tc_bundle=$(sed "s/__YEAR__/$tc_year/g" "$tc_bundle_file")
+            tc_group=$(jq -r '.groupId' "$expected_file" | tr -d '\r')
+            # $1 = observation list to expect, $2 = group id, $3 = output file
+            build_test_case() {
+                jq -n --arg bundle "$tc_bundle" --arg group "$2" --argjson obs "$1" \
+                    --argjson pops "$(jq -c '.expectedPopulations' "$expected_file")" \
+                    '{title: "smoke-32 two inpatient stays", patientBundleJson: $bundle,
+                      expectedValues: {groups: [{groupId: $group, populations: $pops, observations: $obs}]}}' > "$3"
+            }
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "$tc_group" "$tc_tmp/create.json"
+            build_test_case "$(jq -c '.wrongObservations' "$expected_file")" "$tc_group" "$tc_tmp/wrong.json"
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "group-does-not-exist" "$tc_tmp/bad-group.json"
+
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/create.json" > "$tc_tmp/create.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            tc_id=$(sed '1,/^---HTTP_STATUS_BODY---$/d' "$tc_tmp/create.raw" | jq -r '.id // empty')
+            if [ -z "$tc_id" ]; then
+                echo "    ✗ test case was not created: $(head -c 400 "$tc_tmp/create.raw")" >&2
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            echo "  created test case #$tc_id" >&2
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-pass.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" PUT "$measure_id" "/$tc_id" "$tc_tmp/wrong.json" > "$tc_tmp/update.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-fail.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/bad-group.json" > "$tc_tmp/bad-group.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if bash "$SCRIPT_DIR/lib/assert-test-case-expectations.sh" "$tc_tmp/run-pass.raw" "$tc_tmp/run-fail.raw" \
+                    "$tc_tmp/bad-group.raw" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$tc_tmp"
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, measure-package)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package)" >&2
             failed_scenarios+=("$name")
             ;;
     esac
