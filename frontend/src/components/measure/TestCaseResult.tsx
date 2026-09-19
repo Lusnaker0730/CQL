@@ -15,7 +15,7 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
-import type { TestCaseRunResult } from '../../types'
+import type { TestCaseRunResult, ValueComparison } from '../../types'
 
 interface TestCaseResultProps {
   result: TestCaseRunResult
@@ -38,6 +38,26 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
   const statusKey = (result.status as keyof typeof STATUS_CONFIG) || 'error'
   const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.error
   const statusLabel = t(STATUS_LABEL_KEYS[statusKey] || STATUS_LABEL_KEYS.error)
+
+  // PAT-228 structured comparison: the group column only earns its place with several groups.
+  const showGroupColumn = new Set((result.valueComparisons ?? []).map((c) => c.groupId)).size > 1
+
+  const itemLabel = (comp: ValueComparison): string => {
+    if (comp.kind === 'observation') return t('testCaseResult.kinds.observation')
+    if (comp.kind === 'stratifier') return t('testCaseResult.kinds.stratifier', { id: comp.key })
+    return t(`testCaseEditor.populationTypes.${comp.key}`, comp.key)
+  }
+
+  // Patient-based populations read as Yes / No; anything else (a future episode count, an
+  // observation list, a stratum) is shown as the backend rendered it.
+  const displayValue = (comp: ValueComparison, value: string | undefined): string => {
+    if (value == null) return t('testCaseResult.na')
+    if (comp.kind === 'population' && (value === '0' || value === '1')) {
+      return value === '1' ? t('testCaseResult.yes') : t('testCaseResult.no')
+    }
+    if (comp.kind === 'stratifier' && value === '') return t('testCaseResult.noStratum')
+    return value
+  }
 
   return (
     <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -106,6 +126,40 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
                 <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">
                   {comp.actual == null ? t('testCaseResult.na') : comp.actual ? t('testCaseResult.yes') : t('testCaseResult.no')}
                 </TableCell>
+                <TableCell sx={{ py: 0.5 }} align="center">
+                  {comp.match ? (
+                    <PassIcon sx={{ fontSize: 16, color: 'success.main' }} />
+                  ) : (
+                    <FailIcon sx={{ fontSize: 16, color: 'error.main' }} />
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      {result.valueComparisons && result.valueComparisons.length > 0 && (
+        <Table size="small" aria-label={t('testCaseResult.structuredTable')}>
+          <TableHead>
+            <TableRow>
+              {showGroupColumn && (
+                <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>{t('testCaseResult.tableHeaders.group')}</TableCell>
+              )}
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }}>{t('testCaseResult.tableHeaders.item')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.expected')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.actual')}</TableCell>
+              <TableCell scope="col" sx={{ py: 0.5, fontWeight: 600, fontSize: '0.75rem' }} align="center">{t('testCaseResult.tableHeaders.result')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {result.valueComparisons.map((comp) => (
+              <TableRow key={`${comp.groupId}-${comp.kind}-${comp.key}`}>
+                {showGroupColumn && (
+                  <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>{comp.groupId}</TableCell>
+                )}
+                <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>{itemLabel(comp)}</TableCell>
+                <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">{displayValue(comp, comp.expected)}</TableCell>
+                <TableCell sx={{ py: 0.5, fontSize: '0.8rem' }} align="center">{displayValue(comp, comp.actual)}</TableCell>
                 <TableCell sx={{ py: 0.5 }} align="center">
                   {comp.match ? (
                     <PassIcon sx={{ fontSize: 16, color: 'success.main' }} />

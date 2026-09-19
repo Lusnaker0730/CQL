@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { AUTOSAVE_DEBOUNCE_MS } from '../constants/timing'
+import type { TestCaseExpectedValues } from '../types'
 
 const DRAFT_KEY_PREFIX = 'testcase-draft'
 const STALENESS_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -9,6 +10,9 @@ export interface TestCaseDraft {
   description: string
   bundleJson: string
   expectedPops: Record<string, boolean>
+  /** PAT-228 — optional so drafts written before structured expectations existed still load. */
+  useStructured?: boolean
+  expectedValues?: TestCaseExpectedValues | null
   series: string
   savedAt: number
 }
@@ -39,6 +43,8 @@ interface UseTestCaseDraftOptions {
   description: string
   bundleJson: string
   expectedPops: Record<string, boolean>
+  useStructured?: boolean
+  expectedValues?: TestCaseExpectedValues | null
   series: string
 }
 
@@ -54,6 +60,8 @@ export function useTestCaseDraft({
   description,
   bundleJson,
   expectedPops,
+  useStructured,
+  expectedValues,
   series,
 }: UseTestCaseDraftOptions): UseTestCaseDraftReturn {
   const draftKey = getDraftKey(measureId, testCaseId)
@@ -69,6 +77,8 @@ export function useTestCaseDraft({
         description,
         bundleJson,
         expectedPops,
+        useStructured,
+        expectedValues,
         series,
         savedAt: Date.now(),
       }
@@ -77,7 +87,7 @@ export function useTestCaseDraft({
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current)
     }
-  }, [title, description, bundleJson, expectedPops, series, draftKey])
+  }, [title, description, bundleJson, expectedPops, useStructured, expectedValues, series, draftKey])
 
   const dismissDraft = useCallback(() => {
     localStorage.removeItem(draftKey)

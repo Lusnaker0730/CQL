@@ -389,23 +389,10 @@ public class MeasureEvaluationService {
                     Map<String, CqlExecutionResponse.ExpressionResult> canonical =
                             populationEvaluator.buildExpressionMap(g, results);
                     if (isCv) {
-                        // Issue #539: compute this group's wrapper observation define names.
-                        // EcqmCqlBuilder.appendObservationWrapper emits ONE wrapper per group
-                        // named "Measure Observation Value{suffix}" (patient-based) or
-                        // "Measure Observation Values{suffix}" (episode-based). The suffix is
-                        // " N" for multi-group (1-indexed) or "" for single-group.
-                        // ObservationDefinition.criteriaExpression on the entity holds the
-                        // FUNCTION name ("Measure Observation N"), not the wrapper define —
-                        // CQL functions don't surface as standalone results, so we must look
-                        // up the wrapper instead.
-                        int groupIdx = groupDefs.indexOf(g);
-                        String suffix = groupDefs.size() > 1 ? " " + (groupIdx + 1) : "";
-                        List<String> obsExprNames = (g.getObservations() == null
-                                || g.getObservations().isEmpty())
-                                ? null
-                                : List.of(
-                                        "Measure Observation Values" + suffix,
-                                        "Measure Observation Value" + suffix);
+                        // Issue #539: this group's wrapper observation define names (suffixed
+                        // per group). The rule lives in PopulationEvaluator so the test case
+                        // runner (PAT-228) resolves observations exactly the same way.
+                        List<String> obsExprNames = populationEvaluator.observationExpressionNames(groupDefs, g);
                         // Per-group CV observations: write to the per-group bucket so
                         // buildMultiGroupResult can compute each group's score independently.
                         // Also mirror into the legacy global list so single-group builders that

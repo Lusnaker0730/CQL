@@ -3,6 +3,7 @@ package com.cqlplatform.model.measure;
 import com.cqlplatform.security.NoXss;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -36,6 +37,15 @@ public class TestCase {
 
     /** Expected population membership: e.g. {"initial-population": true, "denominator": true, "numerator": false} */
     private Map<String, Boolean> expectedPopulations;
+
+    /**
+     * Structured expectations per population group — effective population counts, measure
+     * observation values and stratifier values (PAT-228). When present (non-empty) it is what
+     * a run compares against and {@link #expectedPopulations} is ignored; when absent the
+     * test case keeps the legacy flat boolean behaviour.
+     */
+    @Valid
+    private TestCaseExpectedValues expectedValues;
 
     /** Status: pass, fail, error, pending */
     @Builder.Default
