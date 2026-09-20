@@ -379,6 +379,79 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             rm -rf "$guard_tmp"
             ;;
 
+        measure-package)
+            # PAT-229 exchange-package round trip: publish → evaluate → export the
+            # HL7 Quality Measure IG package (JSON, XML, conformance report) →
+            # import it back as a new version → approve → evaluate. The imported
+            # measure must compute what the exported one does; before PAT-229 it
+            # arrived without its CQL and could not be evaluated at all.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            import_version=$(jq -r '.importAsVersion' "$expected_file" | tr -d '\r')
+
+            if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
+                failed_scenarios+=("$name"); continue
+            fi
+            upload_lib=$(jq -r '.uploadLibrary // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$upload_lib" ]; then
+                if ! bash "$SCRIPT_DIR/lib/upload-library.sh" "$scenario_dir/$upload_lib"; then
+                    failed_scenarios+=("$name"); continue
+                fi
+            fi
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            pkg_tmp=$(mktemp -d)
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$pkg_tmp/original.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/export-package.sh" "$measure_id" "$pkg_tmp"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            # Same name + version would be refused as a duplicate: import it as the
+            # "next version the other organisation sent us".
+            jq --arg v "$import_version" \
+                '(.entry[].resource | select(.resourceType == "Measure") | .version) = $v' \
+                "$pkg_tmp/bundle.json" > "$pkg_tmp/import.json"
+            if ! bash "$SCRIPT_DIR/lib/import-package.sh" "$pkg_tmp/import.json" > "$pkg_tmp/import-result.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            imported_id=$(jq -r '.measure.id // empty' "$pkg_tmp/import-result.json" | tr -d '\r')
+            if [ -z "$imported_id" ]; then
+                echo "    ✗ import result has no .measure.id" >&2
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$imported_id"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$imported_id" "$period_start" "$period_end" > "$pkg_tmp/imported.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            package_ok=1
+            bash "$SCRIPT_DIR/lib/assert.sh" "$pkg_tmp/imported.json" "$expected_file" "$imported_id" || package_ok=0
+            bash "$SCRIPT_DIR/lib/assert-measure-package.sh" "$pkg_tmp" "$expected_file" || package_ok=0
+            if [ "$package_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                # Keep the package next to the logs: the jq assertions are hard to debug without it.
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$pkg_tmp" "$SMOKE_LOG_DIR/$name-package" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$pkg_tmp"
+            ;;
+
         test-case-expectations)
             # PAT-228 structured test-case expectations. An eCQM is published, then a test
             # case is created with per-group expected populations + observation values and
@@ -440,7 +513,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

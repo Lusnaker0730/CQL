@@ -1,6 +1,5 @@
 package com.cqlplatform.service.measure;
 
-import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.FhirLibraryService;
@@ -9,11 +8,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
 
 /**
- * Parses a FHIR Bundle and imports contained Measure + Library resources.
+ * Imports a measure package: the Measure, the Libraries it needs, and — the part that makes the
+ * result usable — the CQL of the measure's primary library.
+ *
+ * <p>PAT-229: the import used to create a measure with populations but no CQL (the logic lived
+ * only in the imported Library rows), so a package exported by one installation could not be
+ * evaluated after being imported by another.
  */
 @Service
 @RequiredArgsConstructor
@@ -42,30 +48,35 @@ public class FhirMeasureBundleImportService {
             throw new IllegalArgumentException("Bundle contains no entries");
         }
 
-        // Classify resources
         JsonNode measureResource = null;
-        java.util.List<JsonNode> libraryResources = new java.util.ArrayList<>();
+        List<JsonNode> libraryResources = new ArrayList<>();
         int valueSetsFound = 0;
-
         for (JsonNode entry : entries) {
             JsonNode resource = entry.path("resource");
-            String type = resource.path("resourceType").asText("");
-            switch (type) {
+            switch (resource.path("resourceType").asText("")) {
                 case "Measure" -> {
                     if (measureResource == null) measureResource = resource;
                 }
                 case "Library" -> libraryResources.add(resource);
                 case "ValueSet" -> valueSetsFound++;
+                default -> { /* not part of a measure package */ }
             }
         }
+        if (measureResource == null) {
+            throw new IllegalArgumentException("Bundle does not contain a Measure resource");
+        }
 
-        // Import Libraries first (dependencies before main)
+        JsonNode primaryLibrary = findPrimaryLibrary(measureResource, libraryResources);
+
+        // Dependencies first: the measure's CQL is compiled when the measure is created, and its
+        // includes have to be resolvable by then. The primary library is not stored as a shared
+        // library — its CQL becomes the measure's own logic.
         int librariesImported = 0;
         int librariesSkipped = 0;
         for (JsonNode libJson : libraryResources) {
+            if (libJson == primaryLibrary) continue;
             String name = libJson.path("name").asText("");
             String version = libJson.path("version").asText("1.0.0");
-            // Skip if already exists
             if (cqlLibraryService.getLibraryByNameAndVersion(name, version).isPresent()) {
                 librariesSkipped++;
                 log.info("Skipping existing library: {} v{}", name, version);
@@ -81,23 +92,45 @@ public class FhirMeasureBundleImportService {
             }
         }
 
-        // Import Measure
-        if (measureResource == null) {
-            throw new IllegalArgumentException("Bundle does not contain a Measure resource");
-        }
-
-        MeasureDefinition importedMeasure = fhirMeasureService.importFhirMeasure(measureResource);
-        log.info("Imported measure: {} v{}", importedMeasure.getName(), importedMeasure.getVersion());
-
-        // Link to main library if we imported one
-        if (!libraryResources.isEmpty() && importedMeasure.getCqlLibraryId() == null) {
-            String mainLibName = libraryResources.get(0).path("name").asText("");
-            String mainLibVersion = libraryResources.get(0).path("version").asText("1.0.0");
-            cqlLibraryService.getLibraryByNameAndVersion(mainLibName, mainLibVersion).ifPresent(lib ->
-                    importedMeasure.setCqlLibraryId(lib.getId())
-            );
-        }
+        String cql = primaryLibrary != null ? cqlOf(primaryLibrary) : null;
+        MeasureDefinition importedMeasure = fhirMeasureService.importFhirMeasure(measureResource, cql);
+        log.info("Imported measure: {} v{} ({} CQL)", importedMeasure.getName(), importedMeasure.getVersion(),
+                cql != null ? "with" : "WITHOUT");
 
         return new BundleImportResult(importedMeasure, librariesImported, librariesSkipped, valueSetsFound);
+    }
+
+    /**
+     * The library {@code Measure.library} points at, matched by canonical URL and then by name;
+     * a package with a single library and no reference (older exports) uses that library.
+     */
+    private JsonNode findPrimaryLibrary(JsonNode measure, List<JsonNode> libraries) {
+        JsonNode reference = measure.path("library");
+        if (reference.isArray() && !reference.isEmpty()) {
+            String canonical = reference.get(0).asText("");
+            String url = canonical.contains("|") ? canonical.substring(0, canonical.indexOf('|')) : canonical;
+            String name = FhirMeasureService.libraryNameOf(canonical);
+            for (JsonNode lib : libraries) {
+                if (!url.isBlank() && url.equals(lib.path("url").asText(null))) return lib;
+            }
+            for (JsonNode lib : libraries) {
+                if (name != null && (name.equals(lib.path("name").asText(null)) || name.equals(lib.path("id").asText(null)))) {
+                    return lib;
+                }
+            }
+        }
+        return libraries.size() == 1 ? libraries.get(0) : null;
+    }
+
+    private String cqlOf(JsonNode library) {
+        for (JsonNode attachment : library.path("content")) {
+            if ("text/cql".equals(attachment.path("contentType").asText(""))) {
+                String data = attachment.path("data").asText("");
+                if (!data.isEmpty()) {
+                    return new String(Base64.getDecoder().decode(data), StandardCharsets.UTF_8);
+                }
+            }
+        }
+        return null;
     }
 }
