@@ -25,6 +25,14 @@ perfectly healthy to a health-endpoint wait — BUG-144 (the demo measure was in
 and no H2 test could see it because `DataInitializer` only runs under the `dev` / `docker` profiles. The check
 also asserts that the fresh database holds exactly one seeded demo measure (`DiabetesHbA1cRate`).
 
+## Report persistence check
+
+After the last scenario, the harness fails the run if the backend log contains `Failed to save measure report`,
+and prints the violated constraint. An evaluation whose report cannot be saved still answers 200 with the right
+numbers (`autoSaveReport` deliberately does not let a save failure break the response), so every scenario passes
+while the record is silently missing. BUG-145 was found that way only by reading a log: a wall-clock subtraction
+produced a negative evaluation duration, and the CHECK on `measure_report.evaluation_duration_ms` rejected the row.
+
 ## Coverage
 
 One scenario per eCQM scoring type (see scenarios/). Each type has a completely
