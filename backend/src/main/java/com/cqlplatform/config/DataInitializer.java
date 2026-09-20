@@ -24,6 +24,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final MeasureDefinitionRepository measureDefinitionRepository;
+    private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
     @Override
     public void run(String... args) {
@@ -49,12 +50,32 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(demo);
             log.debug("=== Demo user created (username: demo). ===");
 
-            // Seed demo eQCM measure
-            seedDemoMeasure();
+            // Seed demo eQCM measure. Demo data must never decide whether the application
+            // starts: BUG-144 was this call throwing on every fresh database (see below), which
+            // failed the first boot, left the two users behind, and made the restart skip this
+            // whole block — so the crash repeated on every new installation and the demo
+            // measure was never created anywhere.
+            try {
+                seedDemoMeasure();
+            } catch (RuntimeException e) {
+                log.error("Demo measure could not be seeded — continuing startup without it", e);
+            }
         }
     }
 
     private void seedDemoMeasure() {
+        // BUG-144: measure_definition.tenant_id has been NOT NULL since V61, and this runs at
+        // startup with no TenantContext — the row has to name its tenant itself. The demo user
+        // (like any account without a tenant) works in the `default` tenant, so that is where
+        // the demo measure belongs.
+        Long defaultTenantId = tenantRepository.findByCode("default")
+                .map(com.cqlplatform.entity.TenantEntity::getId)
+                .orElse(null);
+        if (defaultTenantId == null) {
+            log.warn("No 'default' tenant — skipping the demo measure");
+            return;
+        }
+
         String cqlContent = """
                 library DiabetesHbA1cRate version '1.0.0'
                 using FHIR version '4.0.1'
@@ -200,6 +221,7 @@ public class DataInitializer implements CommandLineRunner {
                         .build());
 
         MeasureDefinitionEntity measure = MeasureDefinitionEntity.builder()
+                .tenantId(defaultTenantId)
                 .name("DiabetesHbA1cRate")
                 .version("1.0.0")
                 .title("糖尿病病人醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)執行率")

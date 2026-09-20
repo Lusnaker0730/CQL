@@ -15,6 +15,16 @@ where the user was the smoke test.
 This harness runs the same flow the user does — POST a measure, seed FHIR data,
 evaluate — in ~60–120 seconds on your laptop, before `git push`.
 
+## Boot check
+
+Before any scenario runs, the harness requires that the backend came up on its **first** start: a container
+restart count other than 0 fails the run and prints the `Caused by:` lines from the backend log. With
+`restart: unless-stopped`, a backend that crashes during its first boot and recovers on the restart looks
+perfectly healthy to a health-endpoint wait — BUG-144 (the demo measure was inserted without a tenant while
+`measure_definition.tenant_id` is NOT NULL — by code reading, since V61 of 2026-07-09) crashed the first boot of a fresh database that way,
+and no H2 test could see it because `DataInitializer` only runs under the `dev` / `docker` profiles. The check
+also asserts that the fresh database holds exactly one seeded demo measure (`DiabetesHbA1cRate`).
+
 ## Coverage
 
 One scenario per eCQM scoring type (see scenarios/). Each type has a completely
