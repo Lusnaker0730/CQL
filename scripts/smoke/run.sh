@@ -138,11 +138,40 @@ echo "── Waiting for services ──"
 bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_BACKEND_PORT}/actuator/health" "${SMOKE_BACKEND_HEALTH_TIMEOUT:-90}"
 bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_FHIR_PORT}/fhir/metadata" "${SMOKE_FHIR_HEALTH_TIMEOUT:-60}"
 
+# BUG-144: a backend that crashes during its first boot and comes up on the container's
+# restart (`restart: unless-stopped`) looks perfectly healthy from here — every scenario
+# passes and only the log remembers. That is how the demo-measure seeding could crash the
+# first boot of a fresh database (tenant_id NOT NULL since V61, 2026-07) without anyone
+# noticing until 2026-09. The backend must come up on its FIRST start: fail the run on any
+# restart, and show why.
+echo ""
+echo "── Boot check ──"
+backend_container=$($COMPOSE ps -q backend 2>/dev/null | tr -d '\r' | head -1)
+restart_count=$(docker inspect -f '{{.RestartCount}}' "$backend_container" 2>/dev/null | tr -d '\r' || echo "?")
+if [ "$restart_count" != "0" ]; then
+    echo "ERROR: the backend did not come up on its first start (container restarts: $restart_count)." >&2
+    $COMPOSE logs --no-color backend 2>/dev/null \
+        | grep -o 'Application run failed\|Caused by: [^\\"]*' | sort -u | head -5 | sed 's/^/    /' >&2
+    exit 1
+fi
+echo "  backend came up on its first start (0 restarts)"
+
 echo ""
 echo "── Authenticating ──"
 TOKEN=$(bash "$SCRIPT_DIR/lib/auth.sh")
 export TOKEN
 echo "  got JWT (${#TOKEN} chars)"
+
+# BUG-144, second half: a fresh installation is supposed to get the demo measure. It never
+# did — the insert was what crashed the first boot, and the restart skipped seeding because
+# the users already existed.
+demo_measures=$(curl -sf "$API_BASE/measures?search=DiabetesHbA1cRate" -H "Authorization: Bearer $TOKEN" \
+    | jq '[.[] | select(.name == "DiabetesHbA1cRate")] | length' 2>/dev/null | tr -d '\r') || demo_measures=""
+if [ "$demo_measures" != "1" ]; then
+    echo "ERROR: fresh database should hold exactly one seeded demo measure 'DiabetesHbA1cRate', found: ${demo_measures:-<request failed>}" >&2
+    exit 1
+fi
+echo "  demo measure seeded"
 
 echo ""
 echo "── Running scenarios ──"
