@@ -24,12 +24,12 @@
 ```
 backend/src/main/java/com/cqlplatform/
   config/          — Spring 配置 (Security, CORS, Cache, Async, Metrics)
-  controller/      — REST API (25 controllers)
-  entity/          — JPA 實體 (39 entities；17 個帶 tenant_id)
+  controller/      — REST API (26 controllers)
+  entity/          — JPA 實體 (40 entities；18 個帶 tenant_id)
   exception/       — 自訂例外 + GlobalExceptionHandler
   fhir/            — FHIR 相關基礎元件
   model/           — DTO / Request / Response
-  repository/      — Spring Data JPA (38 repositories)
+  repository/      — Spring Data JPA (39 repositories)
   security/        — JWT 認證、API Key、Token Version 即時撤銷、TenantContext、Rate limit
   service/
     ai/            — AI 修 CQL 建議 (Ollama / OpenAI-compatible cloud)
@@ -44,7 +44,7 @@ backend/src/main/java/com/cqlplatform/
 backend/src/main/java/db/migration/ — Java-based Flyway migration (V56)
 
 frontend/src/
-  api/             — Axios API 模組 (23 modules)
+  api/             — Axios API 模組 (24 modules)
   components/
     auth/          — 登入 / 密碼重設
     authoring/     — CDS Authoring 視覺化
@@ -67,7 +67,7 @@ frontend/src/
   contexts/        — React Context (7 providers)
   config/
     twcore/        — TW Core IG 假病人產生器設定 (5 JSON + types)
-  hooks/           — 自訂 Hooks (36 files)
+  hooks/           — 自訂 Hooks (37 files)
   locales/{en,zh-TW}/ — i18n JSON (14 namespaces)
   constants/       — 集中常數 (24 modules: timing, layout, queryConstants 等)
   pages/           — 路由頁面 (26 pages, 全部 lazy-loaded)
@@ -81,11 +81,11 @@ backend/src/main/resources/
     modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V71；V56 為 Java migration)
+  db/migration/    — Flyway forward migrations (V1~V72；V56 為 Java migration)
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
-scripts/smoke/     — 本機 / CI 整合 smoke harness (33 scenarios)
+scripts/smoke/     — 本機 / CI 整合 smoke harness (34 scenarios)
 ```
 
 ## 開發指令
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-229 / BUG-143
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-230 / BUG-143
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -154,6 +154,12 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - **禁止**直接 `CqlTranslator.fromText(cql, libraryManager)` 後就 `engine.evaluate()`，否則引擎會走 `DatabaseLibrarySourceProvider` 撈 `cql_library` 表同名同版本舊版 CQL 執行，而不是你剛翻譯的文字
 - helper 內部同時 (1) `put` 入 `libraryManager.compiledLibraries` cache，(2) 對 `statements.def` 按 name 排序（engine 的 `Libraries.resolveExpressionRef` 用 binarySearch，不排會爆 `Could not resolve expression reference`）
 - Regression 測試：`CqlExecutionIntegrationTest.LibraryResolutionRegressionTest` 鎖住此不變式
+
+### 術語 / value set（PAT-230）
+- 解析順序：**平台自有 value set**（`value_set` 表，租戶範圍）→ 內建 TW Core IG → VSAC（URL 含 `cts.nlm.nih.gov`）→ 遠端術語伺服器
+- `FhirTerminologyService` 的 Caffeine 快取（`valueSets` / `codeValidation` / `codeLookup`…）以 **URL 為 key、全程序共用、不分租戶**。任何租戶範圍的術語資料都**不可**放進這些 `@Cacheable` 方法，要在 controller 或呼叫端先查（`FhirController` 的 `$expand` / 搜尋 / `$validate-code` 就是這樣接的）
+- 引擎的 `TerminologyProvider` 一律由 `FhirTerminologyService.createTerminologyProvider()` 取得：它每次回傳一個綁定**當下租戶**的 `PlatformTerminologyProvider`，要在 request thread（或 `TenantContext.callWith` 內）呼叫，每次評估呼叫一次
+- value set 啟用（active）後代碼即凍結，改代碼 = 建立新版本；CQL 可用 `version '…'` 釘選。Builder 產生的宣告是 `valueset "<name>": '<oid 欄位的 URL>'`——artifact JSON 的 `oid` 才是 URL，`name` 只是識別名稱
 
 ### CQL 執行錯誤/警告曝露（PAT-066）
 `CqlExecutionResponse` 除 `results` 外另含：
@@ -197,7 +203,7 @@ scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build im
 scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-33 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+34 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 
@@ -212,6 +218,8 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 | 例外處理 | `exception/GlobalExceptionHandler.java` |
 | 租戶上下文 / 平台操作員 | `security/TenantContext.java`, `security/PlatformOperatorGuard.java` |
 | JWT Token Version | `service/TokenVersionService.java` |
+| 平台自有 value set | `service/terminology/PlatformValueSetService.java` + `PlatformTerminologyProvider.java`；UI `components/terminology/PlatformValueSetTab.tsx` |
+| 指標交換封裝 (CQFM) | `service/measure/CqfmMeasureBuilder.java`, `CqfmLibraryBuilder.java`, `FhirMeasureBundleService.java` |
 | CQL Builder UI | `components/builder/` (27 元件) |
 | CDS Authoring UI | `components/authoring/` |
 | eCQM UI | `components/ecqm/` |

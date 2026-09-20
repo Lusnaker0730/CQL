@@ -1113,7 +1113,7 @@ public class ExpressionCqlEngine {
                     Map<String, Object> vsVal = (Map<String, Object>) value;
                     String vsName = (String) vsVal.get("name");
                     if (vsName != null)
-                        valueSets.add(vsName);
+                        valueSets.add(valueSetEntry(vsName, vsVal.get("oid"), vsVal.get("version")));
                 }
 
                 List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
@@ -1121,7 +1121,7 @@ public class ExpressionCqlEngine {
                     for (Map<String, Object> vs : vsRefs) {
                         String vsName = (String) vs.get("name");
                         if (vsName != null)
-                            valueSets.add(vsName);
+                            valueSets.add(valueSetEntry(vsName, vs.get("oid"), vs.get("version")));
                     }
                 }
 
@@ -1158,10 +1158,61 @@ public class ExpressionCqlEngine {
 
     // ── Emit helpers (for CQL header generation) ─────────────────────────
 
+    // ── Value set declarations (PAT-230) ─────────────────────────────────
+    //
+    // The collected set used to hold bare names, and the header declared
+    // `valueset "<name>": '<name>'` — the URL the author picked (`oid` in the artifact JSON) was
+    // dropped, so no terminology source could resolve the value set. An entry now carries
+    // name, URI and optional version; an element without an `oid` still yields the bare name,
+    // which keeps the old declaration for artifacts that never had a URL.
+
+    private static final String VS_SEP = "\u0000";
+    private static final java.util.regex.Pattern BARE_OID = java.util.regex.Pattern.compile("^[0-2](\\.\\d+)+$");
+
+    /** One {@code valueset} line of a CQL header. */
+    public record ValueSetDeclaration(String name, String uri, String version) {}
+
+    static String valueSetEntry(String name, Object oid, Object version) {
+        String uri = oid instanceof String s && !s.isBlank() ? s.trim() : null;
+        if (uri == null || uri.equals(name)) return name;
+        if (BARE_OID.matcher(uri).matches()) uri = "urn:oid:" + uri; // same convention as the standard SDE value sets
+        String ver = version instanceof String s && !s.isBlank() ? s.trim() : "";
+        return name + VS_SEP + uri + VS_SEP + ver;
+    }
+
+    /** One declaration per name (a CQL identifier must be unique); an entry that knows its URI wins. */
+    public static List<ValueSetDeclaration> valueSetDeclarations(Set<String> entries) {
+        Map<String, ValueSetDeclaration> byName = new LinkedHashMap<>();
+        for (String entry : entries) {
+            String[] parts = entry.split(VS_SEP, -1);
+            boolean hasUri = parts.length == 3;
+            ValueSetDeclaration declaration = hasUri
+                    ? new ValueSetDeclaration(parts[0], parts[1], parts[2].isEmpty() ? null : parts[2])
+                    : new ValueSetDeclaration(entry, entry, null);
+            ValueSetDeclaration existing = byName.get(declaration.name());
+            if (existing == null || (hasUri && existing.uri().equals(existing.name()))) {
+                byName.put(declaration.name(), declaration);
+            }
+        }
+        return new ArrayList<>(byName.values());
+    }
+
+    /** Template model of the declarations: identifier / uri / version, already escaped for CQL. */
+    public List<Map<String, String>> valueSetTemplateModel(Set<String> entries) {
+        List<Map<String, String>> model = new ArrayList<>();
+        for (ValueSetDeclaration d : valueSetDeclarations(entries)) {
+            model.add(Map.of("identifier", escapeCqlIdentifier(d.name()), "uri", escapeCqlString(d.uri()),
+                    "version", d.version() == null ? "" : escapeCqlString(d.version())));
+        }
+        return model;
+    }
+
     public void emitValueSets(StringBuilder cql, Set<String> valueSets) {
         if (!valueSets.isEmpty()) {
-            for (String vs : valueSets) {
-                cql.append(String.format("valueset \"%s\": '%s'%n", escapeCqlIdentifier(vs), escapeCqlString(vs)));
+            for (ValueSetDeclaration vs : valueSetDeclarations(valueSets)) {
+                cql.append(String.format("valueset \"%s\": '%s'", escapeCqlIdentifier(vs.name()), escapeCqlString(vs.uri())));
+                if (vs.version() != null) cql.append(String.format(" version '%s'", escapeCqlString(vs.version())));
+                cql.append(String.format("%n"));
             }
             cql.append("\n");
         }

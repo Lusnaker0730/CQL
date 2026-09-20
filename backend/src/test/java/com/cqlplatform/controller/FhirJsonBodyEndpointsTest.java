@@ -61,14 +61,16 @@ class FhirJsonBodyEndpointsTest {
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void importBundle_handsTheParsedTreeToTheService() throws Exception {
         when(bundleImportService.importBundle(any(JsonNode.class))).thenReturn(new BundleImportResult(
-                MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").status("draft").build(), 1, 2, 3));
+                MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").status("draft").build(), 1, 2, 3, 2, 1, java.util.List.of("kept local copy")));
 
         mockMvc.perform(post("/api/measures/import/bundle").contentType(MediaType.APPLICATION_JSON).content(BUNDLE))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.measure.id").value(9))
                 .andExpect(jsonPath("$.librariesImported").value(1))
                 .andExpect(jsonPath("$.librariesSkipped").value(2))
-                .andExpect(jsonPath("$.valueSetsFound").value(3));
+                .andExpect(jsonPath("$.valueSetsFound").value(3))
+                .andExpect(jsonPath("$.valueSetsImported").value(2))
+                .andExpect(jsonPath("$.warnings[0]").value("kept local copy"));
 
         ArgumentCaptor<JsonNode> body = ArgumentCaptor.forClass(JsonNode.class);
         verify(bundleImportService).importBundle(body.capture());
@@ -79,7 +81,7 @@ class FhirJsonBodyEndpointsTest {
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void importBundle_acceptsTheFhirJsonMediaType() throws Exception {
         when(bundleImportService.importBundle(any(JsonNode.class))).thenReturn(new BundleImportResult(
-                MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").build(), 0, 0, 0));
+                MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").build(), 0, 0, 0, 0, 0, java.util.List.of()));
 
         mockMvc.perform(post("/api/measures/import/bundle").contentType("application/fhir+json").content(BUNDLE))
                 .andExpect(status().isOk());

@@ -359,7 +359,8 @@
     "addAll": "Add All",
     "colCode": "CODE",
     "colDisplay": "DISPLAY",
-    "colChinese": "中文"
+    "colChinese": "中文",
+    "platformSource": "Ours · v{{version}} · {{status}}"
   },
   "chooseCode": {
     "title": "Choose code",

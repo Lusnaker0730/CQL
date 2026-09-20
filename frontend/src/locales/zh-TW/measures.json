@@ -137,7 +137,7 @@
       "measurePlaceholder": "在此貼上 FHIR Measure 資源 JSON...",
       "importing": "匯入中...",
       "import": "匯入",
-      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
+      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過；{{valueSetsFound}} 個 value set 中有 {{valueSets}} 個已存為本單位的草稿 value set。",
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
       "exportError": "匯出失敗：{{error}}",

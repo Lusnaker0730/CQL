@@ -67,6 +67,7 @@ class FhirMeasureBundleServiceTest {
     @Mock private VsacService vsacService;
     @Mock private FhirImplementationGuideService igService;
     @Mock private ObjectProvider<FhirImplementationGuideService> igProvider;
+    @Mock private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
     private FhirMeasureBundleService service;
     private CqfmLibraryBuilder libraryBuilder;
@@ -77,7 +78,9 @@ class FhirMeasureBundleServiceTest {
         libraryBuilder = new CqfmLibraryBuilder(canonical);
         CqfmMeasureBuilder measureBuilder = new CqfmMeasureBuilder(canonical, libraryBuilder);
         service = new FhirMeasureBundleService(fhirMeasureService, cqlLibraryService, translationService,
-                definitionService, libraryBuilder, canonical, FhirContext.forR4Cached(), vsacService, igProvider);
+                definitionService, libraryBuilder, canonical, FhirContext.forR4Cached(), vsacService, igProvider, platformValueSets);
+        lenient().when(platformValueSets.resolveForCaller(anyString(), org.mockito.ArgumentMatchers.any()))
+                .thenReturn(Optional.empty());
 
         MeasureDefinition definition = MeasureDefinition.builder()
                 .id(7L).name("DiabetesHbA1cControl").version("1.2.0").title("Diabetes: HbA1c control")

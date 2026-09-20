@@ -29,12 +29,21 @@ public class FhirMeasureBundleImportService {
     private final FhirMeasureService fhirMeasureService;
     private final FhirLibraryService fhirLibraryService;
     private final CqlLibraryService cqlLibraryService;
+    private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
+    /**
+     * {@code valueSetsImported} were stored as this tenant's own (draft) value sets;
+     * {@code valueSetsSkipped} either exist here already (same url + version — local content is
+     * never overwritten) or came without codes; {@code warnings} says which and why.
+     */
     public record BundleImportResult(
             MeasureDefinition measure,
             int librariesImported,
             int librariesSkipped,
-            int valueSetsFound
+            int valueSetsFound,
+            int valueSetsImported,
+            int valueSetsSkipped,
+            List<String> warnings
     ) {}
 
     public BundleImportResult importBundle(JsonNode bundleJson) {
@@ -50,7 +59,7 @@ public class FhirMeasureBundleImportService {
 
         JsonNode measureResource = null;
         List<JsonNode> libraryResources = new ArrayList<>();
-        int valueSetsFound = 0;
+        List<JsonNode> valueSetResources = new ArrayList<>();
         for (JsonNode entry : entries) {
             JsonNode resource = entry.path("resource");
             switch (resource.path("resourceType").asText("")) {
@@ -58,7 +67,7 @@ public class FhirMeasureBundleImportService {
                     if (measureResource == null) measureResource = resource;
                 }
                 case "Library" -> libraryResources.add(resource);
-                case "ValueSet" -> valueSetsFound++;
+                case "ValueSet" -> valueSetResources.add(resource);
                 default -> { /* not part of a measure package */ }
             }
         }
@@ -92,12 +101,36 @@ public class FhirMeasureBundleImportService {
             }
         }
 
+        // PAT-230: the package's value sets become this tenant's own, so the measure resolves the
+        // codes its author meant. Before, they were counted and thrown away.
+        int valueSetsImported = 0;
+        int valueSetsSkipped = 0;
+        List<String> warnings = new ArrayList<>();
+        for (JsonNode vsJson : valueSetResources) {
+            String vsUrl = vsJson.path("url").asText("(no url)");
+            try {
+                var outcome = platformValueSets.importFhirIfAbsent(vsJson);
+                if (outcome.created()) {
+                    valueSetsImported++;
+                } else {
+                    valueSetsSkipped++;
+                    warnings.add("Value set " + vsUrl + " version " + outcome.valueSet().getVersion()
+                            + " already exists here and was kept as it is — compare its codes with the sender's.");
+                }
+            } catch (com.cqlplatform.exception.ValidationException e) {
+                valueSetsSkipped++;
+                warnings.add("Value set " + vsUrl + " was not imported: "
+                        + (e.getDetails() != null && !e.getDetails().isEmpty() ? String.join("; ", e.getDetails()) : e.getMessage()));
+            }
+        }
+
         String cql = primaryLibrary != null ? cqlOf(primaryLibrary) : null;
         MeasureDefinition importedMeasure = fhirMeasureService.importFhirMeasure(measureResource, cql);
         log.info("Imported measure: {} v{} ({} CQL)", importedMeasure.getName(), importedMeasure.getVersion(),
                 cql != null ? "with" : "WITHOUT");
 
-        return new BundleImportResult(importedMeasure, librariesImported, librariesSkipped, valueSetsFound);
+        return new BundleImportResult(importedMeasure, librariesImported, librariesSkipped, valueSetResources.size(),
+                valueSetsImported, valueSetsSkipped, warnings);
     }
 
     /**

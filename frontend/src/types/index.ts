@@ -713,6 +713,54 @@ export interface ValueSetSearchResult {
   url: string
   name: string
   title: string
+  /**
+   * PAT-230: 'platform' = this installation's own value set, 'remote' = terminology server / VSAC
+   * (both set by the backend); 'local' = bundled implementation guide (set by the browse tab).
+   */
+  source?: 'platform' | 'remote' | 'local'
+  /** Platform value sets only: the version an unversioned reference resolves to, and its status. */
+  version?: string
+  status?: string
+}
+
+/** PAT-230 — one code of a platform value set. */
+export interface ValueSetConcept {
+  system: string
+  /** Code system version, when pinned. */
+  version?: string
+  code: string
+  display?: string
+}
+
+export type PlatformValueSetStatus = 'draft' | 'active' | 'retired'
+
+/** PAT-230 — one version of a value set this installation owns. List responses omit `concepts`. */
+export interface PlatformValueSet {
+  id: number
+  url: string
+  version: string
+  name: string
+  title?: string
+  description?: string
+  status: PlatformValueSetStatus
+  publisher?: string
+  concepts?: ValueSetConcept[]
+  conceptCount: number
+  origin: 'authored' | 'imported'
+  ownerUsername: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** What the author may set; status, owner and origin are the server's. */
+export interface PlatformValueSetInput {
+  url?: string
+  version?: string
+  name: string
+  title?: string
+  description?: string
+  publisher?: string
+  concepts: ValueSetConcept[]
 }
 
 export interface ValueSetExpansion {
@@ -1083,6 +1131,11 @@ export interface BundleImportResult {
   librariesImported: number
   librariesSkipped: number
   valueSetsFound: number
+  /** PAT-230: stored as this tenant's own (draft) value sets. */
+  valueSetsImported?: number
+  /** Already here (kept as they are) or came without codes — `warnings` says which. */
+  valueSetsSkipped?: number
+  warnings?: string[]
 }
 
 // Dashboard types

@@ -1,0 +1,262 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-34-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-34-p1",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "birthDate": "1960-01-15"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smoke-34-p1"
+      }
+    },
+    {
+      "fullUrl": "Patient/smoke-34-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-34-p2",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "birthDate": "1970-03-20"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smoke-34-p2"
+      }
+    },
+    {
+      "fullUrl": "Patient/smoke-34-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-34-p3",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "birthDate": "1980-01-15"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smoke-34-p3"
+      }
+    },
+    {
+      "fullUrl": "Patient/smoke-34-p4",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-34-p4",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "birthDate": "1990-03-15"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smoke-34-p4"
+      }
+    },
+    {
+      "fullUrl": "Patient/smoke-34-p5",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-34-p5",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "birthDate": "2015-01-15"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/smoke-34-p5"
+      }
+    },
+    {
+      "fullUrl": "Observation/smoke-34-o1",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smoke-34-o1",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smoke-34-p1"
+        },
+        "effectiveDateTime": "2025-03-01T09:00:00Z",
+        "valueQuantity": {
+          "value": 6.8,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smoke-34-o1"
+      }
+    },
+    {
+      "fullUrl": "Observation/smoke-34-o2",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smoke-34-o2",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "17856-6",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood by HPLC"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smoke-34-p2"
+        },
+        "effectiveDateTime": "2025-03-01T09:00:00Z",
+        "valueQuantity": {
+          "value": 6.8,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smoke-34-o2"
+      }
+    },
+    {
+      "fullUrl": "Observation/smoke-34-o3",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smoke-34-o3",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "2345-7",
+              "display": "Glucose [Mass/volume] in Serum or Plasma"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smoke-34-p3"
+        },
+        "effectiveDateTime": "2025-03-01T09:00:00Z",
+        "valueQuantity": {
+          "value": 6.8,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smoke-34-o3"
+      }
+    },
+    {
+      "fullUrl": "Observation/smoke-34-o5",
+      "resource": {
+        "resourceType": "Observation",
+        "id": "smoke-34-o5",
+        "meta": {
+          "tag": [
+            {
+              "system": "http://smoke.test",
+              "code": "scenario-34"
+            }
+          ]
+        },
+        "status": "final",
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "4548-4",
+              "display": "Hemoglobin A1c/Hemoglobin.total in Blood"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/smoke-34-p5"
+        },
+        "effectiveDateTime": "2025-03-01T09:00:00Z",
+        "valueQuantity": {
+          "value": 6.8,
+          "unit": "%",
+          "system": "http://unitsofmeasure.org",
+          "code": "%"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/smoke-34-o5"
+      }
+    }
+  ]
+}
