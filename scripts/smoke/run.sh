@@ -619,6 +619,23 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
     esac
 done
 
+# BUG-145: an evaluation whose report could not be saved still answers 200 with the right
+# numbers — every scenario passes while the clinical record is silently missing, and only
+# the log says so. (That is how a negative evaluation duration, rejected by the CHECK on
+# measure_report.evaluation_duration_ms, went unnoticed.) A run that lost a report is a
+# failed run.
+echo ""
+echo "── Report persistence check ──"
+lost_reports=$($COMPOSE logs --no-color backend 2>/dev/null | grep -c "Failed to save measure report" | tr -d '\r') || lost_reports=0
+if [ "${lost_reports:-0}" != "0" ]; then
+    echo "  ✗ the backend failed to save $lost_reports measure report(s):" >&2
+    $COMPOSE logs --no-color backend 2>/dev/null | grep "Failed to save measure report" \
+        | grep -o 'violates [a-z ]*constraint \\"[a-z_]*\\"\|Caused by: [^\\"]*' | sort | uniq -c | head -5 | sed 's/^/      /' >&2
+    failed_scenarios+=("report-persistence")
+else
+    echo "  ✓ every evaluated report was saved"
+fi
+
 echo ""
 echo "── Results ──"
 echo "  passed: ${#passed_scenarios[@]}"

@@ -95,6 +95,43 @@ class MeasureEvaluationServiceTest {
         assertThat(result.getGroups()).isNotEmpty();
     }
 
+    // BUG-145 — the duration handed to the report is an elapsed time on the monotonic clock. As a
+    // wall-clock subtraction it could be negative (clock stepped back mid-evaluation), which the
+    // measure_report CHECK (>= 0) answered by rejecting the whole report.
+    @Test
+    void evaluateMeasure_autoSavesTheReport_withANonNegativeDuration() {
+        MeasureReportService reportService = org.mockito.Mockito.mock(MeasureReportService.class);
+        ReflectionTestUtils.setField(measureService, "measureReportService", reportService);
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setPatientId("patient-1");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+
+        measureService.evaluateMeasure(request);
+
+        org.mockito.ArgumentCaptor<Long> duration = org.mockito.ArgumentCaptor.forClass(Long.class);
+        org.mockito.Mockito.verify(reportService).saveReport(any(), any(), any(), any(), duration.capture());
+        assertThat(duration.getValue()).isBetween(0L, 60_000L);
+    }
+
+    @Test
+    void evaluateMeasure_whenTheReportCannotBeSaved_stillReturnsTheResult() {
+        MeasureReportService reportService = org.mockito.Mockito.mock(MeasureReportService.class);
+        when(reportService.saveReport(any(), any(), any(), any(), org.mockito.ArgumentMatchers.anyLong()))
+                .thenThrow(new com.cqlplatform.exception.CqlExecutionException("Failed to save measure report: constraint"));
+        ReflectionTestUtils.setField(measureService, "measureReportService", reportService);
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setPatientId("patient-1");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+
+        assertThat(measureService.evaluateMeasure(request).getStatus()).isEqualTo("complete");
+    }
+
     @Test
     void evaluateMeasure_multiplePatients_shouldAggregateResults() {
         MeasureEvaluationRequest request = new MeasureEvaluationRequest();

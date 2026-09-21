@@ -110,7 +110,10 @@ public class MeasureEvaluationService {
         log.info("Evaluating measure: {} for patient: {}", request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
-        long startTime = System.currentTimeMillis();
+        // BUG-145: the duration is STORED (measure_report.evaluation_duration_ms, CHECK >= 0), so it is
+        // taken on the monotonic clock. As a wall-clock subtraction it went negative whenever the clock
+        // stepped back mid-evaluation, and the database then refused the whole report.
+        com.cqlplatform.util.Stopwatch evaluationTime = com.cqlplatform.util.Stopwatch.start();
 
         MeasureEvaluationContext context = buildContext(request, measureDefinitionId, measureDefinition);
 
@@ -118,12 +121,12 @@ public class MeasureEvaluationService {
             // 1. Pre-translate CQL once (MADiE pattern: translate once, reuse Java objects for all patients)
             CqlExecutionService.PreTranslatedContext preTranslated = null;
             if (context.getMeasureCql() != null) {
-                long translateStart = System.currentTimeMillis();
+                com.cqlplatform.util.Stopwatch translateTime = com.cqlplatform.util.Stopwatch.start();
                 try {
                     log.info("Starting CQL pre-translation ({} chars)", context.getMeasureCql().length());
                     preTranslated = cqlExecutionService.translateOnce(context.getMeasureCql());
                     log.info("Pre-translated CQL in {}ms (will reuse for all patients)",
-                            System.currentTimeMillis() - translateStart);
+                            translateTime.elapsedMs());
                 } catch (Throwable e) {
                     log.error("CQL pre-translation failed: {} ({}), will translate per patient",
                             e.getMessage(), e.getClass().getName(), e);
@@ -143,7 +146,7 @@ public class MeasureEvaluationService {
             // 3. Bulk-fetch all patient resources in one batch (instead of per-patient HTTP requests)
             java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData = null;
             if (preTranslated != null) {
-                long bulkStart = System.currentTimeMillis();
+                com.cqlplatform.util.Stopwatch bulkTime = com.cqlplatform.util.Stopwatch.start();
                 try {
                     Set<String> retrieveTypes = cqlExecutionService.extractRetrieveTypesFromLibrary(
                             preTranslated.elmLibrary(), preTranslated.libraryManager());
@@ -151,7 +154,7 @@ public class MeasureEvaluationService {
                     bulkData = fhirDataProviderService.bulkFetchAllPatients(
                             context.getFhirServerUrl(), patients, retrieveTypes);
                     log.info("Bulk data fetch: {} patients in {}ms",
-                            patients.size(), System.currentTimeMillis() - bulkStart);
+                            patients.size(), bulkTime.elapsedMs());
                 } catch (FhirServerUnavailableException e) {
                     // PAT-112a: upstream FHIR is down — don't fall back to per-patient
                     // (which hits the same server). Fail loud so the caller gets a
@@ -210,7 +213,7 @@ public class MeasureEvaluationService {
             stopTimer(sample);
 
             // 5. Auto-save report
-            long durationMs = System.currentTimeMillis() - startTime;
+            long durationMs = evaluationTime.elapsedMs();
             autoSaveReport(result, measureDefinitionId, context.getFhirServerUrl(), durationMs);
 
             return result;
