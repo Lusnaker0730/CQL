@@ -973,6 +973,44 @@ export interface TestCase {
   sortOrder?: number
 }
 
+/** PAT-232 — one clause (ELM expression node with a source position) of a CQL library. */
+export interface ClauseCoverageClause {
+  localId: string
+  /** `startLine:startCol-endLine:endCol` (1-based, end inclusive) or `line:col`. */
+  locator: string
+  type: string
+  hits: number
+  value?: string
+}
+
+export interface ClauseCoverageStatement {
+  name: string
+  locator?: string
+  function: boolean
+  totalClauses: number
+  coveredClauses: number
+  clauses: ClauseCoverageClause[]
+}
+
+/** Which clauses of a CQL library were executed — over one test case or the union of all of them. */
+export interface ClauseCoverage {
+  /** The exact text the locators refer to. */
+  cql: string
+  libraryName?: string
+  totalClauses: number
+  coveredClauses: number
+  percent: number
+  statements: ClauseCoverageStatement[]
+}
+
+export interface MeasureClauseCoverage {
+  measureId: number
+  testCases: number
+  executed: number
+  passed: number
+  coverage?: ClauseCoverage
+}
+
 export interface TestCaseRunResult {
   testCaseId: number
   testCaseTitle: string
@@ -991,6 +1029,8 @@ export interface TestCaseRunResult {
   debugTrace?: DebugTrace
   populationTrace?: PopulationMembershipTrace
   coverage?: CoverageResult
+  /** PAT-232: debug-mode runs only. */
+  clauseCoverage?: ClauseCoverage
   phaseError?: PhaseError
 }
 

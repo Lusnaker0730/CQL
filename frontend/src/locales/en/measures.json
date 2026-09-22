@@ -469,6 +469,21 @@
     "debugPanelTitle": "CQL execution trace",
     "populationTraceTitle": "Population membership trace",
     "coverageTitle": "Expression coverage",
+    "clauseCoverage": {
+      "title": "Clause coverage",
+      "button": "Clause coverage",
+      "tooltip": "Run every test case and colour each clause of the CQL by whether any of them reached it (Bonnie / MADiE style).",
+      "measureTitle": "Clause coverage across all test cases",
+      "measureSubtitle": "{{executed}} of {{total}} test cases executed, {{passed}} passed",
+      "noneExecuted": "None of the {{total}} test cases could be executed, so there is no coverage to show. Open a test case in debug mode to see why.",
+      "overall": "Covered: {{value}}",
+      "onlyUncovered": "Only statements with gaps",
+      "legendCovered": "Evaluated by at least one run",
+      "legendUncovered": "Never evaluated",
+      "allCovered": "Every clause was evaluated.",
+      "byStatement": "By statement",
+      "sourceLabel": "CQL with clause coverage highlighting"
+    },
     "tooltips": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run this test case",

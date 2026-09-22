@@ -651,6 +651,14 @@ public class MeasureController {
         return ResponseEntity.ok(results);
     }
 
+    @PostMapping("/{measureId}/test-cases/coverage")
+    @Operation(summary = "Measure clause coverage",
+            description = "Runs every test case of the measure and reports which clauses of its CQL were executed by any of them (Bonnie / MADiE style)")
+    public ResponseEntity<com.cqlplatform.model.measure.MeasureClauseCoverage> measureClauseCoverage(@PathVariable Long measureId) {
+        requireOwnedMeasure(measureId);
+        return ResponseEntity.ok(testCaseService.measureClauseCoverage(measureId));
+    }
+
     @PostMapping("/{measureId}/test-cases/{testCaseId}/run-with-coverage")
     @Operation(summary = "Run Test Case with Coverage", description = "Execute a test case and return per-expression coverage results")
     public ResponseEntity<CoverageResult> runWithCoverage(

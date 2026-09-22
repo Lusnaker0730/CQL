@@ -207,7 +207,7 @@ public class TestCaseService {
                 ? result.getActualPopulations() : new LinkedHashMap<>());
         try {
             TestCaseRunResult stored = result.toBuilder()
-                    .debugTrace(null).populationTrace(null).coverage(null).build();
+                    .debugTrace(null).populationTrace(null).coverage(null).clauseCoverage(null).build();
             entity.setLastRunResultJson(MAPPER.writeValueAsString(stored));
         } catch (Exception e) {
             entity.setLastRunResultJson("{}");
@@ -216,6 +216,38 @@ public class TestCaseService {
     }
 
     // ===== Coverage =====
+
+    /**
+     * PAT-232 — clause coverage of the measure's CQL across all its test cases: a clause counts
+     * as covered when ANY test case reached it. Runs every test case with coverage recording
+     * (single patient each, no debug traces) and merges. Run outcomes are persisted like a
+     * normal run-all, so the list's pass / fail badges stay current.
+     */
+    @Transactional
+    public MeasureClauseCoverage measureClauseCoverage(Long measureDefinitionId) {
+        MeasureDefinition measure = definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+        List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        List<ClauseCoverage> runs = new ArrayList<>();
+        int executed = 0;
+        int passed = 0;
+        for (TestCaseEntity entity : entities) {
+            TestCaseRunResult result = executeTestCase(entity, measure, false, true);
+            persistRunResult(entity, result);
+            if (result.getClauseCoverage() != null) {
+                executed++;
+                runs.add(result.getClauseCoverage());
+            }
+            if ("pass".equals(result.getStatus())) passed++;
+        }
+        return MeasureClauseCoverage.builder()
+                .measureId(measureDefinitionId)
+                .testCases(entities.size())
+                .executed(executed)
+                .passed(passed)
+                .coverage(ClauseCoverage.merge(runs))
+                .build();
+    }
 
     /**
      * Backward-compat endpoint. Delegates to {@link #runTestCase(Long, boolean)} with debugMode=true
@@ -241,6 +273,15 @@ public class TestCaseService {
     }
 
     private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure, boolean debugMode) {
+        return executeTestCase(entity, measure, debugMode, debugMode);
+    }
+
+    /**
+     * {@code clauseCoverage} is separate from {@code debugMode}: the measure-wide coverage run
+     * wants every test case's clause hits without the per-expression traces debug mode adds.
+     */
+    private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure,
+                                              boolean debugMode, boolean clauseCoverage) {
         long startTime = System.currentTimeMillis();
 
         if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
@@ -264,6 +305,7 @@ public class TestCaseService {
             execRequest.setPatientId(patientId);
             execRequest.setParameters(buildMeasurementPeriodParams(measure));
             execRequest.setDebugMode(debugMode);
+            execRequest.setClauseCoverage(clauseCoverage);
 
             CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
@@ -326,6 +368,9 @@ public class TestCaseService {
                 b.debugTrace(execResponse.getDebugTrace())
                  .populationTrace(populationEvaluator.buildTestCaseTrace(measure, execResponse))
                  .coverage(computeCoverage(execResponse));
+            }
+            if (clauseCoverage) {
+                b.clauseCoverage(execResponse.getClauseCoverage());
             }
 
             return b.build();

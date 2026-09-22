@@ -907,6 +907,7 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 | `/api/measures/{measureId}/test-cases/{testCaseId}/run` | POST | 執行單一測試案例 |
 | `/api/measures/{measureId}/test-cases/run` | POST | 執行所有測試案例 |
 | `/api/measures/{measureId}/test-cases/{testCaseId}/run-with-coverage` | POST | 執行含覆蓋率測試 |
+| `/api/measures/{measureId}/test-cases/coverage` | POST | 執行全部測試案例並回報逐子句覆蓋率聯集（PAT-232；單一案例以 `run?debugMode=true` 取得 `clauseCoverage`） |
 
 **TestCase 範例：**
 

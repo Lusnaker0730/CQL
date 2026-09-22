@@ -1,0 +1,13 @@
+{
+  "type": "clause-coverage",
+  "groupId": "group-1",
+  "withEncounters": {
+    "expectedPopulations": { "initial-population": 1, "measure-population": 1 },
+    "expectedObservations": [2, 4]
+  },
+  "noEncounters": {
+    "expectedPopulations": { "initial-population": 0, "measure-population": 0 },
+    "expectedObservations": []
+  },
+  "_note": "PAT-232. Two test cases against the scenario-32 measure: one patient with two inpatient stays (every query iterates, so every clause runs) and one patient with no encounters at all (the per-encounter clauses — where / return / observation body — are never evaluated). A debug-mode run must carry clauseCoverage, a normal run must not, and POST /test-cases/coverage must union the two runs over the same CQL text: total = per-run total, covered = the union, and the no-encounter run alone must cover strictly fewer clauses than the union. run.sh substitutes __YEAR__ in the bundles."
+}

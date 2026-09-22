@@ -612,8 +612,77 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             rm -rf "$vs_tmp"
             ;;
 
+        clause-coverage)
+            # PAT-232 clause-level (Bonnie / MADiE style) coverage. The scenario-32 measure is
+            # published, two test cases are created — a patient with two inpatient stays and
+            # a patient with no encounters — and run: debug mode must carry clauseCoverage,
+            # a normal run must not, the empty patient must leave the per-encounter clauses
+            # uncovered, and POST /test-cases/coverage must union both runs over the same
+            # CQL text. Bundles use the __YEAR__ placeholder like scenario 32.
+            measure_file="$scenario_dir/measure.json"
+            full_bundle_file="$scenario_dir/bundle-with-encounters.json"
+            empty_bundle_file="$scenario_dir/bundle-no-encounters.json"
+            for f in "$measure_file" "$full_bundle_file" "$empty_bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name")
+                continue
+            fi
+            cc_tmp=$(mktemp -d)
+            cc_year=$(date +%Y)
+            cc_group=$(jq -r '.groupId' "$expected_file" | tr -d '\r')
+            # $1 = bundle file, $2 = key in expected.json, $3 = title, $4 = output file
+            build_cc_test_case() {
+                jq -n --arg bundle "$(sed "s/__YEAR__/$cc_year/g" "$1")" --arg group "$cc_group" --arg title "$3" \
+                    --argjson pops "$(jq -c ".[\"$2\"].expectedPopulations" "$expected_file")" \
+                    --argjson obs "$(jq -c ".[\"$2\"].expectedObservations" "$expected_file")" \
+                    '{title: $title, patientBundleJson: $bundle,
+                      expectedValues: {groups: [{groupId: $group, populations: $pops, observations: $obs}]}}' > "$4"
+            }
+            build_cc_test_case "$full_bundle_file" withEncounters "smoke-35 two inpatient stays" "$cc_tmp/create-full.json"
+            build_cc_test_case "$empty_bundle_file" noEncounters "smoke-35 no encounters" "$cc_tmp/create-empty.json"
+            cc_ok=1
+            cc_create() { # $1 = body, $2 = var name to receive the id
+                local raw id
+                raw=$(bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$1") || return 1
+                id=$(echo "$raw" | sed '1,/^---HTTP_STATUS_BODY---$/d' | jq -r '.id // empty')
+                if [ -z "$id" ]; then
+                    echo "    ✗ test case was not created: $(echo "$raw" | head -c 400)" >&2
+                    return 1
+                fi
+                echo "  created test case #$id" >&2
+                printf -v "$2" '%s' "$id"
+            }
+            cc_create "$cc_tmp/create-full.json" cc_full_id || cc_ok=0
+            [ "$cc_ok" = "1" ] && { cc_create "$cc_tmp/create-empty.json" cc_empty_id || cc_ok=0; }
+            if [ "$cc_ok" = "1" ]; then
+                if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_full_id/run?debugMode=true" > "$cc_tmp/run-full-debug.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_full_id/run" > "$cc_tmp/run-full-plain.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_empty_id/run?debugMode=true" > "$cc_tmp/run-empty-debug.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/coverage" > "$cc_tmp/coverage.raw"; then
+                    cc_ok=0
+                fi
+            fi
+            if [ "$cc_ok" = "1" ] && bash "$SCRIPT_DIR/lib/assert-clause-coverage.sh" "$cc_tmp/run-full-debug.raw" \
+                    "$cc_tmp/run-full-plain.raw" "$cc_tmp/run-empty-debug.raw" "$cc_tmp/coverage.raw"; then
+                passed_scenarios+=("$name")
+            else
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$cc_tmp" "$SMOKE_LOG_DIR/$name-files" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$cc_tmp"
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

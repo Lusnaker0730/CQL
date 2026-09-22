@@ -401,6 +401,13 @@ public class CqlExecutionService {
                     new org.opencds.cqf.cql.engine.debug.DebugMap();
             debugMap.setLoggingEnabled(true);
             engine.getState().setDebugMap(debugMap);
+            // PAT-232: clause coverage — the engine calls the collector for every expression
+            // node it evaluates (cql-engine 5.x BreakpointHandler). One collector per evaluation.
+            ClauseCoverageCollector clauseCoverage = null;
+            if (request.isClauseCoverage()) {
+                clauseCoverage = new ClauseCoverageCollector();
+                engine.getState().setBreakpointHandler(clauseCoverage);
+            }
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
@@ -595,6 +602,7 @@ public class CqlExecutionService {
                     .warnings(warnings.isEmpty() ? null : warnings)
                     .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .debugTrace(debugTrace)
+                    .clauseCoverage(clauseCoverage != null ? clauseCoverage.report(elmLibrary, request.getCql()) : null)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .libraryId(libraryId != null ? libraryId.getId() : null)
@@ -909,6 +917,13 @@ public class CqlExecutionService {
                     new org.opencds.cqf.cql.engine.debug.DebugMap();
             debugMap.setLoggingEnabled(true);
             engine.getState().setDebugMap(debugMap);
+            // PAT-232: clause coverage — the engine calls the collector for every expression
+            // node it evaluates (cql-engine 5.x BreakpointHandler). One collector per evaluation.
+            ClauseCoverageCollector clauseCoverage = null;
+            if (request.isClauseCoverage()) {
+                clauseCoverage = new ClauseCoverageCollector();
+                engine.getState().setBreakpointHandler(clauseCoverage);
+            }
             long t6 = System.currentTimeMillis();
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
@@ -1004,6 +1019,7 @@ public class CqlExecutionService {
                     .patientId(request.getPatientId())
                     .results(results)
                     .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
+                    .clauseCoverage(clauseCoverage != null ? clauseCoverage.report(elmLibrary, ctx.cql()) : null)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .fhirServerUrl(fhirServerUrl)

@@ -42,5 +42,11 @@ public class CqlExecutionRequest {
     private String elmJson;
 
     private boolean debugMode = false;
+    /**
+     * PAT-232: record which clauses the engine evaluates (Bonnie / MADiE test coverage). The
+     * engine reports every expression node it visits, so this is for single-patient test-case
+     * runs, not for measure evaluation over a population.
+     */
+    private boolean clauseCoverage = false;
     private String[] expressionNames;
 }

@@ -469,6 +469,21 @@
     "debugPanelTitle": "CQL 執行追蹤",
     "populationTraceTitle": "族群歸屬追蹤",
     "coverageTitle": "表達式覆蓋率",
+    "clauseCoverage": {
+      "title": "逐子句覆蓋率",
+      "button": "逐子句覆蓋率",
+      "tooltip": "執行所有測試案例，把 CQL 的每個子句依「是否有任一測試案例執行到」標色（Bonnie / MADiE 的做法）。",
+      "measureTitle": "全部測試案例的逐子句覆蓋率",
+      "measureSubtitle": "{{total}} 個測試案例中 {{executed}} 個已執行，{{passed}} 個通過",
+      "noneExecuted": "{{total}} 個測試案例都無法執行，沒有覆蓋率可顯示。請用除錯模式開啟其中一個查看原因。",
+      "overall": "已覆蓋：{{value}}",
+      "onlyUncovered": "只列出有缺口的敘述",
+      "legendCovered": "至少一次執行到",
+      "legendUncovered": "從未執行到",
+      "allCovered": "每個子句都被執行到了。",
+      "byStatement": "依敘述",
+      "sourceLabel": "標示逐子句覆蓋率的 CQL"
+    },
     "tooltips": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行此測試案例",
