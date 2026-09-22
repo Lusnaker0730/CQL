@@ -32,10 +32,10 @@ public class CircuitBreakerRetrieveProvider implements RetrieveProvider {
     }
 
     @Override
-    public Iterable<Object> retrieve(
+    public Iterable<org.opencds.cqf.cql.engine.runtime.Value> retrieve(
             String context,
             String contextPath,
-            Object contextValue,
+            String contextValue,
             String dataType,
             String templateId,
             String codePath,
@@ -47,7 +47,7 @@ public class CircuitBreakerRetrieveProvider implements RetrieveProvider {
             Interval dateRange) {
 
         return circuitBreaker.executeSupplier(() -> {
-            Iterable<Object> results = delegate.retrieve(
+            Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = delegate.retrieve(
                     context, contextPath, contextValue,
                     dataType, templateId,
                     codePath, codes, valueSet,
@@ -55,7 +55,7 @@ public class CircuitBreakerRetrieveProvider implements RetrieveProvider {
 
             // Materialize the Iterable inside the CB scope so lazy HTTP errors
             // are recorded as failures by the circuit breaker.
-            List<Object> materialized = new ArrayList<>();
+            List<org.opencds.cqf.cql.engine.runtime.Value> materialized = new ArrayList<>();
             if (results != null) {
                 results.forEach(materialized::add);
             }

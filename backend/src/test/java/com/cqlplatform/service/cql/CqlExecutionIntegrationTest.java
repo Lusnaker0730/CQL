@@ -245,6 +245,30 @@ class CqlExecutionIntegrationTest {
             assertExpressionEquals(response, "IsNullCheck", true);
             assertExpressionEquals(response, "NullIsNull", true);
         }
+
+        // PAT-231 (cql-engine 5.x): results cross into the platform through CqlValues.unwrap.
+        // A Tuple used to reach the response as a Map; after unwrap it is a Map BEFORE
+        // toSerializable sees it, and toSerializable must keep it one (the CDS tuple-card path
+        // reads it as a map — a string here is a card with no fields). Lists of structured
+        // values become short "FHIR.Type/id" descriptions, never the whole tree.
+        @Test
+        @DisplayName("Tuples stay maps and lists stay lists in the response")
+        void responseShapes_tupleIsAMap_listIsAList() {
+            CqlExecutionResponse response = executeWithNoData("""
+                    library Shapes version '1.0.0'
+                    define "Card": Tuple { summary: 'HbA1c due', priority: 2, flags: { true, false } }
+                    define "Numbers": { 1, 2, 3 }
+                    """);
+
+            assertThat(response.isSuccess()).isTrue();
+            Object card = response.getResults().get("Card").getValue();
+            assertThat(card).isInstanceOf(Map.class);
+            @SuppressWarnings("unchecked") Map<String, Object> cardMap = (Map<String, Object>) card;
+            assertThat(cardMap).containsEntry("summary", "HbA1c due").containsEntry("priority", 2);
+            assertThat(cardMap.get("flags")).isEqualTo(List.of(true, false));
+            assertThat(response.getResults().get("Card").getValueType()).isEqualTo("Tuple");
+            assertThat(response.getResults().get("Numbers").getValue()).isEqualTo(List.of(1, 2, 3));
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -277,6 +301,11 @@ class CqlExecutionIntegrationTest {
             assertThat(response.isSuccess()).isTrue();
             assertExpressionEquals(response, "HasConditions", true);
             assertExpressionEquals(response, "ConditionCount", 1);
+            // PAT-231: a retrieved resource is described as "FHIR.Condition/<id>" in the
+            // response (4.x showed HAPI's Condition@hash) — one short line, never the whole tree.
+            Object all = response.getResults().get("AllConditions").getValue();
+            assertThat(all).isInstanceOf(List.class);
+            assertThat(((List<?>) all).get(0).toString()).matches("(FHIR[.])?Condition/.+").hasSizeLessThan(80);
         }
 
         @Test

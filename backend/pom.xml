@@ -26,7 +26,7 @@
 
     <properties>
         <java.version>25</java.version>
-        <cql.version>4.8.0</cql.version>
+        <cql.version>5.3.0</cql.version>
         <hapi.fhir.version>8.12.0</hapi.fhir.version>
         <mockito.version>5.23.0</mockito.version>
         <byte-buddy.version>1.15.11</byte-buddy.version>
@@ -215,7 +215,9 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- CQL Framework 4.x (Kotlin Multiplatform — JVM targets) -->
+        <!-- CQL Framework 5.x (Kotlin Multiplatform — JVM targets). Every artifact is the
+             `-jvm` variant: at 5.x the plain `engine-fhir` artifact still publishes, but as an
+             EMPTY shell (0 classes) — its classes moved to `engine-fhir-jvm`. -->
         <dependency>
             <groupId>org.cqframework</groupId>
             <artifactId>cql-to-elm-jvm</artifactId>
@@ -233,13 +235,25 @@
         </dependency>
         <dependency>
             <groupId>org.cqframework</groupId>
-            <artifactId>engine-fhir</artifactId>
+            <artifactId>engine-fhir-jvm</artifactId>
             <version>${cql.version}</version>
         </dependency>
         <dependency>
             <groupId>org.cqframework</groupId>
             <artifactId>quick</artifactId>
             <version>${cql.version}</version>
+            <!-- quick 5.x declares the whole jaxb2-basics XJC plugin (4.x declared only
+                 jaxb2-basics-runtime, which is all the generated model classes need). The
+                 plugin drags in its build-time `-tools` module and, through it,
+                 commons-beanutils 1.9.3 (CVE-2014-0114 / CVE-2019-10086 / CVE-2025-48734).
+                 Nothing runs at runtime from `-tools`: keep it out. Runtime support stays
+                 (jaxb2-basics -> jaxb2-basics-runtime). -->
+            <exclusions>
+                <exclusion>
+                    <groupId>codes.rafael.jaxb2_commons</groupId>
+                    <artifactId>jaxb2-basics-tools</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
 

@@ -45,6 +45,11 @@ public class XxxService {
 - Controller 要收 / 回 raw FHIR JSON 時照舊宣告 Jackson 2 的 `JsonNode` / `ObjectNode`——`config/Jackson2TreeBridgeConfig` 註冊的 Jackson 3 module 負責轉換。沒有它時 `@RequestBody JsonNode` 一律 500、回傳的 `ObjectNode` 會被寫成 `{"array":false,…,"nodeType":"OBJECT"}`（2026-09-19 在 Boot 4.1.0 實測五個 FHIR 匯入 / 匯出端點都是這樣壞的，單元測試全綠；推測自 2026-05 升 Boot 4.0 起就如此，未回頭驗證舊版）
 - 新增這類端點**一定要有 MockMvc 測試**走過真的轉換器（範本：`FhirJsonBodyEndpointsTest`）；只測 service 抓不到
 
+### CQL 引擎 5.x 值模型（PAT-231）
+- 引擎的結果與輸入都是 `runtime.Value`；平台程式碼只處理純 Java。**取結果 → `CqlValues.unwrap`；給引擎 FHIR 資源 → `CqlValues.fromFhir`；給引擎參數 → `CqlValues.wrap`**。`CqlValues` 是唯一的橋接，別在其他地方 `instanceof runtime.Boolean`
+- `unwrap` 後 `Tuple` 是 `Map`、`List` 是 `java.util.List`、FHIR 資源仍是 `ClassInstance`（顯示用 `CqlValues.describe` → `FHIR.Patient/123`，不要 `toString()` 整棵樹）
+- 本機建置若 VS Code 的 Java 擴充同時開著，它會寫同一個 `backend/target/classes`，造成假的 `cannot find symbol` / `bad class file`；用 `git worktree` 在工作區外建置最省事
+
 ## 例外處理
 
 `GlobalExceptionHandler` 統一映射例外到 HTTP 回應：

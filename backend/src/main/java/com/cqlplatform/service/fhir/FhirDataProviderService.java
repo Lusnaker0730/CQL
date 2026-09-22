@@ -266,7 +266,7 @@ public class FhirDataProviderService {
 
         RestFhirRetrieveProvider retrieveProvider = new RestFhirRetrieveProvider(
                 searchParameterResolver,
-                new ComparableR4FhirModelResolver(),
+                com.cqlplatform.service.cql.CqlValues.resolver(),
                 client);
 
         retrieveProvider.setTerminologyProvider(terminologyProvider);
@@ -595,7 +595,7 @@ public class FhirDataProviderService {
         private final String fhirServerUrl;
         /** Bounded fallback cache — evicts oldest entries when full to prevent unbounded memory growth. */
         private static final int MAX_FALLBACK_CACHE_SIZE = 200;
-        private final java.util.concurrent.ConcurrentHashMap<String, List<Object>> fallbackCache =
+        private final java.util.concurrent.ConcurrentHashMap<String, List<org.opencds.cqf.cql.engine.runtime.Value>> fallbackCache =
                 new java.util.concurrent.ConcurrentHashMap<>();
 
         public CountingRetrieveProvider(RetrieveProvider delegate, AtomicInteger counter, FhirClientFactory clientFactory,
@@ -607,7 +607,7 @@ public class FhirDataProviderService {
         }
 
         @Override
-        public Iterable<Object> retrieve(String context, String contextPath, Object contextValue,
+        public Iterable<org.opencds.cqf.cql.engine.runtime.Value> retrieve(String context, String contextPath, String contextValue,
                 String dataType, String templateId, String codePath,
                 Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes,
                 String valueSet, String datePath, String dateLowPath,
@@ -623,10 +623,10 @@ public class FhirDataProviderService {
             // alert" on a FHIR outage — a false negative with real patient-safety risk.
             // CQL engine treats a thrown exception as evaluation failure; measure eval
             // + CDS invocation surface it as a FHIR_UPSTREAM_UNAVAILABLE envelope.
-            Iterable<Object> results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
+            Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = delegate.retrieve(context, contextPath, contextValue, dataType, templateId,
                     codePath, codes, valueSet, datePath, dateLowPath, dateHighPath, dateRange);
 
-            List<Object> resultList = new ArrayList<>();
+            List<org.opencds.cqf.cql.engine.runtime.Value> resultList = new ArrayList<>();
             if (results != null) {
                 results.forEach(resultList::add);
             }
@@ -646,7 +646,7 @@ public class FhirDataProviderService {
                         IGenericClient fallbackClient = clientFactory.createClient(fhirServerUrl);
                         Patient patient = fallbackClient.read().resource(Patient.class).withId(patientId).execute();
                         if (patient != null) {
-                            resultList.add(patient);
+                            resultList.add(com.cqlplatform.service.cql.CqlValues.fromFhir(patient));
                         }
                     } catch (ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException e) {
                         // Legitimate 404 — patient does not exist. Not an outage.
@@ -674,7 +674,7 @@ public class FhirDataProviderService {
          * Generic fallback search: tries 'subject', then 'patient' search parameter.
          * Includes code-based filtering when codePath and codes are provided.
          */
-        private List<Object> fallbackSearch(String dataType, String patientId,
+        private List<org.opencds.cqf.cql.engine.runtime.Value> fallbackSearch(String dataType, String patientId,
                 String codePath, Iterable<org.opencds.cqf.cql.engine.runtime.Code> codes) {
             // Collect codes for reuse
             List<org.opencds.cqf.cql.engine.runtime.Code> codeList = collectCodes(codes);
@@ -689,7 +689,7 @@ public class FhirDataProviderService {
                 }
             }
             String cacheKey = dataType + "|" + patientId + "|" + codePath + "|" + ckb;
-            List<Object> cached = fallbackCache.get(cacheKey);
+            List<org.opencds.cqf.cql.engine.runtime.Value> cached = fallbackCache.get(cacheKey);
             if (cached != null) {
                 log.debug("Fallback cache hit for {}", cacheKey);
                 counter.addAndGet(cached.size());
@@ -704,7 +704,7 @@ public class FhirDataProviderService {
             String primaryParam = SUBJECT_BASED_RESOURCES.contains(dataType) ? "subject" : "patient";
             String secondaryParam = "subject".equals(primaryParam) ? "patient" : "subject";
 
-            List<Object> results = trySearch(fallbackClient, dataType, primaryParam, patientId,
+            List<org.opencds.cqf.cql.engine.runtime.Value> results = trySearch(fallbackClient, dataType, primaryParam, patientId,
                     codePath, codeList);
             if (results.isEmpty()) {
                 results = trySearch(fallbackClient, dataType, secondaryParam, patientId,
@@ -733,10 +733,10 @@ public class FhirDataProviderService {
             return list.isEmpty() ? null : list;
         }
 
-        private List<Object> trySearch(IGenericClient client, String dataType, String paramName,
+        private List<org.opencds.cqf.cql.engine.runtime.Value> trySearch(IGenericClient client, String dataType, String paramName,
                 String patientId, String codePath,
                 List<org.opencds.cqf.cql.engine.runtime.Code> codes) {
-            List<Object> results = new ArrayList<>();
+            List<org.opencds.cqf.cql.engine.runtime.Value> results = new ArrayList<>();
             try {
                 var search = client.search()
                         .forResource(dataType)
@@ -780,7 +780,7 @@ public class FhirDataProviderService {
                 if (bundle.hasEntry()) {
                     for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
                         if (entry.getResource() != null) {
-                            results.add(entry.getResource());
+                            results.add(com.cqlplatform.service.cql.CqlValues.fromFhir(entry.getResource()));
                         }
                     }
                 }
