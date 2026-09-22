@@ -15,7 +15,7 @@
 | i18n | i18next + react-i18next | 25.8 / 16.5 |
 | DB | PostgreSQL 16 (prod & dev) / H2 (test only) | — |
 | Cache | Caffeine (in-process) | — |
-| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 4.8.0 / 8.8.1 |
+| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 5.3.0 / 8.12.0 |
 | Templates | FreeMarker (.ftl) | — |
 | Test | JUnit 5 + Mockito / Vitest + React Testing Library | — / 4.1 |
 
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-230 / BUG-145
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-231 / BUG-145
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -162,6 +162,13 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - `FhirTerminologyService` 的 Caffeine 快取（`valueSets` / `codeValidation` / `codeLookup`…）以 **URL 為 key、全程序共用、不分租戶**。任何租戶範圍的術語資料都**不可**放進這些 `@Cacheable` 方法，要在 controller 或呼叫端先查（`FhirController` 的 `$expand` / 搜尋 / `$validate-code` 就是這樣接的）
 - 引擎的 `TerminologyProvider` 一律由 `FhirTerminologyService.createTerminologyProvider()` 取得：它每次回傳一個綁定**當下租戶**的 `PlatformTerminologyProvider`，要在 request thread（或 `TenantContext.callWith` 內）呼叫，每次評估呼叫一次
 - value set 啟用（active）後代碼即凍結，改代碼 = 建立新版本；CQL 可用 `version '…'` 釘選。Builder 產生的宣告是 `valueset "<name>": '<oid 欄位的 URL>'`——artifact JSON 的 `oid` 才是 URL，`name` 只是識別名稱
+
+### CQL 引擎值模型（PAT-231，cql-engine 5.x）
+- 5.x 起引擎的每個值都是 `org.opencds.cqf.cql.engine.runtime.Value`（`runtime.Boolean` 不是 `java.lang.Boolean`；FHIR 資源是 `ClassInstance` 樹，不是 HAPI 物件）。`Object v = result.getValue()` 照樣**編得過**，但 `v instanceof Boolean` 會是 false——母群會靜默清空
+- **平台自己的程式一律走純 Java**：引擎結果只能經 `service/cql/CqlValues.unwrap` 取出（`CqlExecutionService` 四個取值點已接）；給引擎的 FHIR 資源經 `CqlValues.fromFhir`、參數經 `CqlValues.wrap`。不要在別處 import `runtime.*` 型別做判斷；`CqlValues` 是唯一同時認識兩邊的地方
+- `RetrieveProvider.retrieve` 回傳 `Iterable<Value>`、context 參數是 `String`；自寫的 provider 產生 HAPI 資源時要 `fromFhir`
+- Maven 座標：`engine-fhir-jvm`（5.x 的 `engine-fhir` 是 0 class 空殼）
+- 4.x 的 `ComparableR4FhirModelResolver` 兩個 override（Encounter.class、BUG-106 Enumeration 歧義）在 5.x 沒有掛點也不需要：`toCqlValue` 走 HAPI runtime definition 轉換。`CqlValuesTest` 與 golden 測試鎖住
 
 ### CQL 執行錯誤/警告曝露（PAT-066）
 `CqlExecutionResponse` 除 `results` 外另含：

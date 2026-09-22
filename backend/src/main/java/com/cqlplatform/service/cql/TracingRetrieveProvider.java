@@ -38,17 +38,17 @@ public class TracingRetrieveProvider implements RetrieveProvider {
     /** Result cache keyed by the stable signature of all retrieve() parameters that
      *  could change the returned set. First call executes + populates; later calls
      *  with the same key reuse the cached List and DO NOT append a new trace. */
-    private final Map<String, List<Object>> resultCache = new LinkedHashMap<>();
+    private final Map<String, List<org.opencds.cqf.cql.engine.runtime.Value>> resultCache = new LinkedHashMap<>();
 
     public TracingRetrieveProvider(RetrieveProvider delegate) {
         this.delegate = delegate;
     }
 
     @Override
-    public Iterable<Object> retrieve(
+    public Iterable<org.opencds.cqf.cql.engine.runtime.Value> retrieve(
             String context,
             String contextPath,
-            Object contextValue,
+            String contextValue,
             String dataType,
             String templateId,
             String codePath,
@@ -66,22 +66,22 @@ public class TracingRetrieveProvider implements RetrieveProvider {
         // Synchronise on this instance — single debug request is single-threaded
         // in practice, but defense in depth against future concurrent engine usage.
         synchronized (resultCache) {
-            List<Object> cached = resultCache.get(cacheKey);
+            List<org.opencds.cqf.cql.engine.runtime.Value> cached = resultCache.get(cacheKey);
             if (cached != null) {
                 return cached;
             }
         }
 
         long start = System.currentTimeMillis();
-        Iterable<Object> results = delegate.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = delegate.retrieve(
                 context, contextPath, contextValue,
                 dataType, templateId,
                 codePath, codes, valueSet,
                 datePath, dateLowPath, dateHighPath, dateRange);
 
-        List<Object> resultList = new ArrayList<>();
+        List<org.opencds.cqf.cql.engine.runtime.Value> resultList = new ArrayList<>();
         if (results != null) {
-            for (Object obj : results) {
+            for (org.opencds.cqf.cql.engine.runtime.Value obj : results) {
                 resultList.add(obj);
             }
         }
@@ -107,7 +107,7 @@ public class TracingRetrieveProvider implements RetrieveProvider {
      *  that affects which resources are returned; omitting one would silently
      *  return stale results for a legitimately-different retrieve. */
     private static String buildCacheKey(
-            String context, String contextPath, Object contextValue,
+            String context, String contextPath, String contextValue,
             String dataType, String templateId,
             String codePath, Iterable<Code> codes, String valueSet,
             String datePath, String dateLowPath, String dateHighPath, Interval dateRange) {
