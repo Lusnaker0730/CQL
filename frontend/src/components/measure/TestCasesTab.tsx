@@ -41,11 +41,12 @@ import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import type { MeasureDefinition, TestCase, TestCaseRunResult } from '../../types'
+import type { MeasureDefinition, TestCase, TestCaseRunResult, MeasureClauseCoverage } from '../../types'
 import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
+import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
@@ -73,6 +74,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
+  const [measureCoverage, setMeasureCoverage] = useState<MeasureClauseCoverage | null>(null)
 
   const { data: testCases = [], isLoading } = useQuery({
     queryKey: ['test-cases', measure.id],
@@ -126,6 +128,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
       })
     },
     onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
+  })
+
+  // PAT-232: clause coverage over ALL test cases (a clause counts when any test case reached it).
+  const coverageMutation = useMutation({
+    mutationFn: () => measureApi.getMeasureClauseCoverage(measure.id!),
+    onSuccess: (data) => {
+      setMeasureCoverage(data)
+      void queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
   })
 
   const runAllMutation = useMutation({
@@ -307,6 +318,19 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                 </Accordion>
               )}
 
+              {result.clauseCoverage && (
+                <Accordion sx={{ mt: 0.5 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {t('testCases.clauseCoverage.title')} · {result.clauseCoverage.percent.toFixed(1)}%
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <ClauseCoverageView coverage={result.clauseCoverage} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
               {result.debugTrace && (
                 <Accordion sx={{ mt: 0.5 }}>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -399,6 +423,19 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           >
             {runAllMutation.isPending ? t('testCases.running') : t('testCases.runAll')}
           </Button>
+          <Tooltip title={t('testCases.clauseCoverage.tooltip')}>
+            <span>
+              <Button
+                size="small"
+                onClick={() => coverageMutation.mutate()}
+                disabled={testCases.length === 0 || coverageMutation.isPending}
+                sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+                variant="outlined"
+              >
+                {coverageMutation.isPending ? t('testCases.running') : t('testCases.clauseCoverage.button')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button
             size="small"
             startIcon={<ExportIcon />}
@@ -435,6 +472,37 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(runAllMutation.error)}
         </Alert>
+      )}
+      {coverageMutation.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {extractApiError(coverageMutation.error)}
+        </Alert>
+      )}
+      {measureCoverage && (
+        <Accordion defaultExpanded sx={{ mb: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {t('testCases.clauseCoverage.measureTitle')}
+              {measureCoverage.coverage ? ` · ${measureCoverage.coverage.percent.toFixed(1)}%` : ''}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {measureCoverage.coverage ? (
+              <ClauseCoverageView
+                coverage={measureCoverage.coverage}
+                subtitle={t('testCases.clauseCoverage.measureSubtitle', {
+                  executed: measureCoverage.executed,
+                  total: measureCoverage.testCases,
+                  passed: measureCoverage.passed,
+                })}
+              />
+            ) : (
+              <Alert severity="warning">
+                {t('testCases.clauseCoverage.noneExecuted', { total: measureCoverage.testCases })}
+              </Alert>
+            )}
+          </AccordionDetails>
+        </Accordion>
       )}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>

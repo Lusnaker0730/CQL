@@ -42,6 +42,9 @@ public class TestCaseRunResult {
     /** Per-item detail of the structured comparison; null for legacy test cases. */
     private List<ValueComparison> valueComparisons;
 
+    /** PAT-232: which clauses of the measure's CQL this run executed (debug mode only). */
+    private ClauseCoverage clauseCoverage;
+
     /** Error message if execution failed */
     private String errorMessage;
 

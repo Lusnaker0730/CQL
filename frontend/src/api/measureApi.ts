@@ -24,6 +24,7 @@ import type {
   MeasureThreshold,
   QualityReportData,
   MeasureExportConformance,
+  MeasureClauseCoverage,
 } from '../types'
 import { api } from './client'
 
@@ -224,6 +225,12 @@ export const measureApi = {
       null,
       { params: { debugMode } }
     )
+    return response.data
+  },
+
+  /** PAT-232: runs every test case and reports which clauses of the CQL any of them executed. */
+  getMeasureClauseCoverage: async (measureId: number): Promise<MeasureClauseCoverage> => {
+    const response = await api.post<MeasureClauseCoverage>(`/measures/${measureId}/test-cases/coverage`)
     return response.data
   },
 
