@@ -242,6 +242,18 @@
             <groupId>org.cqframework</groupId>
             <artifactId>quick</artifactId>
             <version>${cql.version}</version>
+            <!-- quick 5.x declares the whole jaxb2-basics XJC plugin (4.x declared only
+                 jaxb2-basics-runtime, which is all the generated model classes need). The
+                 plugin drags in its build-time `-tools` module and, through it,
+                 commons-beanutils 1.9.3 (CVE-2014-0114 / CVE-2019-10086 / CVE-2025-48734).
+                 Nothing runs at runtime from `-tools`: keep it out. Runtime support stays
+                 (jaxb2-basics -> jaxb2-basics-runtime). -->
+            <exclusions>
+                <exclusion>
+                    <groupId>codes.rafael.jaxb2_commons</groupId>
+                    <artifactId>jaxb2-basics-tools</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
 
