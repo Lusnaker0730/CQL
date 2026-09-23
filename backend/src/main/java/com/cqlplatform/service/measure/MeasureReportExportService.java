@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -91,10 +92,18 @@ public class MeasureReportExportService {
                 }
 
                 if (group.getStratifiers() != null) {
+                    // The platform keeps one row per (stratifier, stratum); FHIR wants one
+                    // stratifier holding all its strata, identified by its code (PAT-233 — it
+                    // used to emit one code-less stratifier per stratum).
                     ArrayNode stratArray = groupNode.putArray("stratifier");
+                    Map<String, ArrayNode> strataByStratifier = new java.util.LinkedHashMap<>();
                     for (StratifierResult strat : group.getStratifiers()) {
-                        ObjectNode stratNode = stratArray.addObject();
-                        ArrayNode strataArray = stratNode.putArray("stratum");
+                        String stratifierId = strat.getStrataId() != null ? strat.getStrataId() : "stratifier";
+                        ArrayNode strataArray = strataByStratifier.computeIfAbsent(stratifierId, id -> {
+                            ObjectNode stratNode = stratArray.addObject();
+                            stratNode.putObject("code").put("text", id);
+                            return stratNode.putArray("stratum");
+                        });
                         ObjectNode stratumNode = strataArray.addObject();
 
                         ObjectNode valueNode = stratumNode.putObject("value");
@@ -107,6 +116,7 @@ public class MeasureReportExportService {
                                 ObjectNode code = popNode.putObject("code");
                                 ArrayNode coding = code.putArray("coding");
                                 ObjectNode codeEntry = coding.addObject();
+                                codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                                 codeEntry.put("code", pop.getPopulationType());
                                 popNode.put("count", pop.getCount() != null ? pop.getCount() : 0);
                             }

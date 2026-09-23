@@ -113,10 +113,35 @@ export interface ObservationEntry {
   percentileValue?: number
 }
 
+/** PAT-233 — how a stratifier's define is read. */
+export type StratifierKind = 'criteria' | 'value'
+
+/** Where a value stratifier gets its stratum from. Structured on purpose: no free CQL from the client. */
+export type ValueStratifierSource = 'gender' | 'ageBands'
+
+/** One age band; bounds are whole years, inclusive, at least one of them set. */
+export interface AgeBand {
+  /** Plain ASCII text (letters, digits, space, `_+-./:()`) — it becomes a CQL string literal. */
+  label: string
+  min?: number
+  max?: number
+}
+
+export interface ValueStratifier {
+  source: ValueStratifierSource
+  /** For `ageBands`. */
+  bands?: AgeBand[]
+}
+
 export interface StratifierElement {
   stratifierId: string
   description?: string
+  /** Absent means `criteria` (a boolean condition → `true` / `false` strata). */
+  kind?: StratifierKind
+  /** The boolean condition tree; kept (but ignored) while `kind === 'value'`. */
   criteria: ConjunctionGroup
+  /** The stratum-valued expression when `kind === 'value'`: every distinct value is a stratum. */
+  value?: ValueStratifier
 }
 
 export interface SupplementalDataElement {

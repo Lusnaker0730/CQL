@@ -134,7 +134,40 @@
     "label": "分層器 {{number}}",
     "description": "描述",
     "criteria": "分層條件",
-    "disabledByDualIp": "當此 Ratio 量測為分母與分子各自使用獨立的 Initial Population 時，不允許使用分層器。請先在「母群體群組」分頁關閉雙 IP，才能新增或編輯分層器。"
+    "disabledByDualIp": "當此 Ratio 量測為分母與分子各自使用獨立的 Initial Population 時，不允許使用分層器。請先在「母群體群組」分頁關閉雙 IP，才能新增或編輯分層器。",
+    "kind": {
+      "label": "分層 {{number}} 類型",
+      "criteria": "條件式",
+      "value": "值",
+      "criteriaHint": "布林條件：病人落入 true 或 false 兩層。",
+      "valueHint": "運算式的結果就是分層：每個不同的值各成一層（Bonnie / MADiE 的做法）。"
+    },
+    "value": {
+      "source": "分層依據",
+      "sources": {
+        "gender": "性別",
+        "ageBands": "年齡帶"
+      },
+      "sourceHints": {
+        "gender": "依 Patient.gender 的值各成一層（female / male / other / unknown）。",
+        "ageBands": "以測量期間結束時的足歲年齡分帶；上下界皆含。不落在任何一帶的病人不屬於任何分層。"
+      },
+      "bandLabel": "標籤",
+      "min": "起（歲）",
+      "max": "迄（歲）",
+      "bandAria": "年齡帶 {{number}} {{field}}",
+      "addBand": "新增年齡帶",
+      "removeBand": "移除年齡帶 {{number}}"
+    },
+    "bandErrors": {
+      "empty": "至少要有一個年齡帶。",
+      "tooMany": "年齡帶最多 20 個。",
+      "label": "標籤限 1–40 個英數字、空格或 _ + - . / : ( )（它會成為 CQL 字串）。",
+      "bounds": "上下界必須是 0 到 150 之間的整數歲。",
+      "noBound": "每個年齡帶至少要有起或迄其中一個。",
+      "order": "起不能大於迄。",
+      "duplicate": "標籤不能重複——相同標籤會把兩帶合併成同一層。"
+    }
   },
   "cqlPreview": {
     "generate": "產生 CQL",

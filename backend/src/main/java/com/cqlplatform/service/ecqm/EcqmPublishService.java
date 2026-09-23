@@ -72,7 +72,8 @@ public class EcqmPublishService {
 
         // Build group definitions for MeasureDefinition
         List<GroupDefinition> groupDefs = buildGroupDefinitions(
-                ecqm.getScoringType(), ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList());
+                ecqm.getScoringType(), ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
+                ecqm.getStratifiersList());
 
         // Create or update MeasureDefinition
         MeasureDefinitionEntity measureDef;
@@ -133,10 +134,18 @@ public class EcqmPublishService {
                 .build();
     }
 
+    /**
+     * @param artifactStratifiers the artifact-level stratifiers (the eCQM workspace's
+     *        "Stratifiers" tab). PAT-233: they apply to every group. Before, only group-level
+     *        stratifiers were mapped — and no UI edits those — so a stratifier built in the
+     *        workspace got its CQL define but never reached evaluation, reports or the
+     *        exchange package.
+     */
     @SuppressWarnings("unchecked")
     private List<GroupDefinition> buildGroupDefinitions(
             String scoringType, String populationBasis,
-            List<Map<String, Object>> populationGroups) {
+            List<Map<String, Object>> populationGroups,
+            List<Map<String, Object>> artifactStratifiers) {
         List<GroupDefinition> result = new ArrayList<>();
         if (populationGroups == null) return result;
 
@@ -201,17 +210,21 @@ public class EcqmPublishService {
                 }
             }
 
-            // Stratifiers
+            // Stratifiers: group-level defines are suffixed per group ("Stratifier gender 1"),
+            // artifact-level ones are emitted once, unsuffixed, and shared by every group.
+            // Same dual-IP rule as the CQL builder, which skips both kinds.
             List<StratifierDefinition> stratDefs = new ArrayList<>();
-            List<Map<String, Object>> groupStratifiers = (List<Map<String, Object>>) group.get("stratifiers");
-            if (groupStratifiers != null && !dualIp) {
-                for (Map<String, Object> strat : groupStratifiers) {
-                    String stratId = strat.get("stratifierId") != null
-                            ? strat.get("stratifierId").toString() : "strat";
-                    stratDefs.add(StratifierDefinition.builder()
-                            .stratifierId(stratId)
-                            .criteriaExpression("Stratifier " + stratId + suffix)
-                            .build());
+            if (!dualIp) {
+                List<Map<String, Object>> groupStratifiers = (List<Map<String, Object>>) group.get("stratifiers");
+                if (groupStratifiers != null) {
+                    for (Map<String, Object> strat : groupStratifiers) {
+                        stratDefs.add(stratifierDefinition(strat, suffix));
+                    }
+                }
+                if (artifactStratifiers != null) {
+                    for (Map<String, Object> strat : artifactStratifiers) {
+                        stratDefs.add(stratifierDefinition(strat, ""));
+                    }
                 }
             }
 
@@ -233,5 +246,18 @@ public class EcqmPublishService {
         }
 
         return result;
+    }
+
+    /** The define the CQL builder emits for this stratifier, plus what the report needs to label it. */
+    private static StratifierDefinition stratifierDefinition(Map<String, Object> strat, String suffix) {
+        String stratId = strat.get("stratifierId") != null ? strat.get("stratifierId").toString() : "strat";
+        String kind = "value".equals(strat.get("kind")) ? StratifierDefinition.KIND_VALUE : StratifierDefinition.KIND_CRITERIA;
+        Object description = strat.get("description");
+        return StratifierDefinition.builder()
+                .stratifierId(stratId)
+                .criteriaExpression("Stratifier " + stratId + suffix)
+                .description(description != null && !description.toString().isBlank() ? description.toString() : null)
+                .kind(kind)
+                .build();
     }
 }

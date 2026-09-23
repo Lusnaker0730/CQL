@@ -654,6 +654,47 @@ class CqlExecutionIntegrationTest {
     // ═══════════════════════════════════════════════════════════════════════
 
     @Nested
+    @DisplayName("12. Value serialisation for strata / supplemental data (PAT-233)")
+    class ValueSerialisationTests {
+
+        // A value stratifier's define returns the stratum; whatever it returns must arrive as
+        // something a report can key on — not "FHIR.code" for a primitive, not the engine's
+        // toString() for a Code.
+        @Test
+        @DisplayName("FHIR primitives arrive as their value, Codes as a small map, a case as its label")
+        void stratumValues_areReadable() {
+            List<Resource> resources = loadBundle("golden/patient-diabetic-screened.json");
+            String cql = """
+                    library StratumValues version '1.0'
+                    using FHIR version '4.0.1'
+                    include FHIRHelpers version '4.0.1'
+                    codesystem "ICD10": 'http://hl7.org/fhir/sid/icd-10-cm'
+                    code "Diabetes": 'E11.9' from "ICD10" display 'Type 2 diabetes'
+                    context Patient
+                    define "GenderPrimitive": Patient.gender
+                    define "GenderString": Patient.gender.value
+                    define "AgeBand": case when AgeInYearsAt(@2024-12-31) >= 65 then '65+' else '18-64' end
+                    define "ACode": "Diabetes"
+                    define "Active": Patient.active
+                    """;
+            CqlExecutionResponse response = executeWithData(cql, "patient-001", resources);
+
+            assertThat(response.isSuccess()).as("errors: " + response.getErrors()).isTrue();
+            assertExpressionEquals(response, "GenderPrimitive", "male");
+            assertExpressionEquals(response, "GenderString", "male");
+            assertThat(response.getResults().get("AgeBand").getValue()).isIn("65+", "18-64");
+            Object code = response.getResults().get("ACode").getValue();
+            assertThat(code).isInstanceOf(Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> codeMap = (Map<String, Object>) code;
+            assertThat(codeMap).containsEntry("code", "E11.9").containsEntry("display", "Type 2 diabetes")
+                    .containsEntry("system", "http://hl7.org/fhir/sid/icd-10-cm");
+            // an absent primitive stays null, it does not become the string "FHIR.boolean"
+            assertThat(response.getResults().get("Active").getValue()).isNull();
+        }
+    }
+
+    @Nested
     @DisplayName("11. Pre-translated path runtime error harvesting (PAT-141)")
     class PreTranslatedRuntimeErrorTests {
 

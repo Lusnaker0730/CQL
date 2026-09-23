@@ -1058,7 +1058,29 @@ public class CqlExecutionService {
         if (value instanceof java.time.ZonedDateTime) return value.toString();
         // cql-engine 5.x: a FHIR resource is a ClassInstance tree; serialise it the way the
         // 4.x path did for HAPI objects — as a short display string, never the whole tree.
-        if (value instanceof org.opencds.cqf.cql.engine.runtime.ClassInstance ci) return CqlValues.describe(ci);
+        // A FHIR primitive (Patient.gender is a FHIR.code) serialises as its value (PAT-233).
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.ClassInstance ci) {
+            Object primitive = CqlValues.primitiveValue(ci);
+            return primitive != null ? toSerializable(primitive) : CqlValues.describe(ci);
+        }
+        // A CQL Code / Concept as a small map, not the engine's toString() (PAT-233: a value
+        // stratifier or supplemental datum may return one; the code is what identifies the stratum).
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Code code) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("code", code.getCode());
+            if (code.getSystem() != null) map.put("system", code.getSystem());
+            if (code.getDisplay() != null) map.put("display", code.getDisplay());
+            if (code.getVersion() != null) map.put("version", code.getVersion());
+            return map;
+        }
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Concept concept) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            List<Object> codes = new ArrayList<>();
+            if (concept.getCodes() != null) for (org.opencds.cqf.cql.engine.runtime.Code c : concept.getCodes()) codes.add(toSerializable(c));
+            map.put("codes", codes);
+            if (concept.getDisplay() != null) map.put("display", concept.getDisplay());
+            return map;
+        }
         if (value instanceof java.time.LocalDate) return value.toString();
         if (value instanceof java.time.LocalDateTime) return value.toString();
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {

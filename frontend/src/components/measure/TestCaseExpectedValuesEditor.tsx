@@ -32,7 +32,9 @@ interface TestCaseExpectedValuesEditorProps {
   readOnly?: boolean
 }
 
-const STRATUM_OPTIONS = ['true', 'false']
+/** Suggestions for a criteria (boolean) stratifier; a value stratifier's strata are whatever the data yields. */
+const CRITERIA_STRATUM_OPTIONS = ['true', 'false']
+const NO_OPTIONS: string[] = []
 
 /**
  * Per-group expectations of a test case (PAT-228): effective population membership, measure
@@ -213,7 +215,7 @@ export default function TestCaseExpectedValuesEditor({
                       freeSolo
                       size="small"
                       disabled={readOnly}
-                      options={STRATUM_OPTIONS}
+                      options={stratifier.kind === 'value' ? NO_OPTIONS : CRITERIA_STRATUM_OPTIONS}
                       value={expected.stratifiers?.[stratifier.stratifierId] ?? ''}
                       onInputChange={(_, stratum) => setStratum(groupId, stratifier.stratifierId, stratum)}
                       renderInput={(params) => (

@@ -247,6 +247,18 @@ if [ "$expected_strats_count" -gt 0 ] 2>/dev/null; then
                 fi
             fi
         done
+        # PAT-233: with exactStrata, the strata listed are ALL the strata (a value stratifier
+        # must not grow a 'null' / 'FHIR.code' bucket next to the real ones).
+        if [ "$(jq -r '.exactStrata // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
+            exp_set=$(jq -r ".stratifiers[$i].expectedStrata[].strataValue" "$EXPECTED" | tr -d '\r' | sort | paste -sd, -)
+            act_set=$(echo "$actual_strats_for_id" | jq -r '.strataValue' | tr -d '\r' | sort | paste -sd, -)
+            if [ "$exp_set" = "$act_set" ]; then
+                echo "    ✓ stratifier $strata_id: exactly the strata {$act_set}"
+            else
+                echo "    ✗ stratifier $strata_id: strata {$act_set}, expected exactly {$exp_set}" >&2
+                fail=1
+            fi
+        fi
     done
 fi
 

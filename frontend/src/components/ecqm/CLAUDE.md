@@ -43,6 +43,7 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 2. **Ratio + 雙 IP → 停用分層** — CMS 規則，啟用雙 IP 時 Stratifiers 不可用
 3. **多群組名稱** — 多群組量測自動加後綴（" 1", " 2"）避免 CQL 命名衝突
 4. **Observation 聚合方法** — Continuous Variable 必須選擇聚合方法（Count, Sum, Average, etc.）
+5. **分層兩種（PAT-233）** — `kind: 'criteria'`（預設，布林條件樹 → `true` / `false` 兩層）或 `kind: 'value'`（運算式的值就是分層，每個不同的值一層）。值型只有結構化來源 `gender`（`Patient.gender.value`）與 `ageBands`（測量期間結束時足歲、上下界含、標籤限 ASCII，`utils/ageBands.ts` 與後端同一套檢查）——**不要**加自由 CQL 文字欄位，artifact JSON 是 client 送來的，那是 CQL injection 面。此分頁編輯的是 artifact 層級 `stratifiers`，publish 時會套到每個 group（以前只映 group 層級，UI 又不編那層，做了等於沒做）
 
 ## 狀態管理
 

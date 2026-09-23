@@ -105,10 +105,34 @@ public final class CqlValues {
      * the 4.x path showed HAPI's {@code Patient@hash}, and this is the equivalent.
      */
     public static String describe(ClassInstance instance) {
+        Object primitive = primitiveValue(instance);
+        if (primitive != null) return String.valueOf(primitive);
         Value id = instance.getElements().get("id");
         Object plainId = id == null ? null : unwrap(id);
         if (plainId instanceof ClassInstance idElement) plainId = unwrap(idElement.getElements().get("value"));
         return plainId != null ? instance.getTypeAsString() + "/" + plainId : instance.getTypeAsString();
+    }
+
+    /**
+     * PAT-233 — the plain value of a FHIR primitive ({@code FHIR.code}, {@code FHIR.string},
+     * {@code FHIR.boolean}, {@code FHIR.dateTime}, and the bound ones such as
+     * {@code FHIR.AdministrativeGender}), or {@code null} when {@code instance} is a complex
+     * type. A primitive is recognised by shape, not name: a scalar {@code value} element and
+     * nothing else besides {@code id} / {@code extension}. {@code Quantity} and
+     * {@code Identifier} also carry a {@code value} but with siblings, and stay complex.
+     * {@code Patient.gender} is a primitive, and reading it as {@code "female"} rather than
+     * {@code "FHIR.AdministrativeGender"} is what a stratum, a supplemental datum or a debug
+     * value needs.
+     */
+    public static Object primitiveValue(ClassInstance instance) {
+        Map<String, Value> elements = instance.getElements();
+        Value value = elements.get("value");
+        if (value == null) return null;
+        for (String element : elements.keySet()) {
+            if (!"value".equals(element) && !"id".equals(element) && !"extension".equals(element)) return null;
+        }
+        Object plain = unwrap(value);
+        return plain instanceof ClassInstance || plain instanceof Iterable || plain instanceof Map ? null : plain;
     }
 
     /** The CQL-facing type name of a value ({@code Boolean}, {@code List}, {@code FHIR.Encounter}…), for display. */

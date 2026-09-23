@@ -112,6 +112,52 @@ class EcqmPublishServiceTest {
         verify(ecqmRepository).save(argThat(e -> e.getPublishedMeasureId() == 100L && "active".equals(e.getStatus())));
     }
 
+    // PAT-233 — the workspace's (artifact-level) stratifiers must reach the MeasureDefinition,
+    // on every group, with the unsuffixed define the CQL builder emits for them; group-level
+    // ones keep their per-group suffix. Before, only group-level ones were mapped and no UI
+    // edits those, so a stratifier built in the workspace never reached evaluation.
+    @Test
+    void publish_mapsArtifactLevelStratifiersOntoEveryGroup_andKeepsKindAndDescription() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        Map<String, Object> group1 = new LinkedHashMap<>(Map.of("groupId", "g1", "populations", Map.of(),
+                "stratifiers", List.of(Map.of("stratifierId", "local", "criteria", Map.of()))));
+        Map<String, Object> group2 = new LinkedHashMap<>(Map.of("groupId", "g2", "populations", Map.of()));
+        entity.setPopulationGroupsList(new ArrayList<>(List.of(group1, group2)));
+        entity.setStratifiersList(new ArrayList<>(List.of(
+                Map.of("stratifierId", "sex", "kind", "value", "description", "By sex",
+                        "value", Map.of("source", "gender")),
+                Map.of("stratifierId", "elderly", "criteria", Map.of()))));
+
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity m = inv.getArgument(0);
+            m.setId(100L);
+            return m;
+        });
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        List<com.cqlplatform.model.measure.GroupDefinition> groups = saved.getValue().getGroupDefinitionList();
+        assertThat(groups).hasSize(2);
+
+        assertThat(groups.get(0).getStratifiers())
+                .extracting(s -> s.getStratifierId() + "|" + s.getCriteriaExpression() + "|" + s.getKind() + "|" + s.getDescription())
+                .containsExactly("local|Stratifier local 1|criteria|null",
+                        "sex|Stratifier sex|value|By sex",
+                        "elderly|Stratifier elderly|criteria|null");
+        assertThat(groups.get(1).getStratifiers())
+                .extracting(com.cqlplatform.model.measure.StratifierDefinition::getCriteriaExpression)
+                .containsExactly("Stratifier sex", "Stratifier elderly");
+        assertThat(groups.get(0).getStratifiers().get(1).isValueBased()).isTrue();
+    }
+
     @Test
     void publish_existingMeasure_shouldUpdateMeasureDefinition() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
