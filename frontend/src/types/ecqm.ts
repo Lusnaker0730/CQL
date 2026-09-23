@@ -144,9 +144,17 @@ export interface StratifierElement {
   value?: ValueStratifier
 }
 
+/** PAT-234 — FHIR measure-data-usage: plain supplemental data, or a risk adjustment factor. */
+export type SupplementalDataUsage = 'supplemental-data' | 'risk-adjustment-factor'
+
 export interface SupplementalDataElement {
   name: string
   criteria?: ConjunctionGroup
+  /** Absent means `supplemental-data`. Risk adjustment factors should be named `RAF …` (QM IG 3.19). */
+  usage?: SupplementalDataUsage
+  /** PAT-234: like a stratifier, a custom element is a boolean condition (`criteria`, default) or a value expression. */
+  kind?: StratifierKind
+  value?: ValueStratifier
   /** Stable client-side id for React keys on custom SDEs. Absent on legacy
    *  rows; EcqmSdeTab falls back to array index for those. */
   id?: string

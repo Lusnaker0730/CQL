@@ -293,6 +293,46 @@ if [ "$sde_count" -gt 0 ] 2>/dev/null; then
     fi
 fi
 
+# PAT-234: supplemental data / risk adjustment factors as value distributions. Each entry
+# asserts one declared element's usage, its exact value → patient-count map and the number
+# of patients without a value.
+sdr_count=$(jq -r '.supplementalDataResults // [] | length' "$EXPECTED" | tr -d '\r')
+if [ "$sdr_count" -gt 0 ] 2>/dev/null; then
+    for k in $(seq 0 $((sdr_count - 1))); do
+        sdr_def=$(jq -r ".supplementalDataResults[$k].definition" "$EXPECTED" | tr -d '\r')
+        actual_el=$(echo "$RESPONSE" | jq -c ".supplementalDataResults[]? | select(.definition == \"$sdr_def\")" 2>/dev/null | head -1)
+        if [ -z "$actual_el" ]; then
+            echo "    ✗ supplemental data $sdr_def: not in response" >&2
+            fail=1
+            continue
+        fi
+        exp_usage=$(jq -r ".supplementalDataResults[$k].usage" "$EXPECTED" | tr -d '\r')
+        act_usage=$(echo "$actual_el" | jq -r '.usage' | tr -d '\r')
+        if [ "$act_usage" = "$exp_usage" ]; then
+            echo "    ✓ supplemental data $sdr_def usage: $act_usage"
+        else
+            echo "    ✗ supplemental data $sdr_def usage: got $act_usage, expected $exp_usage" >&2
+            fail=1
+        fi
+        exp_values=$(jq -c ".supplementalDataResults[$k].values | to_entries | sort_by(.key) | map(\"\\(.key)=\\(.value)\") | join(\",\")" "$EXPECTED" | tr -d '\r"')
+        act_values=$(echo "$actual_el" | jq -c '.values | map({key: .value, value: .count}) | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' | tr -d '\r"')
+        if [ "$act_values" = "$exp_values" ]; then
+            echo "    ✓ supplemental data $sdr_def values: {$act_values}"
+        else
+            echo "    ✗ supplemental data $sdr_def values: {$act_values}, expected {$exp_values}" >&2
+            fail=1
+        fi
+        exp_none=$(jq -r ".supplementalDataResults[$k].patientsWithoutValue // 0" "$EXPECTED" | tr -d '\r')
+        act_none=$(echo "$actual_el" | jq -r '.patientsWithoutValue // 0' | tr -d '\r')
+        if [ "$act_none" = "$exp_none" ]; then
+            echo "    ✓ supplemental data $sdr_def patients without value: $act_none"
+        else
+            echo "    ✗ supplemental data $sdr_def patients without value: $act_none, expected $exp_none" >&2
+            fail=1
+        fi
+    done
+fi
+
 # Idempotency check (PAT-???). Re-runs $evaluate-measure with the SAME measureId +
 # period and asserts identical score + populations. Catches non-determinism (cache
 # pollution, ordering bugs in MeasureReportBackfillService duplicate inserts, etc.).

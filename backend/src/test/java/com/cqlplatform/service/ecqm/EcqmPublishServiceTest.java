@@ -158,6 +158,43 @@ class EcqmPublishServiceTest {
         assertThat(groups.get(0).getStratifiers().get(1).isValueBased()).isTrue();
     }
 
+    // PAT-234 — the workspace's SDE elements become the measure's declared supplemental data /
+    // risk adjustment factors (by usage). Before, publish carried none of them, so neither the
+    // evaluation nor the exchange package knew the measure had any.
+    @Test
+    void publish_mapsSdeElementsToSupplementalDataAndRiskAdjustmentsByUsage() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setSupplementalDataList(new ArrayList<>(List.of(
+                Map.of("name", "SDE Sex"),
+                Map.of("name", "RAF Age Band", "usage", "risk-adjustment-factor", "description", "Age at period end",
+                        "kind", "value", "value", Map.of("source", "ageBands")),
+                Map.of("name", "Custom Flag", "usage", "supplemental-data", "criteria", Map.of()),
+                Map.of("name", "   "))));
+
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity m = inv.getArgument(0);
+            m.setId(100L);
+            return m;
+        });
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        assertThat(saved.getValue().getSupplementalDataList())
+                .extracting(com.cqlplatform.model.measure.MeasureDefinition.SupplementalDataDef::getDefinition)
+                .containsExactly("SDE Sex", "Custom Flag");
+        assertThat(saved.getValue().getRiskAdjustmentList())
+                .extracting(r -> r.getDefinition() + "|" + r.getDescription())
+                .containsExactly("RAF Age Band|Age at period end");
+    }
+
     @Test
     void publish_existingMeasure_shouldUpdateMeasureDefinition() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");

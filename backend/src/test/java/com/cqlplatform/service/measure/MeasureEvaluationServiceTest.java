@@ -51,7 +51,7 @@ class MeasureEvaluationServiceTest {
         measureService = new MeasureEvaluationService(
                 cqlExecutionService, cqlTranslationService, fhirDataProviderService,
                 patientDiscoveryService,
-                populationEvaluator, stratifierEvaluator, scoreCalculator,
+                populationEvaluator, stratifierEvaluator, scoreCalculator, new SupplementalDataEvaluator(),
                 java.util.concurrent.Executors.newFixedThreadPool(4));
         ReflectionTestUtils.setField(measureService, "defaultPeriodStart", "");
         ReflectionTestUtils.setField(measureService, "defaultPeriodEnd", "");

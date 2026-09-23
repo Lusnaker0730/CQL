@@ -64,51 +64,12 @@ public class StratifierEvaluator {
         return stratumKey(stratResult.getValue());
     }
 
-    /** Longest stratum key kept; the report column is VARCHAR(500) and a stratum is a label, not a payload. */
-    static final int MAX_STRATUM_KEY = 200;
+    /** Kept for callers and tests; the rule lives in {@link ValueKeys} since PAT-234 shares it with supplemental data. */
+    static final int MAX_STRATUM_KEY = ValueKeys.MAX_KEY;
 
-    /**
-     * PAT-233 — the stratum a (serialised) CQL value denotes. Criteria stratifiers give
-     * {@code "true"} / {@code "false"}; value stratifiers give the value itself. A blank or
-     * null value means "in no stratum". Serialisation already happened in
-     * {@code CqlExecutionService.toSerializable}: a FHIR primitive such as {@code Patient.gender}
-     * arrives as its value, a CQL {@code Code} as its display text, a Tuple as a Map.
-     * <ul>
-     *   <li>String / Boolean / Number → as text (numbers keep their own formatting, so
-     *       {@code 65} and {@code 65.0} are different strata — a value stratifier should return
-     *       a label, not a measurement)</li>
-     *   <li>Map with a {@code code} entry (a serialised Code / Coding) → the code, with
-     *       {@code display} in parentheses when present</li>
-     *   <li>List → one stratum per distinct element is NOT supported; the elements are joined
-     *       with {@code ", "} so the author sees what came back</li>
-     * </ul>
-     */
+    /** PAT-233 — the stratum a (serialised) CQL value denotes; see {@link ValueKeys#of}. */
     static String stratumKey(Object value) {
-        if (value == null) return null;
-        String key;
-        if (value instanceof Map<?, ?> map && map.get("code") != null) {
-            Object display = map.get("display");
-            key = display != null && !String.valueOf(display).isBlank()
-                    ? map.get("code") + " (" + display + ")" : String.valueOf(map.get("code"));
-        } else if (value instanceof Map<?, ?> map && map.get("codes") instanceof Iterable<?> codes) {
-            // a serialised Concept: its display, else its codes
-            Object display = map.get("display");
-            key = display != null && !String.valueOf(display).isBlank() ? String.valueOf(display) : String.valueOf(stratumKey(codes));
-        } else if (value instanceof Iterable<?> items) {
-            List<String> parts = new ArrayList<>();
-            for (Object item : items) {
-                String part = stratumKey(item);
-                if (part != null) parts.add(part);
-            }
-            if (parts.isEmpty()) return null;
-            key = String.join(", ", parts);
-        } else {
-            key = String.valueOf(value);
-        }
-        key = key.trim();
-        // Same skip rule the aggregation always had (a null value renders as "null").
-        if (key.isEmpty() || "null".equals(key)) return null;
-        return key.length() > MAX_STRATUM_KEY ? key.substring(0, MAX_STRATUM_KEY - 1) + "…" : key;
+        return ValueKeys.of(value);
     }
 
     /**

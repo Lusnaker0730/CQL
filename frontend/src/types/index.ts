@@ -473,6 +473,8 @@ export interface MeasureEvaluationResult {
   reportType: string
   groups: MeasureGroupResult[]
   supplementalData?: Record<string, unknown>
+  /** PAT-234: declared supplemental data / risk adjustment factors as value distributions. */
+  supplementalDataResults?: SupplementalDataResult[]
   errorMessage?: string
 }
 
@@ -510,6 +512,20 @@ export interface StratifierResult {
   strataValue: string
   populations: PopulationResult[]
   measureScore?: number
+}
+
+/** PAT-234 — one supplemental data element / risk adjustment factor over all evaluated patients. */
+export interface SupplementalDataResult {
+  definition: string
+  usage: 'supplemental-data' | 'risk-adjustment-factor'
+  description?: string
+  patientsWithoutValue: number
+  values: SupplementalDataValueCount[]
+}
+
+export interface SupplementalDataValueCount {
+  value: string
+  count: number
 }
 
 // Measure Definition types

@@ -665,6 +665,18 @@
       "populations": "族群"
     },
     "supplementalData": "補充資料",
+    "supplementalDataResults": {
+      "title": "補充資料與風險校正因子",
+      "definition": "定義",
+      "usage": "用途",
+      "value": "值",
+      "patients": "病人數",
+      "share": "占比",
+      "noValue": "（無值）",
+      "supplementalData": "補充資料",
+      "riskAdjustment": "風險校正因子",
+      "empty": "沒有病人有值。"
+    },
     "groupLabel": "群組：{{groupId}}",
     "aggregateMethods": {
       "average": "平均值",

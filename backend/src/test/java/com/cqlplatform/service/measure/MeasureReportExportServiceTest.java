@@ -32,6 +32,7 @@ class MeasureReportExportServiceTest {
     @Mock private MeasureReportService reportService;
     @Mock private QrdaExportService qrdaExportService;
     @Mock private NormalizedMeasureReportReader reportReader;
+    @Mock private FhirCanonicalResolver canonical;
     @InjectMocks private MeasureReportExportService exportService;
 
     private static StratifierResult stratum(String id, String value, int ip, int denom, int numer, Double score) {
@@ -83,5 +84,54 @@ class MeasureReportExportServiceTest {
         assertThat(ageStrata).hasSize(2);
         assertThat(ageStrata.get(0).path("value").path("text").asText()).isEqualTo("18-49");
         assertThat(ageStrata.get(0).has("measureScore")).as("a stratum without a score carries none").isFalse();
+        assertThat(measureReport.has("extension")).as("no supplemental data → no extension").isFalse();
+    }
+
+    // PAT-234 — supplemental data / risk adjustment distributions travel as a platform extension
+    // (a summary MeasureReport has no standard element for them) and as a CSV section.
+    @Test
+    void fhirAndCsvExports_carryTheSupplementalDataDistributions() throws Exception {
+        MeasureEvaluationResult result = MeasureEvaluationResult.builder()
+                .groups(List.of(GroupResult.builder().groupId("group-1").populations(List.of()).build()))
+                .supplementalDataResults(List.of(
+                        MeasureEvaluationResult.SupplementalDataResult.builder()
+                                .definition("SDE Sex").usage("supplemental-data").patientsWithoutValue(1)
+                                .values(List.of(
+                                        MeasureEvaluationResult.ValueCount.builder().value("female").count(4).build(),
+                                        MeasureEvaluationResult.ValueCount.builder().value("male").count(3).build()))
+                                .build(),
+                        MeasureEvaluationResult.SupplementalDataResult.builder()
+                                .definition("RAF Age Band").usage("risk-adjustment-factor").description("Age at period end")
+                                .patientsWithoutValue(0)
+                                .values(List.of(MeasureEvaluationResult.ValueCount.builder().value("65+").count(3).build()))
+                                .build()))
+                .build();
+        MeasureReportEntity report = MeasureReportEntity.builder().id(43L).measureName("Demo")
+                .periodStart(LocalDate.of(2022, 1, 1)).periodEnd(LocalDate.of(2022, 6, 30)).build();
+        when(reportService.getReport(43L)).thenReturn(Optional.of(report));
+        when(reportReader.reconstruct(43L)).thenReturn(Optional.of(result));
+        when(canonical.getBase()).thenReturn("https://quality.example.tw/fhir");
+
+        JsonNode measureReport = new ObjectMapper().readTree(exportService.exportReport(43L, "fhir").getBody());
+        JsonNode extensions = measureReport.path("extension");
+        assertThat(extensions).hasSize(2);
+        assertThat(extensions.get(0).path("url").asText())
+                .isEqualTo("https://quality.example.tw/fhir/StructureDefinition/measurereport-supplemental-data");
+        JsonNode sex = extensions.get(0).path("extension");
+        assertThat(sex.get(0).path("url").asText() + "=" + sex.get(0).path("valueString").asText()).isEqualTo("definition=SDE Sex");
+        assertThat(sex.get(1).path("valueCode").asText()).isEqualTo("supplemental-data");
+        assertThat(sex.get(2).path("url").asText()).isEqualTo("value");
+        assertThat(sex.get(2).path("extension").get(0).path("valueString").asText()).isEqualTo("female");
+        assertThat(sex.get(2).path("extension").get(1).path("valueInteger").asInt()).isEqualTo(4);
+        assertThat(sex.get(4).path("url").asText() + "=" + sex.get(4).path("valueInteger").asInt()).isEqualTo("patientsWithoutValue=1");
+        JsonNode raf = extensions.get(1).path("extension");
+        assertThat(raf.get(1).path("valueCode").asText()).isEqualTo("risk-adjustment-factor");
+        assertThat(raf.get(2).path("url").asText() + "=" + raf.get(2).path("valueString").asText()).isEqualTo("description=Age at period end");
+
+        String csv = new String(exportService.exportReport(43L, "csv").getBody(), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(csv).contains("Supplemental Data and Risk Adjustment Factors")
+                .contains("SDE Sex,supplemental-data,female,4")
+                .contains("SDE Sex,supplemental-data,(no value),1")
+                .contains("RAF Age Band,risk-adjustment-factor,65+,3");
     }
 }

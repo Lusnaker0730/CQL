@@ -257,18 +257,21 @@ public class EcqmCqlBuilder {
                 String sdeName = engine.getStr(sde, "name", null);
                 if (sdeName == null) continue;
                 String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
+                // PAT-234: QM IG 3.19 — a risk adjustment factor's define SHOULD be named "RAF …".
+                if ("risk-adjustment-factor".equals(sde.get("usage")) && !sdeName.startsWith("RAF")) {
+                    ctx.warn(String.format("Risk adjustment factor '%s': the define name should start with \"RAF\" (QM IG).", sdeName));
+                }
                 if (oid != null) {
                     // OID was already added to valueSets in collectAllDeclarations so the
                     // master template's `valueset` block emits the declaration.
                     supplementalDefines.add(buildStandardSde(sdeName, oid));
                 } else {
-                    Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
-                    if (criteria != null) {
-                        String expr = engine.buildConjunctionExpression(criteria, ctx);
-                        if (!"null".equals(expr)) {
-                            supplementalDefines.add(String.format("define \"%s\":\n  %s\n",
-                                    engine.escapeCqlIdentifier(sdeName), expr));
-                        }
+                    // A custom element is either a boolean condition tree or, like a value
+                    // stratifier, a value expression (gender / age bands) — same builder (PAT-234).
+                    String expr = valueOrCriteriaExpression(sde, "SDE " + sdeName, ctx);
+                    if (expr != null && !"null".equals(expr)) {
+                        supplementalDefines.add(String.format("define \"%s\":\n  %s\n",
+                                engine.escapeCqlIdentifier(sdeName), expr));
                     }
                 }
             }
@@ -434,22 +437,30 @@ public class EcqmCqlBuilder {
      *       CQL injection sink.</li>
      * </ul>
      */
-    @SuppressWarnings("unchecked")
     String stratifierExpression(Map<String, Object> strat, BuildContext ctx) {
-        String stratId = engine.getStr(strat, "stratifierId", "strat");
-        if (!"value".equals(engine.getStr(strat, "kind", "criteria"))) {
-            Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
+        return valueOrCriteriaExpression(strat, "Stratifier " + engine.getStr(strat, "stratifierId", "strat"), ctx);
+    }
+
+    /**
+     * The same two kinds for any element that carries {@code kind} / {@code criteria} /
+     * {@code value} — stratifiers (PAT-233) and custom supplemental data elements (PAT-234).
+     * {@code label} names the element in warnings ("Stratifier age", "SDE RAF Age Band").
+     */
+    @SuppressWarnings("unchecked")
+    String valueOrCriteriaExpression(Map<String, Object> element, String label, BuildContext ctx) {
+        if (!"value".equals(engine.getStr(element, "kind", "criteria"))) {
+            Map<String, Object> criteria = (Map<String, Object>) element.get("criteria");
             return criteria == null ? null : engine.buildConjunctionExpression(criteria, ctx);
         }
-        Map<String, Object> value = strat.get("value") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        Map<String, Object> value = element.get("value") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
         String source = engine.getStr(value, "source", "");
         switch (source) {
             case "gender":
                 return "Patient.gender.value";
             case "ageBands":
-                return ageBandsExpression(stratId, value.get("bands"), ctx);
+                return ageBandsExpression(label, value.get("bands"), ctx);
             default:
-                ctx.warn(String.format("Stratifier %s: unknown value source '%s'. Skipping.", stratId, source));
+                ctx.warn(String.format("%s: unknown value source '%s'. Skipping.", label, source));
                 return null;
         }
     }
@@ -459,13 +470,13 @@ public class EcqmCqlBuilder {
      * inclusive (as the AgeRange element's are) and the age is bound to the measurement
      * period, so a patient's band does not drift with the wall clock.
      */
-    private String ageBandsExpression(String stratId, Object bandsObj, BuildContext ctx) {
+    private String ageBandsExpression(String label, Object bandsObj, BuildContext ctx) {
         if (!(bandsObj instanceof List<?> bands) || bands.isEmpty()) {
-            ctx.warn(String.format("Stratifier %s: age bands need at least one band. Skipping.", stratId));
+            ctx.warn(String.format("%s: age bands need at least one band. Skipping.", label));
             return null;
         }
         if (bands.size() > MAX_AGE_BANDS) {
-            ctx.warn(String.format("Stratifier %s: at most %d age bands. Skipping.", stratId, MAX_AGE_BANDS));
+            ctx.warn(String.format("%s: at most %d age bands. Skipping.", label, MAX_AGE_BANDS));
             return null;
         }
         String age = engine.mapUnitToAgeFunction("years", ctx.hasMeasurementPeriod);
@@ -473,25 +484,25 @@ public class EcqmCqlBuilder {
         Set<String> labels = new HashSet<>();
         for (Object bandObj : bands) {
             if (!(bandObj instanceof Map<?, ?> band)) {
-                ctx.warn(String.format("Stratifier %s: malformed age band. Skipping.", stratId));
+                ctx.warn(String.format("%s: malformed age band. Skipping.", label));
                 return null;
             }
-            String label = String.valueOf(band.get("label")).trim();
+            String bandLabel = String.valueOf(band.get("label")).trim();
             Integer min = ageBound(band.get("min"));
             Integer max = ageBound(band.get("max"));
             boolean hasMin = band.get("min") != null && !String.valueOf(band.get("min")).isBlank();
             boolean hasMax = band.get("max") != null && !String.valueOf(band.get("max")).isBlank();
-            if (!BAND_LABEL.matcher(label).matches() || !labels.add(label)
+            if (!BAND_LABEL.matcher(bandLabel).matches() || !labels.add(bandLabel)
                     || (hasMin && min == null) || (hasMax && max == null) || (!hasMin && !hasMax)
                     || (min != null && max != null && min > max)) {
-                ctx.warn(String.format("Stratifier %s: age band '%s' is invalid (label: letters, digits and _+-./:() only; "
-                        + "bounds: whole years 0-%d, min <= max, at least one bound). Skipping.", stratId, label, MAX_AGE));
+                ctx.warn(String.format("%s: age band '%s' is invalid (label: letters, digits and _+-./:() only; "
+                        + "bounds: whole years 0-%d, min <= max, at least one bound). Skipping.", label, bandLabel, MAX_AGE));
                 return null;
             }
             String cond = min != null && max != null ? String.format("%s >= %d and %s <= %d", age, min, age, max)
                     : min != null ? String.format("%s >= %d", age, min)
                     : String.format("%s <= %d", age, max);
-            sb.append(String.format("    when %s then '%s'\n", cond, engine.escapeCqlString(label)));
+            sb.append(String.format("    when %s then '%s'\n", cond, engine.escapeCqlString(bandLabel)));
         }
         sb.append("    else null\n  end");
         return sb.toString();

@@ -4,11 +4,13 @@ import com.cqlplatform.entity.MeasureReportGroupEntity;
 import com.cqlplatform.entity.MeasureReportPopulationEntity;
 import com.cqlplatform.entity.MeasureReportStratifierEntity;
 import com.cqlplatform.entity.MeasureReportStratifierPopulationEntity;
+import com.cqlplatform.entity.MeasureReportSupplementalDataEntity;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.repository.MeasureReportGroupRepository;
 import com.cqlplatform.repository.MeasureReportPopulationRepository;
 import com.cqlplatform.repository.MeasureReportStratifierPopulationRepository;
 import com.cqlplatform.repository.MeasureReportStratifierRepository;
+import com.cqlplatform.repository.MeasureReportSupplementalDataRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +47,7 @@ public class MeasureReportNormalizer {
     private final MeasureReportPopulationRepository populationRepository;
     private final MeasureReportStratifierRepository stratifierRepository;
     private final MeasureReportStratifierPopulationRepository stratifierPopulationRepository;
+    private final MeasureReportSupplementalDataRepository supplementalDataRepository;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -62,10 +65,12 @@ public class MeasureReportNormalizer {
         // Idempotency: wipe any existing normalized rows for this report.
         // FK cascades take care of populations + stratifiers + stratifier populations.
         groupRepository.deleteAllByMeasureReportId(measureReportId);
+        supplementalDataRepository.deleteAllByMeasureReportId(measureReportId);
 
         if (result == null || result.getGroups() == null || result.getGroups().isEmpty()) {
             return 0;
         }
+        persistSupplementalData(measureReportId, result.getSupplementalDataResults());
 
         int groupCount = 0;
         int ordinal = 0;
@@ -74,6 +79,38 @@ public class MeasureReportNormalizer {
             groupCount++;
         }
         return groupCount;
+    }
+
+    /** PAT-234: one row per (element, value), plus a null-value row for the patients without a value. */
+    private void persistSupplementalData(Long measureReportId,
+                                         List<MeasureEvaluationResult.SupplementalDataResult> elements) {
+        if (elements == null || elements.isEmpty()) return;
+        int ordinal = 0;
+        for (MeasureEvaluationResult.SupplementalDataResult element : elements) {
+            if (element.getDefinition() == null) continue;
+            if (element.getValues() != null) {
+                for (MeasureEvaluationResult.ValueCount vc : element.getValues()) {
+                    supplementalDataRepository.save(supplementalRow(measureReportId, element, vc.getValue(), vc.getCount(), ordinal++));
+                }
+            }
+            int without = element.getPatientsWithoutValue() != null ? element.getPatientsWithoutValue() : 0;
+            // Always written, so a report where nobody had a value still lists the element.
+            supplementalDataRepository.save(supplementalRow(measureReportId, element, null, without, ordinal++));
+        }
+    }
+
+    private static MeasureReportSupplementalDataEntity supplementalRow(
+            Long measureReportId, MeasureEvaluationResult.SupplementalDataResult element,
+            String value, Integer count, int ordinal) {
+        return MeasureReportSupplementalDataEntity.builder()
+                .measureReportId(measureReportId)
+                .definition(element.getDefinition())
+                .usage(element.getUsage() != null ? element.getUsage() : "supplemental-data")
+                .description(element.getDescription())
+                .value(value)
+                .count(count != null ? count : 0)
+                .ordinal(ordinal)
+                .build();
     }
 
     private void persistGroup(Long measureReportId, MeasureEvaluationResult.GroupResult group, int ordinal) {
