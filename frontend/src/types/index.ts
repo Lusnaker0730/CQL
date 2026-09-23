@@ -509,7 +509,10 @@ export interface PopulationResult {
 
 export interface StratifierResult {
   strataId: string
+  /** For a multi-component stratum, the components' values joined with ` | `. */
   strataValue: string
+  /** PAT-235: per-component values of a multi-component stratum. */
+  components?: { code: string; value: string }[]
   populations: PopulationResult[]
   measureScore?: number
 }
@@ -658,6 +661,15 @@ export interface StratifierDefinition {
   description?: string
   associations?: string[]
   /** PAT-233: `value` when the expression returns the stratum itself; absent / `criteria` for boolean. */
+  kind?: 'criteria' | 'value'
+  /** PAT-235: multi-component stratifier — one define per component; `criteriaExpression` is then unused. */
+  components?: StratifierComponentDefinition[]
+}
+
+export interface StratifierComponentDefinition {
+  code: string
+  criteriaExpression: string
+  description?: string
   kind?: 'criteria' | 'value'
 }
 

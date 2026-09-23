@@ -296,7 +296,21 @@ public class CqfmMeasureBuilder {
                     stratNode.put("id", uniqueId(usedIds, FhirCanonicalResolver.idPart(groupId + "-" + strat.getStratifierId())));
                     stratNode.putObject("code").put("text", strat.getStratifierId());
                     if (notBlank(strat.getDescription())) stratNode.put("description", strat.getDescription());
-                    criteria(stratNode, strat.getCriteriaExpression());
+                    if (strat.hasComponents()) {
+                        // PAT-235: Measure.group.stratifier.component[] — one criteria per component,
+                        // no stratifier-level criteria (the stratum is the combination).
+                        ArrayNode componentArray = stratNode.putArray("component");
+                        for (StratifierDefinition.Component component : strat.getComponents()) {
+                            ObjectNode componentNode = componentArray.addObject();
+                            componentNode.put("id", uniqueId(usedIds, FhirCanonicalResolver.idPart(
+                                    groupId + "-" + strat.getStratifierId() + "-" + component.getCode())));
+                            componentNode.putObject("code").put("text", component.getCode());
+                            if (notBlank(component.getDescription())) componentNode.put("description", component.getDescription());
+                            criteria(componentNode, component.getCriteriaExpression());
+                        }
+                    } else {
+                        criteria(stratNode, strat.getCriteriaExpression());
+                    }
                 }
             }
 

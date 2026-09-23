@@ -228,6 +228,17 @@ if [ "$expected_strats_count" -gt 0 ] 2>/dev/null; then
                     fail=1
                 fi
             done < <(jq -r ".stratifiers[$i].expectedStrata[$j].populations | keys[]?" "$EXPECTED" | tr -d '\r')
+            # PAT-235: per-stratum components (optional) — exact code → value map of a multi-component stratum
+            exp_components=$(jq -c ".stratifiers[$i].expectedStrata[$j].components // empty | to_entries | sort_by(.key) | map(\"\\(.key)=\\(.value)\") | join(\",\")" "$EXPECTED" 2>/dev/null | tr -d '\r"')
+            if [ -n "$exp_components" ]; then
+                act_components=$(echo "$actual_stratum" | jq -c '(.components // []) | map({key: .code, value: .value}) | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' | tr -d '\r"')
+                if [ "$act_components" = "$exp_components" ]; then
+                    echo "    ✓ stratifier $strata_id[$sv].components: {$act_components}"
+                else
+                    echo "    ✗ stratifier $strata_id[$sv].components: {$act_components}, expected {$exp_components}" >&2
+                    fail=1
+                fi
+            fi
             # Per-stratum score (optional)
             exp_score=$(jq -r ".stratifiers[$i].expectedStrata[$j].score // empty" "$EXPECTED" | tr -d '\r')
             if [ -n "$exp_score" ]; then

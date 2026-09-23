@@ -147,6 +147,16 @@ public class MeasureReportExportService {
 
                         ObjectNode valueNode = stratumNode.putObject("value");
                         valueNode.put("text", strat.getStrataValue());
+                        // PAT-235: a multi-component stratum also carries each component's value
+                        // (MeasureReport.stratum.component); value.text keeps the combination.
+                        if (strat.getComponents() != null && !strat.getComponents().isEmpty()) {
+                            ArrayNode componentArray = stratumNode.putArray("component");
+                            for (StratumComponent component : strat.getComponents()) {
+                                ObjectNode componentNode = componentArray.addObject();
+                                componentNode.putObject("code").put("text", component.getCode());
+                                componentNode.putObject("value").put("text", component.getValue());
+                            }
+                        }
 
                         if (strat.getPopulations() != null) {
                             ArrayNode stratPopArray = stratumNode.putArray("population");

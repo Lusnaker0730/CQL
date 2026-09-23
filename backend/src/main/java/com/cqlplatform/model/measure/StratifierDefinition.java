@@ -42,4 +42,38 @@ public class StratifierDefinition {
     public boolean isValueBased() {
         return KIND_VALUE.equals(kind);
     }
+
+    /**
+     * PAT-235 — a multi-component stratifier (FHIR {@code Measure.group.stratifier.component[]}):
+     * each component has its own define, and a patient's stratum is the combination of the
+     * components' values (QM IG conformance 3.17). When present, {@link #criteriaExpression}
+     * is unused. A patient with no value for any one component is in no stratum.
+     */
+    @Size(max = 10)
+    private List<Component> components;
+
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean hasComponents() {
+        return components != null && !components.isEmpty();
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class Component {
+        /** Labels the component in reports and the exchange package ({@code stratifier.component.code}). */
+        @Size(max = 100)
+        private String code;
+
+        @Size(max = 500)
+        private String criteriaExpression;
+
+        @Size(max = 500)
+        private String description;
+
+        /** {@link #KIND_CRITERIA} (default) or {@link #KIND_VALUE}, as for the stratifier itself. */
+        @Size(max = 20)
+        private String kind;
+    }
 }

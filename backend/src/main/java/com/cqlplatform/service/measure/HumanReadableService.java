@@ -209,7 +209,17 @@ public class HumanReadableService {
                 for (StratifierDefinition strat : group.getStratifiers()) {
                     sb.append("        <tr>\n");
                     sb.append("          <td>").append(esc(strat.getStratifierId() != null ? strat.getStratifierId() : "—")).append("</td>\n");
-                    sb.append("          <td><code>").append(esc(strat.getCriteriaExpression() != null ? strat.getCriteriaExpression() : "—")).append("</code></td>\n");
+                    // PAT-235: a multi-component stratifier lists one expression per component
+                    String expression = strat.getCriteriaExpression() != null ? strat.getCriteriaExpression() : "—";
+                    if (strat.hasComponents()) {
+                        StringBuilder parts = new StringBuilder();
+                        for (StratifierDefinition.Component component : strat.getComponents()) {
+                            if (parts.length() > 0) parts.append(" × ");
+                            parts.append(component.getCode()).append(": ").append(component.getCriteriaExpression());
+                        }
+                        expression = parts.toString();
+                    }
+                    sb.append("          <td><code>").append(esc(expression)).append("</code></td>\n");
                     sb.append("          <td>").append(esc(strat.getDescription() != null ? strat.getDescription() : "")).append("</td>\n");
                     sb.append("        </tr>\n");
                 }

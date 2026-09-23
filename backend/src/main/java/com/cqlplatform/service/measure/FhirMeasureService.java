@@ -151,7 +151,10 @@ public class FhirMeasureService {
                             .append(o.getAggregateMethod()).append('@').append(o.getPopulationRef()));
                 }
                 if (g.getStratifiers() != null) {
-                    g.getStratifiers().forEach(s -> sb.append("|S:").append(s.getStratifierId()).append('=').append(s.getCriteriaExpression()));
+                    g.getStratifiers().forEach(s -> {
+                        sb.append("|S:").append(s.getStratifierId()).append('=').append(s.getCriteriaExpression());
+                        if (s.hasComponents()) s.getComponents().forEach(c -> sb.append('+').append(c.getCode()).append('=').append(c.getCriteriaExpression()));
+                    });
                 }
             }
         }
@@ -232,10 +235,26 @@ public class FhirMeasureService {
                 stratIndex++;
                 String stratId = stratNode.path("code").path("text").asText(
                         stratNode.path("id").asText("stratifier-" + stratIndex));
+                // PAT-235: a component stratifier carries its criteria per component.
+                List<StratifierDefinition.Component> components = null;
+                if (stratNode.path("component").isArray() && !stratNode.path("component").isEmpty()) {
+                    components = new ArrayList<>();
+                    int componentIndex = 0;
+                    for (JsonNode componentNode : stratNode.path("component")) {
+                        componentIndex++;
+                        components.add(StratifierDefinition.Component.builder()
+                                .code(componentNode.path("code").path("text").asText(
+                                        componentNode.path("id").asText("component-" + componentIndex)))
+                                .criteriaExpression(componentNode.path("criteria").path("expression").asText(""))
+                                .description(componentNode.path("description").asText(null))
+                                .build());
+                    }
+                }
                 stratifiers.add(StratifierDefinition.builder()
                         .stratifierId(stratId)
-                        .criteriaExpression(stratNode.path("criteria").path("expression").asText(""))
+                        .criteriaExpression(components != null ? null : stratNode.path("criteria").path("expression").asText(""))
                         .description(stratNode.path("description").asText(null))
+                        .components(components)
                         .build());
             }
 

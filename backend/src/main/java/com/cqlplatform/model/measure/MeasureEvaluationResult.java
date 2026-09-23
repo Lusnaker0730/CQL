@@ -112,9 +112,22 @@ public class MeasureEvaluationResult {
     @AllArgsConstructor
     public static class StratifierResult {
         private String strataId;
+        /** The stratum's value; for a multi-component stratum the components' values joined with {@code " | "}. */
         private String strataValue;
+        /** PAT-235: the per-component values of a multi-component stratum; null for a single-expression stratifier. */
+        private List<StratumComponent> components;
         private List<PopulationResult> populations;
         private Double measureScore;
+    }
+
+    /** PAT-235 — one component of a multi-component stratum (FHIR {@code stratum.component}). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StratumComponent {
+        private String code;
+        private String value;
     }
 
     /** PAT-234 — one supplemental data element / risk adjustment factor over all evaluated patients. */

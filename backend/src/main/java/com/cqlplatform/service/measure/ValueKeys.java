@@ -55,7 +55,9 @@ public final class ValueKeys {
         } else {
             key = String.valueOf(value);
         }
-        key = key.trim();
+        // PAT-235: multi-component strata are encoded with the ASCII record / unit separators
+        // (see StratifierEvaluator); a key must never contain them, so the encoding is unambiguous.
+        key = key.replace(StratifierEvaluator.COMPONENT_SEPARATOR, ' ').replace(StratifierEvaluator.CODE_SEPARATOR, ' ').trim();
         // Same skip rule the stratifier aggregation always had (a null value renders as "null").
         if (key.isEmpty() || "null".equals(key)) return null;
         return key.length() > MAX_KEY ? key.substring(0, MAX_KEY - 1) + "…" : key;

@@ -165,6 +165,7 @@ public class MeasureReportNormalizer {
                                 .strataId(strat.getStrataId() != null
                                         ? strat.getStrataId() : "stratum-" + stratOrdinal)
                                 .strataValue(strat.getStrataValue())
+                                .componentValuesJson(encodeComponents(strat.getComponents()))
                                 .measureScore(strat.getMeasureScore())
                                 .ordinal(stratOrdinal++)
                                 .build());
@@ -191,6 +192,17 @@ public class MeasureReportNormalizer {
      * we don't want downstream code reading the raw TEXT blob; they should ship a repository
      * method if they need per-subject access.
      */
+    /** PAT-235: {@code [{"code","value"}, …]}, or null for a single-expression stratum. */
+    private static String encodeComponents(List<MeasureEvaluationResult.StratumComponent> components) {
+        if (components == null || components.isEmpty()) return null;
+        try {
+            return MAPPER.writeValueAsString(components);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize stratum components ({} entries): {}", components.size(), e.getMessage());
+            return null;
+        }
+    }
+
     private static String encodeSubjectIds(List<String> subjectIds) {
         if (subjectIds == null || subjectIds.isEmpty()) return null;
         try {

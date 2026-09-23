@@ -314,6 +314,7 @@
       "stratifierId": "分層 ID",
       "cqlExpression": "CQL 運算式",
       "removeStratifier": "移除分層",
+      "components": "元件：{{list}}——病人的分層是各元件值的組合。",
       "populationAssociations": "族群關聯",
       "addStratifier": "新增分層",
       "description": "說明",

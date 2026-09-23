@@ -870,7 +870,7 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 | `/api/measures/reports/{reportId}` | GET | 取得報告 |
 | `/api/measures/reports/{reportId}` | DELETE | 刪除報告 |
 | `/api/measures/reports/{reportId}/export?format=fhir\|csv\|excel` | GET | 匯出報告 |
-| `/api/measures/reports/{reportId}/export?format=fhir` | GET | FHIR MeasureReport：`group.stratifier[]` 每分層一筆 `{code, stratum[]}`（PAT-233）；補充資料 / 風險校正因子分布以平台 extension `<canonical base>/StructureDefinition/measurereport-supplemental-data` 攜帶（PAT-234：`definition` / `usage` / `description?` / 多個 `value{value,count}` / `patientsWithoutValue`）；CSV / Excel 另有「Supplemental Data」段落 / 工作表 |
+| `/api/measures/reports/{reportId}/export?format=fhir` | GET | FHIR MeasureReport：`group.stratifier[]` 每分層一筆 `{code, stratum[]}`（PAT-233）；多元件分層的 stratum 另帶 `stratum.component[] {code, value}`、`value.text` 為組合（PAT-235）；補充資料 / 風險校正因子分布以平台 extension `<canonical base>/StructureDefinition/measurereport-supplemental-data` 攜帶（PAT-234：`definition` / `usage` / `description?` / 多個 `value{value,count}` / `patientsWithoutValue`）；CSV / Excel 另有「Supplemental Data」段落 / 工作表 |
 
 ---
 

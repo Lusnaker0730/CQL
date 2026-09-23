@@ -151,7 +151,9 @@
       "criteria": "Condition",
       "value": "Value",
       "criteriaHint": "A boolean condition: patients fall into the true or the false stratum.",
-      "valueHint": "The expression's result is the stratum: every distinct value becomes one (as in Bonnie / MADiE)."
+      "valueHint": "The expression's result is the stratum: every distinct value becomes one (as in Bonnie / MADiE).",
+      "components": "Components",
+      "componentsHint": "Several expressions; a patient's stratum is the combination of their values (e.g. female | 65+). A patient without a value for any one component is in no stratum."
     },
     "value": {
       "source": "Stratify by",
@@ -178,6 +180,19 @@
       "noBound": "Every band needs a lower or an upper bound.",
       "order": "A band's lower bound must not exceed its upper bound.",
       "duplicate": "Labels must be different — the same label would merge two bands into one stratum."
+    },
+    "component": {
+      "code": "Component code",
+      "codeAria": "Component {{number}} code",
+      "kindAria": "Component {{number}} kind",
+      "add": "Add component",
+      "remove": "Remove component {{number}}"
+    },
+    "componentErrors": {
+      "tooFew": "A multi-component stratifier needs at least two components.",
+      "tooMany": "At most 10 components.",
+      "code": "Component codes must be 1-50 characters: letters, digits, space, _ . - (they become part of the CQL define name).",
+      "duplicate": "Component codes must be different."
     }
   },
   "cqlPreview": {

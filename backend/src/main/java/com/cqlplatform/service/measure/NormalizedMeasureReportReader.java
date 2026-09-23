@@ -151,6 +151,7 @@ public class NormalizedMeasureReportReader {
         return StratifierResult.builder()
                 .strataId(s.getStrataId())
                 .strataValue(s.getStrataValue())
+                .components(decodeComponents(s.getComponentValuesJson()))
                 .measureScore(s.getMeasureScore())
                 .populations(pops)
                 .build();
@@ -181,6 +182,21 @@ public class NormalizedMeasureReportReader {
                 .median(g.getObsMedian())
                 .unit(g.getObsUnit())
                 .build();
+    }
+
+    private static final com.fasterxml.jackson.core.type.TypeReference<List<MeasureEvaluationResult.StratumComponent>> COMPONENT_LIST =
+            new com.fasterxml.jackson.core.type.TypeReference<>() {};
+
+    /** PAT-235: the per-component values of a multi-component stratum; null when absent or unreadable. */
+    private static List<MeasureEvaluationResult.StratumComponent> decodeComponents(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            List<MeasureEvaluationResult.StratumComponent> components = MAPPER.readValue(json, COMPONENT_LIST);
+            return components.isEmpty() ? null : components;
+        } catch (Exception e) {
+            log.warn("Failed to deserialize component_values ({} chars): {}", json.length(), e.getMessage());
+            return null;
+        }
     }
 
     private static List<String> decodeSubjectIds(String json) {
