@@ -641,6 +641,8 @@ export interface StratifierDefinition {
   criteriaExpression: string
   description?: string
   associations?: string[]
+  /** PAT-233: `value` when the expression returns the stratum itself; absent / `criteria` for boolean. */
+  kind?: 'criteria' | 'value'
 }
 
 export interface MeasureReport {

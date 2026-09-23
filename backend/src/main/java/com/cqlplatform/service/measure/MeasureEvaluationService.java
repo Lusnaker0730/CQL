@@ -604,7 +604,7 @@ public class MeasureEvaluationService {
                     counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), scoringType);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -647,7 +647,7 @@ public class MeasureEvaluationService {
 
         Double measureScore = scoreCalculator.calculateCohortScore(ipCount);
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), com.cqlplatform.model.measure.ScoringTypeConstants.COHORT);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -706,7 +706,7 @@ public class MeasureEvaluationService {
             measureScore = obsStats.getAggregateValue();
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
@@ -811,7 +811,7 @@ public class MeasureEvaluationService {
                     state.stratificationData.getOrDefault(gid, Map.of());
             List<StratifierResult> stratResults = stratData.isEmpty()
                     ? List.of()
-                    : stratifierEvaluator.buildStratifierResults(stratData);
+                    : stratifierEvaluator.buildStratifierResults(stratData, scoringType);
 
             groups.add(GroupResult.builder()
                     .groupId(groupDef.getGroupId())

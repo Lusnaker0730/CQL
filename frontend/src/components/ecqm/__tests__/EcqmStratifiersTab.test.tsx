@@ -89,3 +89,62 @@ describe('EcqmStratifiersTab — PAT-129 dual-IP interlock', () => {
     expect(onChange.mock.calls[0][0]).toHaveLength(0)
   })
 })
+
+// PAT-233 — value stratifiers: the stratum is the expression's value, not true / false.
+describe('EcqmStratifiersTab — value stratifiers', () => {
+  const criteriaStrat = { stratifierId: 's1', description: '', criteria: { type: 'and', children: [] } as never }
+
+  it('defaults to a criteria stratifier and switches to "by gender" when the value kind is chosen', () => {
+    const onChange = vi.fn()
+    render(<EcqmStratifiersTab templates={[]} modifiers={[]} stratifiers={[criteriaStrat]} onChange={onChange} />)
+
+    expect(screen.getByTestId('tree-editor')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'stratifiers.kind.criteria', pressed: true })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.kind.value' }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0][0][0]).toMatchObject({
+      stratifierId: 's1', kind: 'value', value: { source: 'gender' },
+    })
+    // the condition tree is kept, so switching back loses nothing
+    expect(onChange.mock.calls[0][0][0].criteria).toEqual(criteriaStrat.criteria)
+  })
+
+  it('seeds the default age bands when the source becomes age bands, and edits a band', () => {
+    const onChange = vi.fn()
+    const first = render(<EcqmStratifiersTab templates={[]} modifiers={[]} onChange={onChange}
+      stratifiers={[{ ...criteriaStrat, kind: 'value', value: { source: 'gender' } }]} />)
+
+    expect(screen.queryByTestId('tree-editor')).not.toBeInTheDocument()
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'stratifiers.value.source' }))
+    fireEvent.click(screen.getByRole('option', { name: 'stratifiers.value.sources.ageBands' }))
+    expect(onChange).toHaveBeenCalledTimes(1)
+    const seeded = onChange.mock.calls[0][0][0]
+    expect(seeded.value.source).toBe('ageBands')
+    expect(seeded.value.bands.map((b: { label: string }) => b.label)).toEqual(['0-17', '18-49', '50-64', '65+'])
+
+    // re-render with the state the parent would now hold
+    first.unmount()
+    onChange.mockClear()
+    render(<EcqmStratifiersTab templates={[]} modifiers={[]} onChange={onChange} stratifiers={[seeded]} />)
+    // three inputs per band: label, min, max
+    const inputs = screen.getAllByLabelText('stratifiers.value.bandAria')
+    expect(inputs).toHaveLength(12)
+    fireEvent.change(inputs[11], { target: { value: '80' } }) // last band's "to"
+    const edited = onChange.mock.calls[0][0][0]
+    expect(edited.value.bands[3]).toEqual({ label: '65-80', min: 65, max: 80 }) // label followed the bounds
+
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.value.addBand' }))
+    const added = onChange.mock.calls[1][0][0]
+    expect(added.value.bands).toHaveLength(5)
+    expect(added.value.bands[4]).toEqual({ label: '', min: undefined }) // the seeded last band has no "to" yet
+  })
+
+  it('warns about an invalid band instead of silently dropping it', () => {
+    render(<EcqmStratifiersTab templates={[]} modifiers={[]} onChange={vi.fn()}
+      stratifiers={[{ ...criteriaStrat, kind: 'value', value: { source: 'ageBands', bands: [{ label: 'a<b', min: 60, max: 40 }] } }]} />)
+
+    expect(screen.getByRole('alert')).toHaveTextContent('stratifiers.bandErrors.label')
+    expect(screen.getByRole('alert')).toHaveTextContent('stratifiers.bandErrors.order')
+  })
+})

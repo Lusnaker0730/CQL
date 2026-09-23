@@ -61,9 +61,54 @@ public class StratifierEvaluator {
         }
         CqlExecutionResponse.ExpressionResult stratResult = rawResults.get(stratifier.getCriteriaExpression());
         if (stratResult == null) return null;
-        String strataValue = String.valueOf(stratResult.getValue());
+        return stratumKey(stratResult.getValue());
+    }
+
+    /** Longest stratum key kept; the report column is VARCHAR(500) and a stratum is a label, not a payload. */
+    static final int MAX_STRATUM_KEY = 200;
+
+    /**
+     * PAT-233 — the stratum a (serialised) CQL value denotes. Criteria stratifiers give
+     * {@code "true"} / {@code "false"}; value stratifiers give the value itself. A blank or
+     * null value means "in no stratum". Serialisation already happened in
+     * {@code CqlExecutionService.toSerializable}: a FHIR primitive such as {@code Patient.gender}
+     * arrives as its value, a CQL {@code Code} as its display text, a Tuple as a Map.
+     * <ul>
+     *   <li>String / Boolean / Number → as text (numbers keep their own formatting, so
+     *       {@code 65} and {@code 65.0} are different strata — a value stratifier should return
+     *       a label, not a measurement)</li>
+     *   <li>Map with a {@code code} entry (a serialised Code / Coding) → the code, with
+     *       {@code display} in parentheses when present</li>
+     *   <li>List → one stratum per distinct element is NOT supported; the elements are joined
+     *       with {@code ", "} so the author sees what came back</li>
+     * </ul>
+     */
+    static String stratumKey(Object value) {
+        if (value == null) return null;
+        String key;
+        if (value instanceof Map<?, ?> map && map.get("code") != null) {
+            Object display = map.get("display");
+            key = display != null && !String.valueOf(display).isBlank()
+                    ? map.get("code") + " (" + display + ")" : String.valueOf(map.get("code"));
+        } else if (value instanceof Map<?, ?> map && map.get("codes") instanceof Iterable<?> codes) {
+            // a serialised Concept: its display, else its codes
+            Object display = map.get("display");
+            key = display != null && !String.valueOf(display).isBlank() ? String.valueOf(display) : String.valueOf(stratumKey(codes));
+        } else if (value instanceof Iterable<?> items) {
+            List<String> parts = new ArrayList<>();
+            for (Object item : items) {
+                String part = stratumKey(item);
+                if (part != null) parts.add(part);
+            }
+            if (parts.isEmpty()) return null;
+            key = String.join(", ", parts);
+        } else {
+            key = String.valueOf(value);
+        }
+        key = key.trim();
         // Same skip rule the aggregation always had (a null value renders as "null").
-        return "null".equals(strataValue) ? null : strataValue;
+        if (key.isEmpty() || "null".equals(key)) return null;
+        return key.length() > MAX_STRATUM_KEY ? key.substring(0, MAX_STRATUM_KEY - 1) + "…" : key;
     }
 
     /**
@@ -104,10 +149,12 @@ public class StratifierEvaluator {
             String strataValue = resolveStratumValue(stratifier, rawResults);
             if (strataValue == null) continue;
 
+            // Insertion-ordered so strata come out in the order first seen, which for a
+            // value stratifier is a stable, readable order (age bands, gender…).
             Map<String, Map<String, Integer>> strataMap = stratificationData
-                    .computeIfAbsent(stratId, k -> new HashMap<>());
+                    .computeIfAbsent(stratId, k -> new LinkedHashMap<>());
             Map<String, Integer> popCounts = strataMap
-                    .computeIfAbsent(strataValue, k -> new HashMap<>());
+                    .computeIfAbsent(strataValue, k -> new LinkedHashMap<>());
 
             // Initialize population counts for this stratum if needed
             for (String popName : PopulationEvaluator.STANDARD_POPULATIONS) {
@@ -128,10 +175,15 @@ public class StratifierEvaluator {
      * Builds the final list of stratifier results from accumulated data.
      *
      * @param stratificationData accumulated data: stratifierId → strataValue → populationType → count
-     * @return list of stratifier results with scores
+     * @param scoringType the measure's scoring type; the stratum score follows it (PAT-233 —
+     *        it used to be the proportion formula for every scoring type). Proportion and ratio
+     *        score from the stratum's counts, cohort reports the stratum's initial population,
+     *        continuous-variable strata carry no score: observation values are not collected
+     *        per stratum.
+     * @return list of stratifier results with scores, strata in the order they were first seen
      */
     public List<StratifierResult> buildStratifierResults(
-            Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+            Map<String, Map<String, Map<String, Integer>>> stratificationData, String scoringType) {
         List<StratifierResult> results = new ArrayList<>();
 
         for (Map.Entry<String, Map<String, Map<String, Integer>>> stratEntry : stratificationData.entrySet()) {
@@ -150,10 +202,7 @@ public class StratifierEvaluator {
                             .build());
                 }
 
-                Integer denom = popCounts.getOrDefault("Denominator", 0);
-                Integer denomExcl = popCounts.getOrDefault("Denominator Exclusions", 0);
-                Integer numer = popCounts.getOrDefault("Numerator", 0);
-                Double stratScore = scoreCalculator.calculateProportionScore(denom, denomExcl, numer);
+                Double stratScore = stratumScore(popCounts, scoringType);
 
                 results.add(StratifierResult.builder()
                         .strataId(stratId)
@@ -165,5 +214,19 @@ public class StratifierEvaluator {
         }
 
         return results;
+    }
+
+    private Double stratumScore(Map<String, Integer> popCounts, String scoringType) {
+        String type = scoringType == null ? com.cqlplatform.model.measure.ScoringTypeConstants.PROPORTION
+                : scoringType.toLowerCase(Locale.ROOT);
+        return switch (type) {
+            case com.cqlplatform.model.measure.ScoringTypeConstants.COHORT ->
+                    scoreCalculator.calculateCohortScore(popCounts.getOrDefault("Initial Population", 0));
+            case com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE -> null;
+            default -> scoreCalculator.calculateScore(type,
+                    popCounts.getOrDefault("Denominator", 0),
+                    popCounts.getOrDefault("Denominator Exclusions", 0),
+                    popCounts.getOrDefault("Numerator", 0));
+        };
     }
 }

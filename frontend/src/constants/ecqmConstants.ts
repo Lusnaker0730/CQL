@@ -96,6 +96,22 @@ export const STANDARD_SDE = [
   { name: 'SDE Payer', oid: 'urn:oid:2.16.840.1.114222.4.11.3591' },
 ] as const
 
+/** PAT-233 — value stratifier sources the backend knows how to turn into CQL. */
+export const VALUE_STRATIFIER_SOURCES = ['gender', 'ageBands'] as const
+
+/** Starting point for an age-band stratifier; the author edits from here. */
+export const DEFAULT_AGE_BANDS: ReadonlyArray<{ label: string; min?: number; max?: number }> = Object.freeze([
+  { label: '0-17', min: 0, max: 17 },
+  { label: '18-49', min: 18, max: 49 },
+  { label: '50-64', min: 50, max: 64 },
+  { label: '65+', min: 65 },
+])
+
+/** Same rule as the backend's band-label check: it becomes a CQL string literal. */
+export const AGE_BAND_LABEL_RE = /^[A-Za-z0-9 _+\-./:()]{1,40}$/
+export const MAX_AGE_BANDS = 20
+export const MAX_AGE = 150
+
 /** Stable empty conjunction group — use as fallback for display only.
  *  Call createEmptyConjunctionGroup() when you need a mutable copy. */
 export const DEFAULT_CONJUNCTION_GROUP = Object.freeze({

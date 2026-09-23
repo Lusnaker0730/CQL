@@ -238,9 +238,8 @@ public class EcqmCqlBuilder {
             for (Map<String, Object> strat : stratifiers) {
                 String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
                 String desc = engine.getStr(strat, "description", "");
-                Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
-                if (criteria != null) {
-                    String stratExpr = engine.buildConjunctionExpression(criteria, ctx);
+                String stratExpr = stratifierExpression(strat, ctx);
+                if (stratExpr != null) {
                     Map<String, String> sm = new HashMap<>();
                     sm.put("id", stratId);
                     sm.put("description", engine.escapeCqlIdentifier(desc));
@@ -397,22 +396,117 @@ public class EcqmCqlBuilder {
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void appendStratifier(StringBuilder block, Map<String, Object> strat,
             String suffix, BuildContext ctx) {
         String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
         String desc = engine.getStr(strat, "description", "");
-        Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
-        if (criteria != null) {
-            String expr = engine.buildConjunctionExpression(criteria, ctx);
-            if (!"null".equals(expr)) {
-                if (!desc.isEmpty()) {
-                    // Sanitize description for CQL comment: strip newlines to prevent injection
-                    String safeDesc = desc.replace("\n", " ").replace("\r", " ");
-                    block.append(String.format("// %s\n", safeDesc));
-                }
-                block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
+        String expr = stratifierExpression(strat, ctx);
+        if (expr != null && !"null".equals(expr)) {
+            if (!desc.isEmpty()) {
+                // Sanitize description for CQL comment: strip newlines to prevent injection
+                String safeDesc = desc.replace("\n", " ").replace("\r", " ");
+                block.append(String.format("// %s\n", safeDesc));
             }
+            block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
+        }
+    }
+
+    // ------------------------------------------------------------------ stratifier expressions (PAT-233)
+
+    /**
+     * Age-band labels are CQL string literals the author typed; keep them to plain ASCII text
+     * (the CQL string escaper strips non-ASCII, which would fold two labels into one stratum).
+     */
+    private static final java.util.regex.Pattern BAND_LABEL = java.util.regex.Pattern.compile("^[A-Za-z0-9 _+\\-./:()]{1,40}$");
+    private static final int MAX_AGE_BANDS = 20;
+    private static final int MAX_AGE = 150;
+
+    /**
+     * The CQL for one stratifier, or {@code null} when it cannot be produced (nothing is
+     * emitted and the context carries a warning). Two kinds:
+     * <ul>
+     *   <li>{@code criteria} (default) — the boolean conjunction tree, as populations are built;
+     *       patients bucket into {@code true} / {@code false}.</li>
+     *   <li>{@code value} — an expression whose result IS the stratum (QM IG conformance 3.17):
+     *       {@code gender} → {@code Patient.gender.value}; {@code ageBands} → a {@code case}
+     *       over the measurement-period age returning the band label. Sources are structured,
+     *       not free CQL: the artifact is client-supplied JSON and a raw expression would be a
+     *       CQL injection sink.</li>
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    String stratifierExpression(Map<String, Object> strat, BuildContext ctx) {
+        String stratId = engine.getStr(strat, "stratifierId", "strat");
+        if (!"value".equals(engine.getStr(strat, "kind", "criteria"))) {
+            Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
+            return criteria == null ? null : engine.buildConjunctionExpression(criteria, ctx);
+        }
+        Map<String, Object> value = strat.get("value") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        String source = engine.getStr(value, "source", "");
+        switch (source) {
+            case "gender":
+                return "Patient.gender.value";
+            case "ageBands":
+                return ageBandsExpression(stratId, value.get("bands"), ctx);
+            default:
+                ctx.warn(String.format("Stratifier %s: unknown value source '%s'. Skipping.", stratId, source));
+                return null;
+        }
+    }
+
+    /**
+     * {@code case when Age >= 18 and Age <= 49 then '18-49' … else null end}. Bounds are
+     * inclusive (as the AgeRange element's are) and the age is bound to the measurement
+     * period, so a patient's band does not drift with the wall clock.
+     */
+    private String ageBandsExpression(String stratId, Object bandsObj, BuildContext ctx) {
+        if (!(bandsObj instanceof List<?> bands) || bands.isEmpty()) {
+            ctx.warn(String.format("Stratifier %s: age bands need at least one band. Skipping.", stratId));
+            return null;
+        }
+        if (bands.size() > MAX_AGE_BANDS) {
+            ctx.warn(String.format("Stratifier %s: at most %d age bands. Skipping.", stratId, MAX_AGE_BANDS));
+            return null;
+        }
+        String age = engine.mapUnitToAgeFunction("years", ctx.hasMeasurementPeriod);
+        StringBuilder sb = new StringBuilder("case\n");
+        Set<String> labels = new HashSet<>();
+        for (Object bandObj : bands) {
+            if (!(bandObj instanceof Map<?, ?> band)) {
+                ctx.warn(String.format("Stratifier %s: malformed age band. Skipping.", stratId));
+                return null;
+            }
+            String label = String.valueOf(band.get("label")).trim();
+            Integer min = ageBound(band.get("min"));
+            Integer max = ageBound(band.get("max"));
+            boolean hasMin = band.get("min") != null && !String.valueOf(band.get("min")).isBlank();
+            boolean hasMax = band.get("max") != null && !String.valueOf(band.get("max")).isBlank();
+            if (!BAND_LABEL.matcher(label).matches() || !labels.add(label)
+                    || (hasMin && min == null) || (hasMax && max == null) || (!hasMin && !hasMax)
+                    || (min != null && max != null && min > max)) {
+                ctx.warn(String.format("Stratifier %s: age band '%s' is invalid (label: letters, digits and _+-./:() only; "
+                        + "bounds: whole years 0-%d, min <= max, at least one bound). Skipping.", stratId, label, MAX_AGE));
+                return null;
+            }
+            String cond = min != null && max != null ? String.format("%s >= %d and %s <= %d", age, min, age, max)
+                    : min != null ? String.format("%s >= %d", age, min)
+                    : String.format("%s <= %d", age, max);
+            sb.append(String.format("    when %s then '%s'\n", cond, engine.escapeCqlString(label)));
+        }
+        sb.append("    else null\n  end");
+        return sb.toString();
+    }
+
+    /** A whole number of years in {@code 0..MAX_AGE}, else {@code null}. */
+    private static Integer ageBound(Object raw) {
+        if (raw == null) return null;
+        try {
+            java.math.BigDecimal d = new java.math.BigDecimal(String.valueOf(raw).trim());
+            if (d.scale() > 0 && d.stripTrailingZeros().scale() > 0) return null;
+            int v = d.intValueExact();
+            return v < 0 || v > MAX_AGE ? null : v;
+        } catch (NumberFormatException | ArithmeticException e) {
+            return null;
         }
     }
 

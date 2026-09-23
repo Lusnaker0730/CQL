@@ -277,6 +277,101 @@ class EcqmCqlBuilderTest {
         assertThat(result.cql()).contains("define \"Stratifier age\":");
     }
 
+    // PAT-233 — value stratifiers: the define returns the stratum itself.
+
+    /** The FreeMarker templates carry the working copy's line endings; compare on LF. */
+    private static String lf(CqlBuildResult result) {
+        return result.cql().replace("\r\n", "\n");
+    }
+
+    private static Map<String, Object> valueStratifier(String id, String source, List<Map<String, Object>> bands) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("source", source);
+        if (bands != null) value.put("bands", bands);
+        Map<String, Object> strat = new LinkedHashMap<>();
+        strat.put("stratifierId", id);
+        strat.put("kind", "value");
+        strat.put("value", value);
+        return strat;
+    }
+
+    private static Map<String, Object> band(String label, Object min, Object max) {
+        Map<String, Object> band = new LinkedHashMap<>();
+        band.put("label", label);
+        if (min != null) band.put("min", min);
+        if (max != null) band.put("max", max);
+        return band;
+    }
+
+    @Test
+    void valueStratifier_gender_returnsThePatientGenderString() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("sex", "gender", null)), "R4");
+
+        assertThat(lf(result)).contains("define \"Stratifier sex\":\n  Patient.gender.value");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void valueStratifier_ageBands_isACaseOverTheMeasurementPeriodAge() {
+        List<Map<String, Object>> bands = List.of(
+                band("18-49", 18, 49), band("50-64", "50", "64"), band("65+", 65, null), band("child", null, 17));
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("age", "ageBands", bands)), "R4");
+
+        String age = "AgeInYearsAt(end of \"Measurement Period\")";
+        assertThat(lf(result)).contains("define \"Stratifier age\":\n  case\n"
+                + "    when " + age + " >= 18 and " + age + " <= 49 then '18-49'\n"
+                + "    when " + age + " >= 50 and " + age + " <= 64 then '50-64'\n"
+                + "    when " + age + " >= 65 then '65+'\n"
+                + "    when " + age + " <= 17 then 'child'\n"
+                + "    else null\n  end");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void valueStratifier_isAlsoEmittedForAGroupLevelStratifier_withTheGroupSuffix() {
+        Map<String, Object> group1 = proportionGroup();
+        group1.put("stratifiers", List.of(valueStratifier("sex", "gender", null)));
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(group1, proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(lf(result)).contains("define \"Stratifier sex 1\":\n  Patient.gender.value");
+    }
+
+    @Test
+    void valueStratifier_rejectsBadBandsAndUnknownSources_withoutEmittingADefine() {
+        List<List<Map<String, Object>>> bad = List.of(
+                List.of(),                                              // no bands
+                List.of(band("a<b", 1, 2)),                             // label not plain text
+                List.of(band("x", null, null)),                         // no bound at all
+                List.of(band("x", 60, 40)),                             // min > max
+                List.of(band("x", 18, 1000)),                           // beyond a human age
+                List.of(band("x", 18.5, 40)),                           // not whole years
+                List.of(band("x", "abc", 40)),                          // not a number
+                List.of(band("same", 0, 17), band("same", 18, 64)));    // duplicate label → one stratum
+        for (List<Map<String, Object>> bands : bad) {
+            CqlBuildResult result = builder.buildEcqmCql(
+                    "StratMeasure", "1.0.0", "proportion", "boolean",
+                    List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                    List.of(valueStratifier("age", "ageBands", bands)), "R4");
+            assertThat(result.cql()).as("bands " + bands).doesNotContain("define \"Stratifier age\"");
+            assertThat(result.warnings()).as("bands " + bands).anyMatch(w -> w.contains("Stratifier age"));
+        }
+
+        CqlBuildResult unknown = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("zip", "postalCode", null)), "R4");
+        assertThat(unknown.cql()).doesNotContain("define \"Stratifier zip\"");
+        assertThat(unknown.warnings()).anyMatch(w -> w.contains("unknown value source 'postalCode'"));
+    }
+
     // ===== Validation tests =====
 
     @Test

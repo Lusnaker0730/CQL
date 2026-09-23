@@ -134,7 +134,40 @@
     "label": "Stratifier {{number}}",
     "description": "Description",
     "criteria": "Stratifier Criteria",
-    "disabledByDualIp": "Stratifiers are not allowed when this Ratio measure uses separate Initial Populations for the Denominator and Numerator. Disable dual IP on the Population Groups tab to add or edit stratifiers."
+    "disabledByDualIp": "Stratifiers are not allowed when this Ratio measure uses separate Initial Populations for the Denominator and Numerator. Disable dual IP on the Population Groups tab to add or edit stratifiers.",
+    "kind": {
+      "label": "Stratifier {{number}} type",
+      "criteria": "Condition",
+      "value": "Value",
+      "criteriaHint": "A boolean condition: patients fall into the true or the false stratum.",
+      "valueHint": "The expression's result is the stratum: every distinct value becomes one (as in Bonnie / MADiE)."
+    },
+    "value": {
+      "source": "Stratify by",
+      "sources": {
+        "gender": "Gender",
+        "ageBands": "Age bands"
+      },
+      "sourceHints": {
+        "gender": "One stratum per Patient.gender value (female / male / other / unknown).",
+        "ageBands": "Age at the end of the measurement period in whole years; bounds are inclusive. A patient outside every band is in no stratum."
+      },
+      "bandLabel": "Label",
+      "min": "From (years)",
+      "max": "To (years)",
+      "bandAria": "Age band {{number}} {{field}}",
+      "addBand": "Add band",
+      "removeBand": "Remove band {{number}}"
+    },
+    "bandErrors": {
+      "empty": "Add at least one age band.",
+      "tooMany": "At most 20 age bands.",
+      "label": "Labels must be 1-40 characters of letters, digits, spaces or _ + - . / : ( ).",
+      "bounds": "Bounds must be whole years between 0 and 150.",
+      "noBound": "Every band needs a lower or an upper bound.",
+      "order": "A band's lower bound must not exceed its upper bound.",
+      "duplicate": "Labels must be different — the same label would merge two bands into one stratum."
+    }
   },
   "cqlPreview": {
     "generate": "Generate CQL",

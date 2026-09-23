@@ -85,7 +85,7 @@ backend/src/main/resources/
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
-scripts/smoke/     — 本機 / CI 整合 smoke harness (35 scenarios)
+scripts/smoke/     — 本機 / CI 整合 smoke harness (36 scenarios)
 ```
 
 ## 開發指令
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-232 / BUG-145
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-233 / BUG-145
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -169,6 +169,7 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - `RetrieveProvider.retrieve` 回傳 `Iterable<Value>`、context 參數是 `String`；自寫的 provider 產生 HAPI 資源時要 `fromFhir`
 - Maven 座標：`engine-fhir-jvm`（5.x 的 `engine-fhir` 是 0 class 空殼）
 - 4.x 的 `ComparableR4FhirModelResolver` 兩個 override（Encounter.class、BUG-106 Enumeration 歧義）在 5.x 沒有掛點也不需要：`toCqlValue` 走 HAPI runtime definition 轉換。`CqlValuesTest` 與 golden 測試鎖住
+- **分層（PAT-233）**：`StratifierEvaluator` 一向以 `String.valueOf(value)` 當 stratum key，所以 define 回什麼值就分什麼層——`kind=criteria` 是 `true`/`false`，`kind=value`（builder 的 `gender` / `ageBands` 來源）是值本身；key 規則在 `StratifierEvaluator.stratumKey`（Code map → `code (display)`、空/`null` → 不屬任何層）。`toSerializable` 把 FHIR primitive `ClassInstance`（只有 `value` 元素，含 `FHIR.AdministrativeGender` 這種綁定型）轉成它的值、`Code`/`Concept` 轉成小 map；**別讓 stratifier define 回整個資源**。分層分數依 scoring type（CV 分層沒有分數，observation 值沒有逐層收集）。eCQM workspace 的 artifact 層級 stratifier 在 publish 時套到每個 group
 - **逐子句覆蓋率（PAT-232）**：`service/cql/ClauseCoverageCollector` 實作 5.x 的 `BreakpointHandler`，掛在 `engine.getState().setBreakpointHandler(...)`，引擎每個運算式節點都會呼叫——**只在** `CqlExecutionRequest.clauseCoverage=true` 時建立（`TestCaseService` 除錯模式與 `measureClauseCoverage`），`$evaluate-measure` 與一般測試案例執行不碰。分母是 `BaseElmLibraryVisitor` 靜態走訪 ELM（有 `localId` + `locator` 的節點），分子是 handler 的動態記錄，兩者必須來自同一次翻譯的 `Library`。引擎**不**對 `and` 短路、query 的 `where` 逐次迭代各記一次——測試鎖住的是引擎事實，別在前端套語言假設。覆蓋率不持久化（`persistRunResult` 抹掉）
 
 ### CQL 執行錯誤/警告曝露（PAT-066）
@@ -213,7 +214,7 @@ scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build im
 scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-35 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+36 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 

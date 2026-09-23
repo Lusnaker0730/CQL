@@ -131,6 +131,32 @@ describe('TestCaseExpectedValuesEditor', () => {
     expect(last(onChange).groups[0]).not.toHaveProperty('stratifiers')
   })
 
+  // PAT-233 — a value stratifier's strata are whatever the data yields; only a criteria
+  // stratifier gets the true / false suggestions.
+  it('suggests true / false for a criteria stratifier but nothing for a value stratifier', () => {
+    const measure: MeasureDefinition = {
+      ...cvMeasure,
+      groupDefinitions: [{
+        groupId: 'group-1',
+        populations: pops('initial-population', 'measure-population'),
+        stratifiers: [
+          { stratifierId: 'elderly', criteriaExpression: 'Stratifier elderly' },
+          { stratifierId: 'sex', criteriaExpression: 'Stratifier sex', kind: 'value' },
+        ],
+      }],
+    }
+    render(<TestCaseExpectedValuesEditor measure={measure} value={alignExpectedValues(measure, null)} onChange={vi.fn()} />)
+
+    const elderly = screen.getByRole('combobox', { name: 'group-1 stratifier elderly' })
+    fireEvent.mouseDown(elderly)
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['true', 'false'])
+    fireEvent.keyDown(elderly, { key: 'Escape' })
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+
+    fireEvent.mouseDown(screen.getByRole('combobox', { name: 'group-1 stratifier sex' }))
+    expect(screen.queryByRole('option')).not.toBeInTheDocument()
+  })
+
   it('explains itself when the measure has no groups', () => {
     render(
       <TestCaseExpectedValuesEditor
