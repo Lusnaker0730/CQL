@@ -23,7 +23,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
-import type { MeasureEvaluationResult, PopulationResult, StratifierResult } from '../../types'
+import type { MeasureEvaluationResult, PopulationResult, StratifierResult, SupplementalDataResult } from '../../types'
 import { getScoreChipColor, getScoreHex } from '../../utils/scoreColors'
 
 interface EvaluationResultCardProps {
@@ -315,7 +315,70 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
           </Box>
         ))}
 
-        {result.supplementalData && Object.keys(result.supplementalData).length > 0 && (
+        {result.supplementalDataResults && result.supplementalDataResults.length > 0 && (
+          <Box sx={{ mt: 2 }} data-testid="supplemental-data-results">
+            <Typography variant="subtitle2" gutterBottom>
+              {t('evaluationResult.supplementalDataResults.title')}
+            </Typography>
+            <TableContainer>
+              <Table size="small" aria-label={t('evaluationResult.supplementalDataResults.title')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.definition')}</TableCell>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.usage')}</TableCell>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.value')}</TableCell>
+                    <TableCell align="right">{t('evaluationResult.supplementalDataResults.patients')}</TableCell>
+                    <TableCell align="right">{t('evaluationResult.supplementalDataResults.share')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {result.supplementalDataResults.map((element: SupplementalDataResult) => {
+                    const total = element.values.reduce((sum, v) => sum + v.count, 0) + element.patientsWithoutValue
+                    const rows = [
+                      ...element.values.map((v) => ({ key: v.value, label: v.value, count: v.count, missing: false })),
+                      ...(element.patientsWithoutValue > 0
+                        ? [{ key: '__none__', label: t('evaluationResult.supplementalDataResults.noValue'), count: element.patientsWithoutValue, missing: true }]
+                        : []),
+                    ]
+                    if (rows.length === 0) {
+                      rows.push({ key: '__empty__', label: t('evaluationResult.supplementalDataResults.empty'), count: 0, missing: true })
+                    }
+                    return rows.map((row, ri) => (
+                      <TableRow key={`${element.definition}:${row.key}`}>
+                        {ri === 0 && (
+                          <>
+                            <TableCell rowSpan={rows.length}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>{element.definition}</Typography>
+                              {element.description && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{element.description}</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell rowSpan={rows.length}>
+                              <Chip
+                                size="small"
+                                color={element.usage === 'risk-adjustment-factor' ? 'secondary' : 'default'}
+                                label={t(element.usage === 'risk-adjustment-factor'
+                                  ? 'evaluationResult.supplementalDataResults.riskAdjustment'
+                                  : 'evaluationResult.supplementalDataResults.supplementalData')}
+                              />
+                            </TableCell>
+                          </>
+                        )}
+                        <TableCell sx={{ color: row.missing ? 'text.secondary' : 'text.primary', fontStyle: row.missing ? 'italic' : 'normal' }}>
+                          {row.label}
+                        </TableCell>
+                        <TableCell align="right">{row.count}</TableCell>
+                        <TableCell align="right">{total > 0 ? `${((row.count / total) * 100).toFixed(1)}%` : ''}</TableCell>
+                      </TableRow>
+                    ))
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
+
+        {result.supplementalData && Object.keys(result.supplementalData).length > 0 && !result.supplementalDataResults?.length && (
           <Box sx={{
             mt: 2
           }}>

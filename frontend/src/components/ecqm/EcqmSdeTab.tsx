@@ -2,13 +2,17 @@ import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button, Checkbox, FormControlLabel, IconButton, Paper,
-  Stack, TextField, Typography,
+  Stack, TextField, ToggleButton, ToggleButtonGroup, Typography,
 } from '@mui/material'
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
-import type { SupplementalDataElement } from '../../types/ecqm'
+import type { StratifierKind, SupplementalDataElement, SupplementalDataUsage } from '../../types/ecqm'
 import type { ConjunctionGroup as ConjunctionGroupType, FormTemplateCategory, ModifierDefinition } from '../../types/authoring'
 import { STANDARD_SDE, createEmptyConjunctionGroup } from '../../constants/ecqmConstants'
 import EcqmPopulationTreeEditor from './EcqmPopulationTreeEditor'
+import ValueSourceEditor from './ValueSourceEditor'
+
+/** QM IG 3.19: a risk adjustment factor's define SHOULD be named "RAF …". */
+const RAF_PREFIX = 'RAF '
 
 interface Props {
   supplementalData: SupplementalDataElement[]
@@ -73,6 +77,22 @@ export default function EcqmSdeTab({
     if (updated.custom !== true) updated = { ...updated, custom: true }
     copy[idx] = updated
     onChange(copy)
+  }
+
+  // PAT-234: switching a row to a risk adjustment factor renames it "RAF …" while it still has
+  // the default name; a name the author wrote is left alone (the backend warns at publish).
+  const setUsage = (idx: number, sde: SupplementalDataElement, usage: SupplementalDataUsage) => {
+    let name = sde.name
+    const isDefaultName = /^Custom SDE \d+$/.test(name) || name === t('sde.defaultName', { number: idx + 1 })
+    if (usage === 'risk-adjustment-factor' && !name.startsWith(RAF_PREFIX) && (isDefaultName || name.trim() === '')) {
+      name = RAF_PREFIX + (name.trim() || 'Factor')
+    }
+    updateCustom(idx, { ...sde, usage, name })
+  }
+
+  const setKind = (idx: number, sde: SupplementalDataElement, kind: StratifierKind) => {
+    if (kind === 'value') updateCustom(idx, { ...sde, kind, value: sde.value ?? { source: 'gender' } })
+    else updateCustom(idx, { ...sde, kind: 'criteria' })
   }
 
   const removeCustom = (idx: number) => {
@@ -157,16 +177,48 @@ export default function EcqmSdeTab({
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Stack>
-          {/* PAT-115 Bug #3 fix: render the criteria editor unconditionally.
-              Legacy rows may arrive without criteria; we lazy-materialise an
-              empty conjunction group so the author can define conditions. */}
-          <EcqmPopulationTreeEditor
-            label={t('sde.sdeCriteria')}
-            tree={sde.criteria ?? (createEmptyConjunctionGroup() as ConjunctionGroupType)}
-            templates={templates}
-            modifiers={modifiers}
-            onUpdateTree={(tree) => updateCustom(idx, { ...sde, criteria: tree })}
-          />
+          <Stack direction="row" spacing={2} sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
+            <ToggleButtonGroup
+              exclusive size="small"
+              value={sde.usage ?? 'supplemental-data'}
+              aria-label={t('sde.usage.label', { name: sde.name })}
+              onChange={(_, next: SupplementalDataUsage | null) => { if (next) setUsage(idx, sde, next) }}
+            >
+              <ToggleButton value="supplemental-data">{t('sde.usage.supplementalData')}</ToggleButton>
+              <ToggleButton value="risk-adjustment-factor">{t('sde.usage.riskAdjustment')}</ToggleButton>
+            </ToggleButtonGroup>
+            <ToggleButtonGroup
+              exclusive size="small"
+              value={sde.kind === 'value' ? 'value' : 'criteria'}
+              aria-label={t('sde.kind.label', { name: sde.name })}
+              onChange={(_, next: StratifierKind | null) => { if (next) setKind(idx, sde, next) }}
+            >
+              <ToggleButton value="criteria">{t('stratifiers.kind.criteria')}</ToggleButton>
+              <ToggleButton value="value">{t('stratifiers.kind.value')}</ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1 }}>
+            {t(sde.usage === 'risk-adjustment-factor' ? 'sde.usage.riskAdjustmentHint' : 'sde.usage.supplementalDataHint')}
+            {sde.usage === 'risk-adjustment-factor' && !sde.name.startsWith(RAF_PREFIX) && ` ${t('sde.usage.rafNameHint')}`}
+          </Typography>
+          {sde.kind === 'value' ? (
+            <ValueSourceEditor
+              value={sde.value}
+              idSuffix={sde.id ?? `sde-idx-${idx}`}
+              onChange={(value) => updateCustom(idx, { ...sde, value })}
+            />
+          ) : (
+            /* PAT-115 Bug #3 fix: render the criteria editor unconditionally.
+               Legacy rows may arrive without criteria; we lazy-materialise an
+               empty conjunction group so the author can define conditions. */
+            <EcqmPopulationTreeEditor
+              label={t('sde.sdeCriteria')}
+              tree={sde.criteria ?? (createEmptyConjunctionGroup() as ConjunctionGroupType)}
+              templates={templates}
+              modifiers={modifiers}
+              onUpdateTree={(tree) => updateCustom(idx, { ...sde, criteria: tree })}
+            />
+          )}
         </Paper>)
       ))}
     </Box>

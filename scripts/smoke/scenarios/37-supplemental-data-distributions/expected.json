@@ -1,0 +1,34 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 60.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 7,
+    "denominator": 5,
+    "numerator": 3
+  },
+  "supplementalDataDefinesPresent": ["SDE Sex", "RAF Age Band", "RAF Elderly"],
+  "supplementalDataResults": [
+    {
+      "definition": "SDE Sex",
+      "usage": "supplemental-data",
+      "values": {"female": 4, "male": 3},
+      "patientsWithoutValue": 0
+    },
+    {
+      "definition": "RAF Age Band",
+      "usage": "risk-adjustment-factor",
+      "values": {"18-49": 2, "50-64": 2, "65+": 3},
+      "patientsWithoutValue": 0
+    },
+    {
+      "definition": "RAF Elderly",
+      "usage": "risk-adjustment-factor",
+      "values": {"true": 3, "false": 4},
+      "patientsWithoutValue": 0
+    }
+  ],
+  "maxEvaluationTimeMs": 8000,
+  "_note": "PAT-234. Scenario 19's seven patients and proportion measure (IP = adults, Denom = 50+, Numer = 65+; p1 72M, p2 69M, p3 67F, p4 62F, p5 57F, p6 42M, p7 32F) with three supplemental data elements built the way the eCQM workspace's SDE tab builds them: the standard `SDE Sex` (Patient.gender), a value-kind risk adjustment factor `RAF Age Band` (age bands 18-49 / 50-64 / 65+) and a boolean risk adjustment factor `RAF Elderly` (the numerator's AgeRange >= 65 tree). Locks: (1) the workspace's SDE elements reach the published MeasureDefinition by usage (they used to be dropped at publish, so neither the evaluation nor the exchange package knew the measure had any); (2) the evaluation reports each element as a value → patient-count distribution — `SDE Sex` used to contribute nothing at all because strings were dropped by the count-only aggregation; (3) a FHIR primitive counts as its value (`female`, not `FHIR.AdministrativeGender`); (4) a boolean element distributes as true / false; (5) patients without a value are counted separately (none here)."
+}

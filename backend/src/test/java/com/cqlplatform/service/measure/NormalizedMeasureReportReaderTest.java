@@ -27,6 +27,7 @@ class NormalizedMeasureReportReaderTest {
     private MeasureReportPopulationRepository popRepo;
     private MeasureReportStratifierRepository stratRepo;
     private MeasureReportStratifierPopulationRepository stratPopRepo;
+    private com.cqlplatform.repository.MeasureReportSupplementalDataRepository sdeRepo;
     private NormalizedMeasureReportReader reader;
 
     @BeforeEach
@@ -35,7 +36,8 @@ class NormalizedMeasureReportReaderTest {
         popRepo = mock(MeasureReportPopulationRepository.class);
         stratRepo = mock(MeasureReportStratifierRepository.class);
         stratPopRepo = mock(MeasureReportStratifierPopulationRepository.class);
-        reader = new NormalizedMeasureReportReader(groupRepo, popRepo, stratRepo, stratPopRepo);
+        sdeRepo = mock(com.cqlplatform.repository.MeasureReportSupplementalDataRepository.class);
+        reader = new NormalizedMeasureReportReader(groupRepo, popRepo, stratRepo, stratPopRepo, sdeRepo);
     }
 
     @Test
@@ -183,5 +185,37 @@ class NormalizedMeasureReportReaderTest {
 
         assertThat(pop.getCount()).isEqualTo(1);
         assertThat(pop.getSubjectIds()).isNull();  // broken JSON isolated
+    }
+
+    // PAT-234 — supplemental data / risk adjustment factors come back as distributions.
+    @Test
+    @DisplayName("supplemental data rows rebuild per-element distributions, the null-value row as patientsWithoutValue")
+    void supplementalData_rebuildsDistributions() {
+        MeasureReportGroupEntity g = MeasureReportGroupEntity.builder()
+                .id(60L).measureReportId(6L).groupId("g").ordinal(0).build();
+        when(groupRepo.findByMeasureReportIdOrderByOrdinalAsc(6L)).thenReturn(List.of(g));
+        when(popRepo.findByMeasureReportGroupIdOrderByOrdinalAsc(60L)).thenReturn(List.of());
+        when(stratRepo.findByMeasureReportGroupIdOrderByOrdinalAsc(60L)).thenReturn(List.of());
+        when(sdeRepo.findByMeasureReportIdOrderByOrdinalAsc(6L)).thenReturn(List.of(
+                sdeRow(6L, "SDE Sex", "supplemental-data", "female", 4, 0),
+                sdeRow(6L, "SDE Sex", "supplemental-data", "male", 3, 1),
+                sdeRow(6L, "SDE Sex", "supplemental-data", null, 0, 2),
+                sdeRow(6L, "RAF Age Band", "risk-adjustment-factor", "65+", 3, 3),
+                sdeRow(6L, "RAF Age Band", "risk-adjustment-factor", null, 2, 4)));
+
+        var elements = reader.reconstruct(6L).orElseThrow().getSupplementalDataResults();
+
+        assertThat(elements).extracting(e -> e.getDefinition() + "|" + e.getUsage() + "|" + e.getPatientsWithoutValue())
+                .containsExactly("SDE Sex|supplemental-data|0", "RAF Age Band|risk-adjustment-factor|2");
+        assertThat(elements.get(0).getValues()).extracting(v -> v.getValue() + "=" + v.getCount())
+                .containsExactly("female=4", "male=3");
+        assertThat(elements.get(1).getValues()).extracting(v -> v.getValue() + "=" + v.getCount())
+                .containsExactly("65+=3");
+    }
+
+    private static com.cqlplatform.entity.MeasureReportSupplementalDataEntity sdeRow(
+            Long reportId, String definition, String usage, String value, int count, int ordinal) {
+        return com.cqlplatform.entity.MeasureReportSupplementalDataEntity.builder()
+                .measureReportId(reportId).definition(definition).usage(usage).value(value).count(count).ordinal(ordinal).build();
     }
 }

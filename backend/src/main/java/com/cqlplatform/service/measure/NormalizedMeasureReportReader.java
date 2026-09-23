@@ -13,6 +13,8 @@ import com.cqlplatform.repository.MeasureReportGroupRepository;
 import com.cqlplatform.repository.MeasureReportPopulationRepository;
 import com.cqlplatform.repository.MeasureReportStratifierPopulationRepository;
 import com.cqlplatform.repository.MeasureReportStratifierRepository;
+import com.cqlplatform.repository.MeasureReportSupplementalDataRepository;
+import com.cqlplatform.entity.MeasureReportSupplementalDataEntity;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,7 @@ public class NormalizedMeasureReportReader {
     private final MeasureReportPopulationRepository populationRepository;
     private final MeasureReportStratifierRepository stratifierRepository;
     private final MeasureReportStratifierPopulationRepository stratifierPopulationRepository;
+    private final MeasureReportSupplementalDataRepository supplementalDataRepository;
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
@@ -77,7 +80,27 @@ public class NormalizedMeasureReportReader {
         for (MeasureReportGroupEntity g : groupRows) {
             groups.add(buildGroup(g));
         }
-        return Optional.of(MeasureEvaluationResult.builder().groups(groups).build());
+        List<MeasureEvaluationResult.SupplementalDataResult> supplemental = readSupplementalData(reportId);
+        return Optional.of(MeasureEvaluationResult.builder().groups(groups)
+                .supplementalDataResults(supplemental.isEmpty() ? null : supplemental).build());
+    }
+
+    /** PAT-234: rebuild the per-element distributions from their (element, value) rows. */
+    private List<MeasureEvaluationResult.SupplementalDataResult> readSupplementalData(Long reportId) {
+        List<MeasureReportSupplementalDataEntity> rows = supplementalDataRepository.findByMeasureReportIdOrderByOrdinalAsc(reportId);
+        java.util.LinkedHashMap<String, MeasureEvaluationResult.SupplementalDataResult> byDefinition = new java.util.LinkedHashMap<>();
+        for (MeasureReportSupplementalDataEntity row : rows) {
+            MeasureEvaluationResult.SupplementalDataResult element = byDefinition.computeIfAbsent(row.getDefinition(),
+                    d -> MeasureEvaluationResult.SupplementalDataResult.builder()
+                            .definition(d).usage(row.getUsage()).description(row.getDescription())
+                            .patientsWithoutValue(0).values(new ArrayList<>()).build());
+            if (row.getValue() == null) {
+                element.setPatientsWithoutValue(row.getCount() != null ? row.getCount() : 0);
+            } else {
+                element.getValues().add(MeasureEvaluationResult.ValueCount.builder().value(row.getValue()).count(row.getCount()).build());
+            }
+        }
+        return new ArrayList<>(byDefinition.values());
     }
 
     private GroupResult buildGroup(MeasureReportGroupEntity g) {

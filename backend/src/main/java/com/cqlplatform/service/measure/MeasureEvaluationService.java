@@ -41,6 +41,7 @@ public class MeasureEvaluationService {
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
     private final MeasureScoreCalculator scoreCalculator;
+    private final SupplementalDataEvaluator supplementalDataEvaluator;
     private final java.util.concurrent.ExecutorService measureExecutor;
 
     public MeasureEvaluationService(
@@ -51,6 +52,7 @@ public class MeasureEvaluationService {
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
             MeasureScoreCalculator scoreCalculator,
+            SupplementalDataEvaluator supplementalDataEvaluator,
             @org.springframework.beans.factory.annotation.Qualifier("cqlExecutionExecutor")
             java.util.concurrent.ExecutorService measureExecutor) {
         this.cqlExecutionService = cqlExecutionService;
@@ -60,6 +62,7 @@ public class MeasureEvaluationService {
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
         this.scoreCalculator = scoreCalculator;
+        this.supplementalDataEvaluator = supplementalDataEvaluator;
         this.measureExecutor = measureExecutor;
     }
 
@@ -297,6 +300,10 @@ public class MeasureEvaluationService {
         standardNames.add("Measure Observation Values");
         standardNames.add("Measure Observation Value");
         Map<String, Object> customExpressions = new LinkedHashMap<>();
+        // PAT-234: the declared SDEs / risk adjustment factors as value distributions.
+        List<SupplementalDataEvaluator.Declared> declaredSde =
+                supplementalDataEvaluator.declared(context.getMeasureDefinition());
+        Map<String, SupplementalDataEvaluator.Distribution> supplementalDistributions = new LinkedHashMap<>();
         // BUG #474 follow-up: stratification data is now per-group. Each group's stratifiers
         // accumulate into their own bucket so multi-group measures don't cross-contaminate
         // strata between groups. For single-group / no-GroupDefinition measures the outer
@@ -445,6 +452,7 @@ public class MeasureEvaluationService {
                 observationValues.addAll(patientObs);
             }
             populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
+            supplementalDataEvaluator.accumulate(declaredSde, results, supplementalDistributions);
 
             // Legacy single-group stratifier path: when no GroupDefinition is wired, fall back
             // to the global stratifier list so existing ad-hoc evaluation flows continue to work.
@@ -460,7 +468,8 @@ public class MeasureEvaluationService {
         }
 
         return new AggregationState(perGroupCounts, customExpressions, perGroupStratData,
-                errorCount, observationValues, observationValuesByGroup, fhirOutageError);
+                errorCount, observationValues, observationValuesByGroup, fhirOutageError,
+                supplementalDataEvaluator.build(declaredSde, supplementalDistributions));
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
@@ -626,6 +635,7 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -669,6 +679,7 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -729,6 +740,7 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -835,6 +847,7 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(groups)
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -938,7 +951,9 @@ public class MeasureEvaluationService {
             /** PAT-112a: non-null when any patient evaluation threw a FhirServerUnavailableException
              *  (in its cause chain). The caller aborts the whole measure evaluation rather than
              *  returning a partial denominator. */
-            Throwable fhirOutageError
+            Throwable fhirOutageError,
+            /** PAT-234: declared SDEs / risk adjustment factors as value distributions (never null). */
+            List<MeasureEvaluationResult.SupplementalDataResult> supplementalDataResults
     ) {}
 
     /** Synthetic group id used when a measure has no GroupDefinition wired (legacy path). */

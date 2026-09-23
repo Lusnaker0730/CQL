@@ -665,6 +665,18 @@
       "populations": "Populations"
     },
     "supplementalData": "Supplemental Data",
+    "supplementalDataResults": {
+      "title": "Supplemental data and risk adjustment factors",
+      "definition": "Definition",
+      "usage": "Usage",
+      "value": "Value",
+      "patients": "Patients",
+      "share": "Share",
+      "noValue": "(no value)",
+      "supplementalData": "Supplemental data",
+      "riskAdjustment": "Risk adjustment factor",
+      "empty": "No patient had a value."
+    },
     "groupLabel": "Group: {{groupId}}",
     "aggregateMethods": {
       "average": "Average",

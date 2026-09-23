@@ -108,6 +108,14 @@ public class EcqmPublishService {
         measureDef.setNqfNumber(ecqm.getNqfNumber());
         measureDef.setCmsMeasureId(ecqm.getCmsMeasureId());
         measureDef.setSupplementalDataGuidance(ecqm.getSupplementalDataGuidance());
+        // PAT-234: the workspace's SDE elements become the measure's declared supplemental
+        // data / risk adjustment factors (by usage) — what the evaluation distributes and the
+        // exchange package lists. Before, publish carried none of them.
+        List<MeasureDefinition.SupplementalDataDef> sdeDefs = new ArrayList<>();
+        List<MeasureDefinition.RiskAdjustmentDef> rafDefs = new ArrayList<>();
+        splitSupplementalData(ecqm.getSupplementalDataList(), sdeDefs, rafDefs);
+        measureDef.setSupplementalDataList(sdeDefs);
+        measureDef.setRiskAdjustmentList(rafDefs);
 
         measureDef = measureRepository.save(measureDef);
 
@@ -246,6 +254,28 @@ public class EcqmPublishService {
         }
 
         return result;
+    }
+
+    /**
+     * PAT-234 — each SDE element of the artifact by its {@code usage}: {@code risk-adjustment-factor}
+     * elements become risk adjustment factors, everything else supplemental data. The define
+     * name is the element's name, as the CQL builder emits it.
+     */
+    static void splitSupplementalData(List<Map<String, Object>> elements,
+                                      List<MeasureDefinition.SupplementalDataDef> sdeDefs,
+                                      List<MeasureDefinition.RiskAdjustmentDef> rafDefs) {
+        if (elements == null) return;
+        for (Map<String, Object> element : elements) {
+            Object name = element.get("name");
+            if (name == null || name.toString().isBlank()) continue;
+            Object description = element.get("description");
+            String desc = description != null && !description.toString().isBlank() ? description.toString() : null;
+            if (com.cqlplatform.model.fhir.CqfmConstants.USAGE_RISK_ADJUSTMENT_FACTOR.equals(element.get("usage"))) {
+                rafDefs.add(MeasureDefinition.RiskAdjustmentDef.builder().definition(name.toString().trim()).description(desc).build());
+            } else {
+                sdeDefs.add(MeasureDefinition.SupplementalDataDef.builder().definition(name.toString().trim()).description(desc).build());
+            }
+        }
     }
 
     /** The define the CQL builder emits for this stratifier, plus what the report needs to label it. */

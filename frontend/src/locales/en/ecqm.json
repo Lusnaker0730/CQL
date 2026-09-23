@@ -124,7 +124,18 @@
     "removeCustom": "Remove SDE \"{{name}}\"",
     "sdeName": "SDE Name",
     "sdeCriteria": "SDE Criteria",
-    "defaultName": "Custom SDE {{number}}"
+    "defaultName": "Custom SDE {{number}}",
+    "usage": {
+      "label": "Usage of {{name}}",
+      "supplementalData": "Supplemental data",
+      "riskAdjustment": "Risk adjustment factor",
+      "supplementalDataHint": "Reported as a distribution of values over the evaluated patients.",
+      "riskAdjustmentHint": "A variable a risk model would adjust the rate by; exported with usage risk-adjustment-factor and reported as a distribution.",
+      "rafNameHint": "Risk adjustment factor defines should be named \"RAF …\" (QM IG); the publish step will warn."
+    },
+    "kind": {
+      "label": "Kind of {{name}}"
+    }
   },
   "stratifiers": {
     "title": "Stratifiers",

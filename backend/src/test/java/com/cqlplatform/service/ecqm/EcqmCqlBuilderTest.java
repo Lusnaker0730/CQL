@@ -344,6 +344,36 @@ class EcqmCqlBuilderTest {
         assertThat(lf(result)).contains("define \"Stratifier sex 1\":\n  Patient.gender.value");
     }
 
+    // PAT-234 — a custom SDE element can be a value expression too (a risk adjustment factor
+    // such as an age band), and a RAF define should be named "RAF …" (QM IG 3.19).
+    @Test
+    void supplementalData_valueKindAndRafNaming() {
+        Map<String, Object> raf = new LinkedHashMap<>();
+        raf.put("name", "RAF Age Band");
+        raf.put("usage", "risk-adjustment-factor");
+        raf.put("kind", "value");
+        raf.put("value", Map.of("source", "ageBands", "bands", List.of(band("65+", 65, null))));
+        Map<String, Object> badName = new LinkedHashMap<>();
+        badName.put("name", "Diabetes");
+        badName.put("usage", "risk-adjustment-factor");
+        badName.put("criteria", populationTree());
+        Map<String, Object> plainSde = new LinkedHashMap<>();
+        plainSde.put("name", "Sex Value");
+        plainSde.put("kind", "value");
+        plainSde.put("value", Map.of("source", "gender"));
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "SdeMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(raf, badName, plainSde), List.of(), "R4");
+
+        String age = "AgeInYearsAt(end of \"Measurement Period\")";
+        assertThat(lf(result)).contains("define \"RAF Age Band\":\n  case\n    when " + age + " >= 65 then '65+'\n    else null\n  end");
+        assertThat(lf(result)).contains("define \"Diabetes\":\n  ");
+        assertThat(lf(result)).contains("define \"Sex Value\":\n  Patient.gender.value");
+        assertThat(result.warnings()).singleElement().asString()
+                .contains("Risk adjustment factor 'Diabetes'").contains("RAF");
+    }
+
     @Test
     void valueStratifier_rejectsBadBandsAndUnknownSources_withoutEmittingADefine() {
         List<List<Map<String, Object>>> bad = List.of(

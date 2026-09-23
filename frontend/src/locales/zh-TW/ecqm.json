@@ -124,7 +124,18 @@
     "removeCustom": "移除 SDE「{{name}}」",
     "sdeName": "SDE 名稱",
     "sdeCriteria": "SDE 條件",
-    "defaultName": "自訂 SDE {{number}}"
+    "defaultName": "自訂 SDE {{number}}",
+    "usage": {
+      "label": "{{name}} 的用途",
+      "supplementalData": "補充資料",
+      "riskAdjustment": "風險校正因子",
+      "supplementalDataHint": "報表以「值 → 病人數」的分布呈現。",
+      "riskAdjustmentHint": "風險模型用來校正達成率的變數；匯出時 usage 為 risk-adjustment-factor，報表以分布呈現。",
+      "rafNameHint": "風險校正因子的 define 名稱應以「RAF 」開頭（QM IG）；發佈時會提出警告。"
+    },
+    "kind": {
+      "label": "{{name}} 的類型"
+    }
   },
   "stratifiers": {
     "title": "分層器",

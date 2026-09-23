@@ -145,3 +145,44 @@ describe('EcqmSdeTab — PAT-115 usability fixes', () => {
     expect(nextArray[0].custom).toBe(false)
   })
 })
+
+// PAT-234 — a custom element can be a risk adjustment factor, and a value expression.
+describe('EcqmSdeTab — risk adjustment factors', () => {
+  const baseProps = { templates: [], modifiers: [], onGuidanceChange: vi.fn() }
+
+  it('switching a default-named row to a risk adjustment factor renames it "RAF …" and sets the usage', () => {
+    const onChange = vi.fn()
+    render(<EcqmSdeTab {...baseProps} onChange={onChange}
+      supplementalData={[{ id: 'sde-1', custom: true, name: 'sde.defaultName' }]} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'sde.usage.riskAdjustment' }))
+    const next = onChange.mock.calls[0][0] as SupplementalDataElement[]
+    expect(next[0]).toMatchObject({ id: 'sde-1', usage: 'risk-adjustment-factor', name: 'RAF sde.defaultName' })
+  })
+
+  it('keeps a name the author wrote, but shows the RAF naming hint', () => {
+    const onChange = vi.fn()
+    render(<EcqmSdeTab {...baseProps} onChange={onChange}
+      supplementalData={[{ id: 'sde-1', custom: true, name: 'Diabetes', usage: 'risk-adjustment-factor' }]} />)
+
+    expect(screen.getByText(/sde.usage.rafNameHint/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'sde.usage.supplementalData' }))
+    const next = onChange.mock.calls[0][0] as SupplementalDataElement[]
+    expect(next[0]).toMatchObject({ name: 'Diabetes', usage: 'supplemental-data' })
+  })
+
+  it('switching the kind to value replaces the condition tree with the value source editor', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<EcqmSdeTab {...baseProps} onChange={onChange}
+      supplementalData={[{ id: 'sde-1', custom: true, name: 'RAF Age Band', usage: 'risk-adjustment-factor' }]} />)
+    expect(screen.getByTestId('tree-editor')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.kind.value' }))
+    const next = onChange.mock.calls[0][0] as SupplementalDataElement[]
+    expect(next[0]).toMatchObject({ kind: 'value', value: { source: 'gender' } })
+
+    rerender(<EcqmSdeTab {...baseProps} onChange={onChange} supplementalData={next} />)
+    expect(screen.queryByTestId('tree-editor')).not.toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: 'stratifiers.value.source' })).toBeInTheDocument()
+  })
+})
