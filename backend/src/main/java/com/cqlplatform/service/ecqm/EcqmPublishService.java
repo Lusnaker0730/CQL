@@ -3,6 +3,7 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.entity.EcqmArtifactEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.exception.CqlGenerationException;
+import com.cqlplatform.exception.PublishConflictException;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.CqlBuildResult;
@@ -40,9 +41,19 @@ public class EcqmPublishService {
                 .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
     }
 
-    @SuppressWarnings("unchecked")
     @Transactional
     public PublishResult publish(Long artifactId, String currentUser) {
+        return publish(artifactId, currentUser, false);
+    }
+
+    /**
+     * @param force PAT-238: overwrite a measure whose logic was edited on the measure page since
+     *              the last publish. Without it such a publish is refused (409) before anything
+     *              is written, so measure-page edits are never lost silently.
+     */
+    @SuppressWarnings("unchecked")
+    @Transactional
+    public PublishResult publish(Long artifactId, String currentUser, boolean force) {
         EcqmArtifactEntity ecqm = ecqmRepository.findByIdAndTenantId(artifactId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("eCQM Artifact", artifactId));
 
@@ -82,6 +93,10 @@ public class EcqmPublishService {
                     .orElse(newMeasureDefinition(ecqm, currentUser));
         } else {
             measureDef = newMeasureDefinition(ecqm, currentUser);
+        }
+        // PAT-238: refuse to overwrite logic edited on the measure page since the last publish
+        if (!force && measureDef.getId() != null && measureEditedSincePublish(ecqm, measureDef)) {
+            throw new PublishConflictException(measureDef.getId());
         }
 
         measureDef.setName(ecqm.getName());
@@ -129,8 +144,10 @@ public class EcqmPublishService {
 
         measureDef = measureRepository.save(measureDef);
 
-        // Update ecqm artifact with published measure id
+        // Update ecqm artifact with published measure id + what was published (PAT-238)
         ecqm.setPublishedMeasureId(measureDef.getId());
+        ecqm.setPublishedAt(java.time.LocalDateTime.now());
+        ecqm.setPublishedContentHash(PublishedContent.hash(buildResult.cql(), groupDefs));
         ecqm.setStatus("active");
         ecqmRepository.save(ecqm);
 
@@ -142,6 +159,42 @@ public class EcqmPublishService {
                 .cql(buildResult.cql())
                 .message("eCQM artifact published successfully")
                 .build();
+    }
+
+    /**
+     * PAT-238 — the measure's current CQL + group definitions no longer hash to what this artifact
+     * last published. False when there is no baseline (never published, or published before V76).
+     */
+    static boolean measureEditedSincePublish(EcqmArtifactEntity ecqm, MeasureDefinitionEntity measure) {
+        if (ecqm.getPublishedContentHash() == null || measure == null) return false;
+        return !ecqm.getPublishedContentHash().equals(
+                PublishedContent.hash(measure.getCqlContent(), measure.getGroupDefinitionList()));
+    }
+
+    /**
+     * PAT-238 — the builder artifact a measure came from and how far both sides drifted since the
+     * last publish; empty when the measure was not published from the builder (in this tenant).
+     */
+    @Transactional(readOnly = true)
+    public Optional<com.cqlplatform.model.ecqm.BuilderSource> builderSourceOf(Long measureId) {
+        Long tenantId = effectiveTenantId();
+        return ecqmRepository.findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(tenantId, measureId)
+                .map(ecqm -> {
+                    MeasureDefinitionEntity measure = measureRepository.findByIdAndTenantId(measureId, tenantId).orElse(null);
+                    boolean baseline = ecqm.getPublishedContentHash() != null && ecqm.getPublishedAt() != null;
+                    return com.cqlplatform.model.ecqm.BuilderSource.builder()
+                            .artifactId(ecqm.getId())
+                            .artifactName(ecqm.getName())
+                            .artifactVersion(ecqm.getVersion())
+                            .ownerUsername(ecqm.getOwnerUsername())
+                            .publishedAt(ecqm.getPublishedAt())
+                            .artifactUpdatedAt(ecqm.getUpdatedAt())
+                            .measureEditedSincePublish(baseline ? measureEditedSincePublish(ecqm, measure) : null)
+                            // publish itself saves the artifact a moment after publishedAt; allow a second
+                            .builderChangedSincePublish(baseline && ecqm.getUpdatedAt() != null
+                                    ? ecqm.getUpdatedAt().isAfter(ecqm.getPublishedAt().plusSeconds(1)) : null)
+                            .build();
+                });
     }
 
     private MeasureDefinitionEntity newMeasureDefinition(EcqmArtifactEntity ecqm, String currentUser) {

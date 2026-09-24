@@ -42,8 +42,10 @@ export const ecqmApi = {
     api.post<CqlTranslationResponse>(`${BASE}/artifacts/${id}/validate`).then((r) => r.data),
 
   // Publish
-  publish: (id: number) =>
-    api.post<PublishResult>(`${BASE}/artifacts/${id}/publish`).then((r) => r.data),
+  /** PAT-238: `force` overwrites logic edited on the measure page since the last publish (else 409). */
+  publish: (id: number, force = false) =>
+    api.post<PublishResult>(`${BASE}/artifacts/${id}/publish`, null, force ? { params: { force: true } } : undefined)
+      .then((r) => r.data),
 
   // Templates & Modifiers
   getTemplates: () =>

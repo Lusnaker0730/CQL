@@ -52,6 +52,7 @@ import VersionDiffDialog from '../editor/VersionDiffDialog'
 import MeasureShareDialog from './MeasureShareDialog'
 import AuditTrailDialog from './AuditTrailDialog'
 import MeasureValidationPanel from './MeasureValidationPanel'
+import BuilderSourceBanner from './BuilderSourceBanner'
 import {
   useSubmitForReview,
   useApproveMeasure,
@@ -243,6 +244,8 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           {workflowAlert.message}
         </Alert>
       )}
+      {/* PAT-238: published from the eCQM builder → link back + drift since that publish */}
+      {measure.id != null && <BuilderSourceBanner measureId={measure.id} measureUpdatedAt={measure.updatedAt} />}
       {isLockedByOther && (
         <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
           {t('editor.lockedWarning', { user: measure.lockedBy })}

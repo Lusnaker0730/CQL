@@ -818,6 +818,9 @@ Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL`
 |------|------|
 | `GET /api/measures/{id}/cql-expressions` | 解析 CQL 並回傳可用表達式名稱（用於母群體對應） |
 | `GET /api/measures/{id}/data-requirements` | 從 CQL/ELM 擷取 FHIR DataRequirement 資源 |
+| `GET /api/measures/{id}/builder-source` | PAT-238：指標由哪個 eCQM builder artifact 發布（`{ artifactId, artifactName, artifactVersion, ownerUsername, publishedAt, artifactUpdatedAt, measureEditedSincePublish, builderChangedSincePublish }`，後兩者在 V76 之前發布的指標為 `null`）；不是 builder 建的回 **204** |
+
+eCQM builder 的 `POST /api/ecqm/artifacts/{id}/publish` 若指標在上次發布後於指標頁被改過（CQL 或母群對應），回 **409** `{"error": "Publish Conflict"}` 且不寫入；加 `?force=true` 覆寫（PAT-238）。
 
 ---
 

@@ -50,6 +50,8 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 8. **標準 metadata（PAT-236）** — 摘要分頁最後一段「標準 Metadata（FHIR Measure）」：指標類型（複選）、實驗性、生效 / 核准 / 審閱日期、臨床建議聲明、名詞定義，與指標編輯頁共用 `components/measure/MeasureStandardMetadataFields`（`measures` namespace）。artifact 的 PUT 是部分更新，清掉的日期要送 `''` 才會清（`utils/measureMetadata.clearedDatesAsEmpty` 把元件送出的 `null` 換成 `''`）；publish 時只有 artifact 有值的欄位才覆蓋指標
 9. **程式庫函式呼叫（PAT-237）** — 母群樹的「使用程式庫定義」picker 也列函式（簽章 + `function` chip），選了變成 `externalCqlFunctionCall` 元素，引數在元素卡片上填（`FunctionArgumentsEditor`）；`EcqmArtifactWorkspace` 用 `ArtifactScopeProvider` 提供基礎元素 / 參數並宣告有 Measurement Period，所以 `Interval<DateTime>` 型的引數預設就是 `"Measurement Period"`
 
+10. **builder ↔ 指標雙向（PAT-238）** — header 的「已發布——開啟指標」chip 連到 `/measures?measure=<id>`；指標頁的 `BuilderSourceBanner` 連回 `/ecqm?artifact=<id>`（`EcqmPage` 讀這個參數後移除）。publish 回 409「Publish Conflict」代表指標在指標頁被改過：`PublishConflictDialog` 問作者，確認才 `publish({ id, force: true })`——workspace header 與 CQL 預覽分頁兩個入口都走這條
+
 ## 狀態管理
 
 ```

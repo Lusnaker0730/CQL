@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Box, Skeleton, Stack } from '@mui/material'
 import {
   useEcqmArtifacts, useEcqmArtifact, useCreateEcqmArtifact,
@@ -9,7 +10,18 @@ import EcqmArtifactModal from '../components/ecqm/EcqmArtifactModal'
 import EcqmArtifactWorkspace from '../components/ecqm/EcqmArtifactWorkspace'
 
 export default function EcqmPage() {
-  const [selectedId, setSelectedId] = useState<number | undefined>(undefined)
+  // PAT-238: /ecqm?artifact=<id> opens that artifact (the measure page links back here)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedId = Number(searchParams.get('artifact')) || undefined
+  const [selectedId, setSelectedIdState] = useState<number | undefined>(linkedId)
+  const setSelectedId = (id: number | undefined) => {
+    setSelectedIdState(id)
+    if (searchParams.has('artifact')) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('artifact')
+      setSearchParams(next, { replace: true })
+    }
+  }
   const [createOpen, setCreateOpen] = useState(false)
 
   const { data: artifacts = [] } = useEcqmArtifacts()

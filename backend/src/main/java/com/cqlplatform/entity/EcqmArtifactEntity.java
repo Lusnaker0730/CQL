@@ -151,6 +151,14 @@ public class EcqmArtifactEntity {
     @Column(name = "published_measure_id")
     private Long publishedMeasureId;
 
+    /** PAT-238 (V76): when this artifact was last published onto {@link #publishedMeasureId}. */
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
+    /** PAT-238 (V76): {@code PublishedContent.hash} of what that publish wrote on the measure. */
+    @Column(name = "published_content_hash", length = 64)
+    private String publishedContentHash;
+
     @Column(name = "owner_username", nullable = false, length = 255)
     private String ownerUsername;
 

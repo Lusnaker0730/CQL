@@ -54,6 +54,8 @@ public class EcqmArtifactResponse {
     private List<Map<String, Object>> parameters;
 
     private Long publishedMeasureId;
+    /** PAT-238: when the artifact was last published (null = never, or before V76). */
+    private java.time.LocalDateTime publishedAt;
     private String ownerUsername;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

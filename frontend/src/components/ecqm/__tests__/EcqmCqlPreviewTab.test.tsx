@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '../../../test/test-utils'
 import EcqmCqlPreviewTab from '../EcqmCqlPreviewTab'
+import { AxiosError, AxiosHeaders } from 'axios'
 
 // i18next isn't initialized in the shared test-utils wrapper, so `useTranslation`
 // would return raw keys; mock to make queries stable.
@@ -85,5 +86,55 @@ describe('EcqmCqlPreviewTab — PAT-129 cache invalidation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
     rerender(<EcqmCqlPreviewTab artifactId={1} artifactUpdatedAt={currentUpdatedAt} />)
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull())
+  })
+})
+
+// PAT-238 — a 409 "Publish Conflict" (measure edited on the measure page since the last publish)
+// opens a confirm; overwriting re-publishes with force, cancelling publishes nothing.
+describe('EcqmCqlPreviewTab — PAT-238 publish conflict', () => {
+  beforeEach(() => {
+    generateMutate.mockReset()
+    publishMutate.mockReset()
+    generateState = { isPending: false, isError: false, error: null }
+    validateState = { isPending: false, isError: false }
+    publishState = { isPending: false, isError: false, isSuccess: false }
+    generateMutate.mockImplementation((_id, opts) => { opts?.onSuccess?.({ cql: 'library X version 1', warnings: [] }) })
+  })
+
+  function conflict() {
+    return new AxiosError('conflict', '409', undefined, undefined, {
+      status: 409, statusText: 'Conflict', headers: {}, config: { headers: new AxiosHeaders() },
+      data: { error: 'Publish Conflict', message: 'edited' },
+    })
+  }
+
+  it('asks before overwriting and re-publishes with force on confirm', async () => {
+    publishMutate.mockImplementationOnce((_args, opts) => opts?.onError?.(conflict()))
+    render(<EcqmCqlPreviewTab artifactId={7} artifactUpdatedAt="2026-04-25T10:00:00Z" />)
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
+    await waitFor(() => expect(screen.getByText(/library X version 1/)).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.publishToMeasure' }))
+    expect(publishMutate).toHaveBeenLastCalledWith({ id: 7, force: false }, expect.anything())
+    expect(await screen.findByText('publishConflict.title')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'publishConflict.overwrite' }))
+    expect(publishMutate).toHaveBeenLastCalledWith({ id: 7, force: true }, expect.anything())
+    expect(publishMutate).toHaveBeenCalledTimes(2)
+  })
+
+  it('cancel publishes nothing more; any other error does not open the confirm', async () => {
+    publishMutate.mockImplementationOnce((_args, opts) => opts?.onError?.(conflict()))
+    render(<EcqmCqlPreviewTab artifactId={7} artifactUpdatedAt="2026-04-25T10:00:00Z" />)
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.generate' }))
+    await waitFor(() => expect(screen.getByText(/library X version 1/)).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.publishToMeasure' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'common:actions.cancel' }))
+    await waitFor(() => expect(screen.queryByText('publishConflict.title')).not.toBeInTheDocument())
+    expect(publishMutate).toHaveBeenCalledTimes(1)
+
+    publishMutate.mockImplementationOnce((_args, opts) => opts?.onError?.(new Error('boom')))
+    fireEvent.click(screen.getByRole('button', { name: 'cqlPreview.publishToMeasure' }))
+    expect(screen.queryByText('publishConflict.title')).not.toBeInTheDocument()
   })
 })

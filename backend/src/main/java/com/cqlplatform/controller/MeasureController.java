@@ -65,6 +65,7 @@ public class MeasureController {
     private final DataRequirementExtractor dataRequirementExtractor;
     private final DashboardService dashboardService;
     private final OwnershipVerifier ownershipVerifier;
+    private final com.cqlplatform.service.ecqm.EcqmPublishService ecqmPublishService;
 
     // ===== Helpers =====
 
@@ -273,6 +274,21 @@ public class MeasureController {
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-narrative.html")
                 .header("Content-Type", "text/html; charset=UTF-8")
                 .body(html.getBytes(StandardCharsets.UTF_8));
+    }
+
+    // ===== Builder source (PAT-238) =====
+
+    /**
+     * The eCQM builder artifact this measure was published from, with whether the measure or the
+     * builder changed since that publish; 204 when the measure was not built in the builder.
+     */
+    @GetMapping("/{id}/builder-source")
+    @Operation(summary = "Get Builder Source", description = "eCQM builder artifact the measure was published from, and drift since publish")
+    public ResponseEntity<com.cqlplatform.model.ecqm.BuilderSource> getBuilderSource(@PathVariable Long id) {
+        requireReadableMeasure(id);
+        return ecqmPublishService.builderSourceOf(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.noContent().build());
     }
 
     // ===== CQL Expressions =====

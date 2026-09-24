@@ -261,7 +261,7 @@ class EcqmControllerTest {
     @WithMockUser(username = "testuser")
     void publish_shouldReturnResult() throws Exception {
         when(artifactService.getById(1L)).thenReturn(Optional.of(createArtifactResponse()));
-        when(publishService.publish(1L, "testuser"))
+        when(publishService.publish(1L, "testuser", false))
                 .thenReturn(PublishResult.builder()
                         .measureDefinitionId(100L)
                         .measureName("Test eCQM")
@@ -273,6 +273,25 @@ class EcqmControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.measureDefinitionId").value(100))
                 .andExpect(jsonPath("$.measureName").value("Test eCQM"));
+    }
+
+    // PAT-238: force is passed through; a measure-page edit since the last publish is a 409
+    // with its own error label so the builder can ask and retry with force=true.
+    @Test
+    @WithMockUser(username = "testuser")
+    void publish_conflictIs409_andForceIsPassedThrough() throws Exception {
+        when(artifactService.getById(1L)).thenReturn(Optional.of(createArtifactResponse()));
+        when(publishService.publish(1L, "testuser", false))
+                .thenThrow(new com.cqlplatform.exception.PublishConflictException(100L));
+        when(publishService.publish(1L, "testuser", true))
+                .thenReturn(PublishResult.builder().measureDefinitionId(100L).measureName("Test eCQM").build());
+
+        mockMvc.perform(post("/api/ecqm/artifacts/1/publish"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Publish Conflict"));
+        mockMvc.perform(post("/api/ecqm/artifacts/1/publish").param("force", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.measureDefinitionId").value(100));
     }
 
     // ===== Scoring types =====

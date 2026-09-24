@@ -1162,5 +1162,12 @@
     "definition": "定義",
     "addTerm": "新增名詞",
     "removeTerm": "移除名詞"
+  },
+  "builderSource": {
+    "builtIn": "由 eCQM builder 建立：{{name}}（擁有者 {{owner}}）。",
+    "publishedAt": "最後發布於 {{at}}。",
+    "openInBuilder": "在 builder 開啟",
+    "measureEdited": "發布之後，邏輯或母群對應在這裡被改過。從 builder 再次發布前會先詢問是否覆寫——要保留這些修改，請先在 builder 做同樣的改動。",
+    "builderChanged": "builder 有尚未發布到這個指標的變更——到 builder 發布才會生效。"
   }
 }
