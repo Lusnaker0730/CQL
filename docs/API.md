@@ -489,6 +489,14 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 
 ---
 
+### 3.5a 列出函式庫的 define 與函式（PAT-237）
+
+**GET** `/api/cql/libraries/{id}/expressions`
+
+由儲存的 CQL 翻譯取得（同指標的 `/cql-expressions`），回傳 `ExpressionInfo[]`：`{ name, context, accessLevel, resultType, kind: "expression" | "function", operands?: [{ name, type }] }`。`kind = function` 的項目帶 operand 簽章（型別以作者寫法呈現：`Integer`、`List<FHIR.Observation>`、`Interval<DateTime>`），builder 據此產生帶引數的呼叫元素；找不到函式庫 404，CQL 為空回 `[]`。上傳到 artifact 的外部程式庫（`/external-cql`）的 `details.definitions` 也帶同樣的 `kind` / `operands`（重新上傳才會有）。
+
+---
+
 ### 3.6 建立函式庫
 
 **POST** `/api/cql/libraries`

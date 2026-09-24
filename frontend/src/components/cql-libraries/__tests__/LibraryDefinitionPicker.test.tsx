@@ -18,8 +18,11 @@ vi.mock('../../../api', () => ({
   },
 }))
 // Must mock useCqlLibrary separately — the picker uses this dedicated hook.
+// PAT-237: useCqlLibraryExpressions feeds defines + functions from ELM metadata; the tests below
+// that only set cqlContent exercise the regex fallback (empty expressions).
 vi.mock('../../../hooks/useCqlLibraries', () => ({
   useCqlLibrary: vi.fn(),
+  useCqlLibraryExpressions: vi.fn(),
 }))
 // Disable debounce in tests so search triggers immediately.
 vi.mock('../../../hooks/useDebouncedValue', () => ({
@@ -27,7 +30,7 @@ vi.mock('../../../hooks/useDebouncedValue', () => ({
 }))
 
 import { cqlApi } from '../../../api'
-import { useCqlLibrary } from '../../../hooks/useCqlLibraries'
+import { useCqlLibrary, useCqlLibraryExpressions } from '../../../hooks/useCqlLibraries'
 
 function renderPicker(onSelect = vi.fn(), onClose = vi.fn()) {
   // Fresh QueryClient per test so cached results don't bleed.
@@ -81,13 +84,47 @@ describe('LibraryDefinitionPicker dialog', () => {
     getLibsMock.mockResolvedValue(libraries)
   }
 
-  function mockLibraryDetailWith(cqlContent: string, loading = false) {
+  function mockLibraryDetailWith(cqlContent: string, loading = false, expressions: unknown[] = []) {
     const useLibMock = useCqlLibrary as ReturnType<typeof vi.fn>
     useLibMock.mockReturnValue({
       data: { cqlContent },
       isLoading: loading,
     })
+    const useExprMock = useCqlLibraryExpressions as ReturnType<typeof vi.fn>
+    useExprMock.mockReturnValue({ data: expressions, isLoading: false })
   }
+
+  // PAT-237 — with ELM metadata the picker lists functions with their signature and hands the
+  // operands back on confirm, so the tree can turn the pick into a call with arguments. A plain
+  // define keeps the exact four-field reference shape.
+  it('lists functions with their signature and emits kind + operands on confirm', async () => {
+    mockLibrariesListWith([
+      { id: 1, name: 'SharedLogic', version: '1.2.0', status: 'active', ownerUsername: 'u' },
+    ])
+    mockLibraryDetailWith('library SharedLogic version \'1.2.0\'\n', false, [
+      { name: 'HasDiabetes', kind: 'expression', resultType: 'Boolean' },
+      { name: 'AtLeast', kind: 'function', resultType: 'Boolean',
+        operands: [{ name: 'value', type: 'Integer' }, { name: 'threshold', type: 'Integer' }] },
+    ])
+
+    const user = userEvent.setup()
+    const { onSelect } = renderPicker()
+
+    await user.click(await screen.findByText('SharedLogic'))
+    await user.click(await screen.findByText('AtLeast(value Integer, threshold Integer) → Boolean'))
+    await user.click(screen.getByRole('button', { name: /^select$/i }))
+
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect.mock.calls[0][0]).toEqual({
+      libraryName: 'SharedLogic',
+      libraryVersion: '1.2.0',
+      definitionName: 'AtLeast',
+      alias: 'SL',
+      kind: 'function',
+      operands: [{ name: 'value', type: 'Integer' }, { name: 'threshold', type: 'Integer' }],
+      resultType: 'Boolean',
+    })
+  })
 
   it('filters out retired libraries from the list', async () => {
     mockLibrariesListWith([

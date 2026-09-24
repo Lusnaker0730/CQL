@@ -33,6 +33,16 @@ public class ExpressionCqlEngine {
     private static final Pattern ARITHMETIC_UCUM_UNIT_PATTERN =
             Pattern.compile("[A-Za-z0-9./*+\\-()\\[\\]{}%_]{1,32}");
 
+    // PAT-237: literal argument allow-lists for library function calls. Each literal kind has
+    // exactly one accepted shape; anything else leaves the argument unresolved (never emitted).
+    private static final Pattern FN_INTEGER_PATTERN = Pattern.compile("-?\\d{1,18}");
+    private static final Pattern FN_DECIMAL_PATTERN = Pattern.compile("-?\\d{1,18}(\\.\\d{1,8})?");
+    private static final Pattern FN_DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final Pattern FN_DATETIME_PATTERN =
+            Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})?");
+    private static final int FN_STRING_MAX_LENGTH = 500;
+    public static final String FUNCTION_CALL_TYPE = "externalCqlFunctionCall";
+
     // PAT-161: arithmetic operator allow-list. mod/div are CQL keyword operators
     // (word-style); ^ is the CQL exponentiation operator. Failsafe to "+" for
     // anything outside this set so a malicious operator string can never reach
@@ -291,6 +301,11 @@ public class ExpressionCqlEngine {
                 } else {
                     expr = String.format("\"%s\"", escapeCqlIdentifier(defName));
                 }
+                break;
+            }
+            case FUNCTION_CALL_TYPE: {
+                // PAT-237: a call to a function of an included library, with author-supplied arguments
+                expr = emitFunctionCall(fields, ctx, elementName);
                 break;
             }
             case "externalCqlElement": {
@@ -556,6 +571,105 @@ public class ExpressionCqlEngine {
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
+    }
+
+    // ── PAT-237: library function calls ─────────────────────────────────
+
+    /** The name the include is {@code called} and the call is qualified with. */
+    static String functionCallQualifier(String libName, String alias) {
+        if (alias != null && !alias.isBlank()) return alias.replaceAll("[^a-zA-Z0-9_]", "_");
+        return libName == null ? "" : libName.replaceAll("[^a-zA-Z0-9_]", "_");
+    }
+
+    /**
+     * {@code "Lib"."Fn"(arg, …)}. Every argument must resolve; one unresolved argument makes the
+     * whole call {@code null} with a warning — a call with a silently dropped argument would be a
+     * different (and probably still translatable) call.
+     */
+    @SuppressWarnings("unchecked")
+    private String emitFunctionCall(List<Map<String, Object>> fields, BuildContext ctx, String elementName) {
+        String libName = getFieldValue(fields, "library_name", "");
+        String alias = getFieldValue(fields, "alias", "");
+        String fnName = getFieldValue(fields, "function_name", "");
+        if (fnName == null || fnName.isBlank()) {
+            ctx.warn(String.format("Function call element '%s' has no function name", elementName));
+            return "null /* missing library function */";
+        }
+        Object argsRaw = getFieldRawValue(fields, "arguments");
+        List<Map<String, Object>> args = argsRaw instanceof List<?> ? (List<Map<String, Object>>) argsRaw : List.of();
+        List<String> argCqls = new ArrayList<>(args.size());
+        for (int i = 0; i < args.size(); i++) {
+            Map<String, Object> arg = args.get(i);
+            String cql = resolveFunctionArgument(arg, ctx);
+            if (cql == null) {
+                ctx.warn(String.format("Function call '%s': argument '%s' is unresolved",
+                        elementName, strFromMap(arg, "name", String.valueOf(i + 1))));
+                return "null /* unresolved function argument */";
+            }
+            argCqls.add(cql);
+        }
+        String qualifier = functionCallQualifier(libName, alias);
+        String call = String.format("\"%s\"(%s)", escapeCqlIdentifier(fnName), String.join(", ", argCqls));
+        return qualifier.isEmpty() ? call : String.format("\"%s\".%s", qualifier, call);
+    }
+
+    /**
+     * One argument of a library function call. {@code mode}: {@code element} (a base element by
+     * uniqueId), {@code parameter} (an artifact parameter by uniqueId), {@code patient}
+     * ({@code Patient}), {@code measurementPeriod} (eCQM only) or {@code literal}
+     * ({@code literal_type} + {@code literal_value} [+ {@code literal_unit}]). Returns null when
+     * the argument cannot be emitted safely.
+     */
+    String resolveFunctionArgument(Map<String, Object> arg, BuildContext ctx) {
+        if (arg == null) return null;
+        String mode = strFromMap(arg, "mode", "element");
+        switch (mode) {
+            case "element": {
+                String name = ctx.findBaseElementName(strFromMap(arg, "operand_id", null));
+                return name != null ? String.format("\"%s\"", escapeCqlIdentifier(name)) : null;
+            }
+            case "parameter": {
+                String name = ctx.findParameterName(strFromMap(arg, "operand_id", null));
+                return name != null ? String.format("\"%s\"", escapeCqlIdentifier(name)) : null;
+            }
+            case "patient":
+                return "Patient";
+            case "measurementPeriod":
+                return ctx.hasMeasurementPeriod ? "\"Measurement Period\"" : null;
+            case "literal":
+                return functionLiteral(strFromMap(arg, "literal_type", ""),
+                        strFromMap(arg, "literal_value", ""), strFromMap(arg, "literal_unit", ""));
+            default:
+                return null;
+        }
+    }
+
+    /** A typed literal argument, or null when the value does not have the type's one accepted shape. */
+    static String functionLiteral(String type, String value, String unit) {
+        String v = value == null ? "" : value.trim();
+        switch (type == null ? "" : type) {
+            case "Integer":
+                return FN_INTEGER_PATTERN.matcher(v).matches() ? v : null;
+            case "Decimal":
+                return FN_DECIMAL_PATTERN.matcher(v).matches() ? v : null;
+            case "Boolean":
+                return "true".equals(v) || "false".equals(v) ? v : null;
+            case "String":
+                if (value == null || value.length() > FN_STRING_MAX_LENGTH) return null;
+                return "'" + com.cqlplatform.util.CqlEscapeUtil.escapeCqlString(value) + "'";
+            case "Date":
+                return FN_DATE_PATTERN.matcher(v).matches() ? "@" + v : null;
+            case "DateTime":
+                return FN_DATETIME_PATTERN.matcher(v).matches() ? "@" + v : null;
+            case "Quantity": {
+                String u = unit == null ? "" : unit.trim();
+                if (!ARITHMETIC_NUMERIC_PATTERN.matcher(v).matches()) return null;
+                if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(u).matches()) return null;
+                return String.format("%s '%s'", v, u);
+            }
+            default:
+                return null;
+        }
     }
 
     private static String strFromMap(Map<String, Object> map, String key, String defaultVal) {
@@ -1085,6 +1199,23 @@ public class ExpressionCqlEngine {
                     includeStmt = String.format("include %s called %s", safeLibName, safeLibName);
                 }
                 includes.add(includeStmt);
+            }
+        } else if (FUNCTION_CALL_TYPE.equals(type)) {
+            // PAT-237: same include as an externalCqlRef; the body qualifies the call with the
+            // `called` name (alias when the author picked one, else the sanitised library name).
+            List<Map<String, Object>> extFields = (List<Map<String, Object>>) node.get("fields");
+            String libName = getFieldValue(extFields, "library_name", null);
+            String libVersion = getFieldValue(extFields, "library_version", null);
+            String alias = getFieldValue(extFields, "alias", null);
+            if (libName != null && !libName.isEmpty()) {
+                String called = functionCallQualifier(libName, alias);
+                String safeLibName = libName.replaceAll("[^a-zA-Z0-9_]", "_");
+                if (libVersion != null && !libVersion.isEmpty()) {
+                    includes.add(String.format("include %s version '%s' called %s",
+                            safeLibName, escapeCqlString(libVersion), called));
+                } else {
+                    includes.add(String.format("include %s called %s", safeLibName, called));
+                }
             }
         } else if ("externalCqlElement".equals(type)) {
             List<Map<String, Object>> extFields = (List<Map<String, Object>>) node.get("fields");

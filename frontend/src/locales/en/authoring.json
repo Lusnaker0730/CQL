@@ -706,5 +706,39 @@
     "generatedCql": "Generated CQL",
     "selectToStart": "(Select a resource type to start building)",
     "insertIntoEditor": "Insert into Editor"
+  },
+  "functionCall": {
+    "source": "Source",
+    "modes": {
+      "element": "Base element",
+      "parameter": "Parameter",
+      "literal": "Literal value",
+      "patient": "Patient",
+      "measurementPeriod": "Measurement Period"
+    },
+    "baseElement": "Base element",
+    "parameter": "Parameter",
+    "literalType": "Type",
+    "value": "Value",
+    "unit": "Unit (UCUM)",
+    "noArguments": "This function takes no arguments.",
+    "noBaseElements": "No base elements yet — add one on the Base Elements tab.",
+    "noParameters": "No parameters yet — add one on the Parameters tab.",
+    "placeholders": {
+      "Integer": "e.g. 65",
+      "Decimal": "e.g. 7.0",
+      "String": "text",
+      "Boolean": "true / false",
+      "Date": "YYYY-MM-DD",
+      "DateTime": "YYYY-MM-DDThh:mm",
+      "Quantity": "e.g. 140"
+    },
+    "errors": {
+      "missingReference": "Pick the base element or parameter this argument comes from.",
+      "invalidLiteral": "The value does not match the type (integer, decimal, ISO date, …).",
+      "invalidUnit": "The unit must be UCUM-safe (letters, digits, / . * %).",
+      "noMeasurementPeriod": "This artifact has no Measurement Period; choose another source.",
+      "unknownMode": "Unknown argument source."
+    }
   }
 }

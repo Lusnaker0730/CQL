@@ -53,7 +53,7 @@ const EcqmPopulationTreeEditor = memo(function EcqmPopulationTreeEditor({
   const handleLibrarySelect = useCallback((reference: LibraryDefinitionReference) => {
     // Convert via shared factory so eCQM and CDS authoring produce identical
     // `externalCqlElement` shapes (PAT-103). See utils/libraryReference.ts.
-    const element = libraryReferenceToElement(reference)
+    const element = libraryReferenceToElement(reference, true) // eCQM: Measurement Period exists
     onUpdateTree({
       ...treeRef.current,
       childInstances: [...treeRef.current.childInstances, element],

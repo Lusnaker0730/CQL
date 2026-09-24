@@ -181,7 +181,9 @@
     "step1Title": "Select Library",
     "step2Title": "Select Definition",
     "generateInclude": "Reference expression",
-    "useLibraryDefinition": "Use Library Definition"
+    "useLibraryDefinition": "Use Library Definition",
+    "functionChip": "function",
+    "functionHint": "Called with arguments you fill in on the element"
   },
   "errors": {
     "createFailed": "Failed to create library: {{error}}",

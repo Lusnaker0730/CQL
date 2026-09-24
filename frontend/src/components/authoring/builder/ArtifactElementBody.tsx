@@ -16,6 +16,8 @@ import ExpressionPhrase from './ExpressionPhrase'
 import ModifierCard from './ModifierCard'
 import GradientButton from '../../common/GradientButton'
 import CustomModifierBuilder from './CustomModifierBuilder'
+import FunctionArgumentsEditor from './FunctionArgumentsEditor'
+import type { FunctionArgument } from '../../../types/authoring'
 import type { ElementInstance, ElementField, Modifier, ModifierDefinition } from '../../../types/authoring'
 import { getEffectiveReturnType as getEffectiveRT, getReturnTypeAtPosition } from '../../../utils/modifierUtils'
 
@@ -531,6 +533,14 @@ function FieldRenderer({
         <NumberField
           label={field.name}
           value={field.value as number | undefined}
+          onChange={onChange}
+        />
+      )
+    case 'functionArguments':
+      // PAT-237: the arguments of a library function call
+      return (
+        <FunctionArgumentsEditor
+          value={Array.isArray(field.value) ? (field.value as FunctionArgument[]) : []}
           onChange={onChange}
         />
       )

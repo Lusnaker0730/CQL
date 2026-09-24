@@ -263,4 +263,31 @@ class EcqmExpressionTreeValidatorTest {
         validator.validate(requestWithModifier("CheckExistence", null));
         validator.validate(requestWithModifier("Foo", Map.of("anything", "goes")));
     }
+
+    // ── BUG-146: parameters are not expression trees ──────────────────────
+
+    @Test
+    void parameters_typedParameter_isAccepted_notReadAsAnElementType() {
+        EcqmArtifactRequest request = EcqmArtifactRequest.builder().name("M")
+                .parameters(List.of(
+                        Map.of("uniqueId", "p1", "name", "Senior Threshold", "type", "integer", "value", 65),
+                        Map.of("uniqueId", "p2", "name", "Window", "type", "interval<datetime>"),
+                        Map.of("uniqueId", "p3", "name", "Label", "type", "string", "value", "HbA1c < 7%")))
+                .build();
+        validator.validate(request); // used to throw "parameters[0]: unknown element type 'integer'"
+    }
+
+    @Test
+    void parameters_unknownTypeOrHtmlName_isRejected() {
+        EcqmArtifactRequest request = EcqmArtifactRequest.builder().name("M")
+                .parameters(List.of(
+                        Map.of("uniqueId", "p1", "name", "Threshold", "type", "money"),
+                        Map.of("uniqueId", "p2", "name", "<img src=x onerror=alert(1)>", "type", "integer")))
+                .build();
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(e -> assertThat(((ValidationException) e).getDetails())
+                        .anyMatch(d -> d.contains("parameters[0]") && d.contains("unknown parameter type 'money'"))
+                        .anyMatch(d -> d.contains("parameters[1].name")));
+    }
 }

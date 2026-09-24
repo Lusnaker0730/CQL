@@ -19,6 +19,7 @@ import Parameters from '../authoring/parameters/Parameters'
 import EcqmExternalCql from './EcqmExternalCql'
 import type { BaseElement, Parameter } from '../../types/authoring'
 import { extractApiError } from '../../utils/errorUtils'
+import { ArtifactScopeProvider } from '../../contexts/ArtifactScopeContext'
 
 const EMPTY_BASE_ELEMENTS: BaseElement[] = []
 const EMPTY_PARAMETERS: Parameter[] = []
@@ -217,6 +218,12 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   }, [updateMutation, save, onBack])
 
   return (
+    // PAT-237: what a library function call may take as arguments; an eCQM always has a Measurement Period
+    <ArtifactScopeProvider
+      baseElements={localArtifact.baseElements}
+      parameters={localArtifact.parameters}
+      hasMeasurementPeriod
+    >
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <EcqmArtifactWorkspaceHeader
         artifact={localArtifact}
@@ -330,5 +337,6 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         </Alert>
       </Snackbar>
     </Box>
+    </ArtifactScopeProvider>
   )
 }

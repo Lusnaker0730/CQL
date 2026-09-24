@@ -47,6 +47,8 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 7. **多元件分層（PAT-235）** — 分層第三種模式：`components[]`（每個元件有 `code` + 自己的條件式 / 值型編輯器，共用 `ValueSourceEditor`），病人的分層是各元件值的組合。`code` 會成為 define 名的一部分（`Stratifier <id> <code>`），`utils/stratifierComponents.ts` 與後端同一套檢查（1–50 字英數 / 空格 / `_.-`、不重複、2–10 個）；切回單一模式會清掉 `components`。指標編輯頁對多元件分層只顯示、不編輯
 6. **SDE 的用途與類型（PAT-234）** — 自訂 SDE 列多 `usage`（`supplemental-data` 預設 / `risk-adjustment-factor`）與 `kind`（`criteria` / `value`，值型共用 `ValueSourceEditor`）。切成風險校正因子時，還是預設名稱的列會自動改成 `RAF …`，作者自己取的名字不動、只提示（後端 publish 警告）。publish 依 `usage` 映進 `MeasureDefinition.supplementalData` / `riskAdjustments`——以前一個都沒映，所以評估與交換封裝都不知道指標有 SDE
 
+9. **程式庫函式呼叫（PAT-237）** — 母群樹的「使用程式庫定義」picker 也列函式（簽章 + `function` chip），選了變成 `externalCqlFunctionCall` 元素，引數在元素卡片上填（`FunctionArgumentsEditor`）；`EcqmArtifactWorkspace` 用 `ArtifactScopeProvider` 提供基礎元素 / 參數並宣告有 Measurement Period，所以 `Interval<DateTime>` 型的引數預設就是 `"Measurement Period"`
+
 ## 狀態管理
 
 ```

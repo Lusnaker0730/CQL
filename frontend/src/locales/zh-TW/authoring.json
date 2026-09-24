@@ -706,5 +706,39 @@
     "generatedCql": "產生的 CQL",
     "selectToStart": "（選擇資源類型以開始建立）",
     "insertIntoEditor": "插入到編輯器"
+  },
+  "functionCall": {
+    "source": "來源",
+    "modes": {
+      "element": "基礎元素",
+      "parameter": "參數",
+      "literal": "字面值",
+      "patient": "Patient",
+      "measurementPeriod": "Measurement Period"
+    },
+    "baseElement": "基礎元素",
+    "parameter": "參數",
+    "literalType": "型別",
+    "value": "值",
+    "unit": "單位（UCUM）",
+    "noArguments": "這個函式沒有引數。",
+    "noBaseElements": "還沒有基礎元素——先到「基礎元素」分頁新增。",
+    "noParameters": "還沒有參數——先到「參數」分頁新增。",
+    "placeholders": {
+      "Integer": "例如 65",
+      "Decimal": "例如 7.0",
+      "String": "文字",
+      "Boolean": "true / false",
+      "Date": "YYYY-MM-DD",
+      "DateTime": "YYYY-MM-DDThh:mm",
+      "Quantity": "例如 140"
+    },
+    "errors": {
+      "missingReference": "請選擇這個引數要用的基礎元素或參數。",
+      "invalidLiteral": "值與型別不符（整數、小數、ISO 日期…）。",
+      "invalidUnit": "單位必須是 UCUM 安全字元（英數、/ . * %）。",
+      "noMeasurementPeriod": "這個 artifact 沒有 Measurement Period，請改用其他來源。",
+      "unknownMode": "未知的引數來源。"
+    }
   }
 }
