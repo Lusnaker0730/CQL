@@ -108,10 +108,13 @@ public class CqfmMeasureBuilder {
         if (notBlank(def.getDescription())) measure.put("description", def.getDescription());
         if (notBlank(def.getCopyright())) measure.put("copyright", def.getCopyright());
         // QM IG conformance requirement 3.4: a measure states the period it applies to.
+        // PAT-236: the author's effective period when set; the created-at fallback otherwise.
         ObjectNode effectivePeriod = measure.putObject("effectivePeriod");
-        effectivePeriod.put("start", def.getCreatedAt() != null
-                ? def.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        effectivePeriod.put("start", def.getEffectiveStart() != null ? def.getEffectiveStart().toString()
+                : def.getCreatedAt() != null ? def.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE)
                 : java.time.LocalDate.now().withDayOfYear(1).toString());
+        if (def.getEffectiveEnd() != null) effectivePeriod.put("end", def.getEffectiveEnd().toString());
+        addStandardMetadata(measure, def);
         addAuthors(measure, def);
         addRelatedArtifacts(measure, def, report);
         if (hasLibrary) {
@@ -348,6 +351,44 @@ public class CqfmMeasureBuilder {
     }
 
     // ------------------------------------------------------------------ other elements
+
+    /**
+     * PAT-236 — Measure.experimental / approvalDate / lastReviewDate / type[] / definition[] /
+     * clinicalRecommendationStatement. Only what the author set is written; the pass-through of
+     * an imported base still fills what is left empty.
+     */
+    private void addStandardMetadata(ObjectNode measure, MeasureDefinition def) {
+        if (def.getExperimental() != null) measure.put("experimental", def.getExperimental());
+        if (def.getApprovalDate() != null) measure.put("approvalDate", def.getApprovalDate().toString());
+        if (def.getLastReviewDate() != null) measure.put("lastReviewDate", def.getLastReviewDate().toString());
+        if (def.getMeasureTypes() != null && !def.getMeasureTypes().isEmpty()) {
+            ArrayNode types = measure.putArray("type");
+            for (String type : def.getMeasureTypes()) {
+                if (notBlank(type)) CqfmLibraryBuilder.codeable(types.addObject(), FhirCodeSystemConstants.CS_MEASURE_TYPE, type, null);
+            }
+        }
+        if (def.getDefinitionTerms() != null && !def.getDefinitionTerms().isEmpty()) {
+            ArrayNode definitions = measure.putArray("definition");
+            for (MeasureDefinition.DefinitionTerm term : def.getDefinitionTerms()) {
+                String text = definitionMarkdown(term);
+                if (text != null) definitions.add(text);
+            }
+            if (definitions.isEmpty()) measure.remove("definition");
+        }
+        if (notBlank(def.getClinicalRecommendationStatement())) {
+            measure.put("clinicalRecommendationStatement", def.getClinicalRecommendationStatement());
+        }
+    }
+
+    /** {@code **term**: definition} — Measure.definition is markdown[]; the term is bold so a reader can find it. */
+    static String definitionMarkdown(MeasureDefinition.DefinitionTerm term) {
+        boolean hasTerm = notBlank(term.getTerm());
+        boolean hasDefinition = notBlank(term.getDefinition());
+        if (!hasTerm && !hasDefinition) return null;
+        if (!hasTerm) return term.getDefinition().trim();
+        if (!hasDefinition) return "**" + term.getTerm().trim() + "**";
+        return "**" + term.getTerm().trim() + "**: " + term.getDefinition().trim();
+    }
 
     private void addSupplementalData(ObjectNode measure, MeasureDefinition def) {
         ArrayNode array = MAPPER.createArrayNode();

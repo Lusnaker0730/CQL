@@ -1,6 +1,7 @@
 // eCQM Authoring types
 
 import type { ConjunctionGroup, BaseElement, Parameter } from './authoring'
+import type { MeasureStandardMetadata } from './index'
 
 export interface EcqmArtifactSummary {
   id: number
@@ -16,7 +17,7 @@ export interface EcqmArtifactSummary {
   updatedAt: string
 }
 
-export interface EcqmArtifact {
+export interface EcqmArtifact extends MeasureStandardMetadata {
   id: number
   name: string
   version: string
@@ -51,7 +52,7 @@ export interface EcqmArtifact {
   updatedAt: string
 }
 
-export interface EcqmArtifactRequest {
+export interface EcqmArtifactRequest extends MeasureStandardMetadata {
   name: string
   version?: string
   description?: string

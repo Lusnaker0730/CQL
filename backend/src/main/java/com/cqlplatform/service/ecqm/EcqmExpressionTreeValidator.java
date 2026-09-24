@@ -3,6 +3,7 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
 import com.cqlplatform.model.ecqm.EcqmConstants;
+import com.cqlplatform.security.NoXssValidator;
 import com.cqlplatform.service.authoring.CustomModifierBuildException;
 import com.cqlplatform.service.authoring.CustomModifierCqlBuilder;
 import com.cqlplatform.service.authoring.ModifierService;
@@ -52,6 +53,7 @@ public class EcqmExpressionTreeValidator {
         validateTrees("parameters", request.getParameters(), errors, nodeCount);
         validateTrees("supplementalData", request.getSupplementalData(), errors, nodeCount);
         validateTrees("stratifiers", request.getStratifiers(), errors, nodeCount);
+        validateDefinitionTerms(request, errors);
 
         // ── eCQM-specific structural validation ──────────────────────────
         validateDefineNameUniqueness(request, errors);
@@ -283,6 +285,40 @@ public class EcqmExpressionTreeValidator {
     }
 
     // ── Utilities ────────────────────────────────────────────────────────
+
+    // ── PAT-236 definition terms ─────────────────────────────────────────
+
+    /** Prose limits shared with {@code MeasureDefinition.DefinitionTerm}. */
+    private static final int DEFINITION_TERM_MAX = 200;
+    private static final int DEFINITION_TEXT_MAX = 2000;
+
+    /**
+     * Definition terms are prose ({@code {term, definition}}), not expression trees: "HbA1c < 7%"
+     * is a legitimate definition, so they get the rules the measure side applies to the same
+     * fields (the {@link NoXssValidator} patterns + lengths) rather than the tree walker's
+     * "no angle brackets at all" check.
+     */
+    private void validateDefinitionTerms(EcqmArtifactRequest request, List<String> errors) {
+        List<Map<String, Object>> terms = request.getDefinitionTerms();
+        if (terms == null) return;
+        NoXssValidator xss = new NoXssValidator();
+        for (int i = 0; i < terms.size(); i++) {
+            Map<String, Object> term = terms.get(i);
+            if (term == null) continue;
+            checkProse("definitionTerms[" + i + "].term", toStr(term.get("term")), DEFINITION_TERM_MAX, xss, errors);
+            checkProse("definitionTerms[" + i + "].definition", toStr(term.get("definition")), DEFINITION_TEXT_MAX, xss, errors);
+        }
+    }
+
+    private static void checkProse(String path, String value, int max, NoXssValidator xss, List<String> errors) {
+        if (value == null) return;
+        if (value.length() > max) {
+            errors.add(String.format("%s: exceeds %d characters", path, max));
+        }
+        if (!xss.isValid(value, null)) {
+            errors.add(String.format("Potentially unsafe content detected in field '%s'", path));
+        }
+    }
 
     private static String toStr(Object value) {
         return value instanceof String s ? s : null;

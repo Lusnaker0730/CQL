@@ -592,6 +592,75 @@ class MeasureDefinitionServiceTest {
         assertThat(result.getStatus()).isEqualTo("draft");
     }
 
+    // PAT-236 — the standard metadata survives create (model → entity) and update → read back
+    // (entity → model); clearing a field on update really clears it.
+    @Test
+    void standardMetadata_roundTripsThroughCreateAndUpdate() {
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Meta").version("1.0.0")
+                .measureTypes(List.of("process", "outcome"))
+                .definitionTerms(List.of(MeasureDefinition.DefinitionTerm.builder().term("HbA1c control").definition("< 7%").build()))
+                .clinicalRecommendationStatement("ADA 2026")
+                .effectiveStart(java.time.LocalDate.of(2026, 1, 1)).effectiveEnd(java.time.LocalDate.of(2026, 12, 31))
+                .approvalDate(java.time.LocalDate.of(2025, 11, 20)).lastReviewDate(java.time.LocalDate.of(2026, 6, 15))
+                .experimental(Boolean.TRUE)
+                .build();
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Meta", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("owner");
+        java.util.concurrent.atomic.AtomicReference<MeasureDefinitionEntity> stored = new java.util.concurrent.atomic.AtomicReference<>();
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            stored.set(e);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition created = service.create(definition);
+
+        assertThat(created.getMeasureTypes()).containsExactly("process", "outcome");
+        assertThat(created.getDefinitionTerms()).extracting(MeasureDefinition.DefinitionTerm::getTerm).containsExactly("HbA1c control");
+        assertThat(created.getClinicalRecommendationStatement()).isEqualTo("ADA 2026");
+        assertThat(created.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(created.getEffectiveEnd()).isEqualTo(java.time.LocalDate.of(2026, 12, 31));
+        assertThat(created.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 11, 20));
+        assertThat(created.getLastReviewDate()).isEqualTo(java.time.LocalDate.of(2026, 6, 15));
+        assertThat(created.getExperimental()).isTrue();
+
+        // update with the dates and the statement cleared, one type, experimental off
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(stored.get()));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("Meta").version("1.0.0").status("draft")
+                .measureTypes(List.of("outcome"))
+                .experimental(Boolean.FALSE)
+                .build();
+
+        MeasureDefinition updated = service.update(1L, body, "owner");
+
+        assertThat(updated.getMeasureTypes()).containsExactly("outcome");
+        assertThat(updated.getDefinitionTerms()).isEmpty();
+        assertThat(updated.getClinicalRecommendationStatement()).isNull();
+        assertThat(updated.getEffectiveStart()).isNull();
+        assertThat(updated.getApprovalDate()).isNull();
+        assertThat(updated.getExperimental()).isFalse();
+    }
+
+    @Test
+    void update_effectivePeriodEndingBeforeStart_isRejectedBeforeAnythingIsSaved() {
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("M").version("1.0.0").status("draft")
+                .effectiveStart(java.time.LocalDate.of(2026, 6, 1)).effectiveEnd(java.time.LocalDate.of(2026, 1, 1))
+                .build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("before it starts");
+        verify(repository, never()).save(any());
+        verify(auditRepository, never()).save(any());
+    }
+
     @Test
     void update_lockedByAnother_shouldJudgeTheAuthenticatedCallerNotTheBodyOwner() {
         MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");

@@ -259,7 +259,9 @@
     "legalFields": {
       "copyright": "著作權",
       "disclaimer": "免責聲明"
-    }
+    },
+    "standardMetadata": "標準 Metadata（FHIR Measure）",
+    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期與實驗性旗標——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。"
   },
   "cql": {
     "translate": "翻譯",
@@ -1134,5 +1136,31 @@
       "info": "提示"
     },
     "canonicalBaseHint": "Canonical URL 目前使用預設的佔位網址。對外分享封裝前，請管理員把 FHIR_CANONICAL_BASE 設成貴單位擁有的網域。"
+  },
+  "standardMetadata": {
+    "measureTypes": "指標類型",
+    "measureTypesHelper": "FHIR Measure.type——可複選（最多 5 個）",
+    "types": {
+      "process": "過程（Process）",
+      "outcome": "結果（Outcome）",
+      "structure": "結構（Structure）",
+      "patient-reported-outcome": "病人自述結果（PRO）",
+      "composite": "複合（Composite）"
+    },
+    "experimental": "實驗性",
+    "experimentalHelper": "僅供測試，不用於實際照護",
+    "effectiveStart": "生效起日",
+    "effectiveEnd": "生效迄日",
+    "effectivePeriodInverted": "生效迄日早於起日。",
+    "approvalDate": "核准日期",
+    "lastReviewDate": "最後審閱日期",
+    "clinicalRecommendationStatement": "臨床建議聲明",
+    "clinicalRecommendationStatementPlaceholder": "本指標依據的臨床指引或建議摘要，例如「ADA 建議多數非懷孕成人 HbA1c 目標低於 7%」",
+    "definitionTerms": "名詞定義",
+    "definitionTermsHelper": "指標中使用的名詞及其在本指標中的定義（FHIR Measure.definition），最多 50 條。",
+    "term": "名詞",
+    "definition": "定義",
+    "addTerm": "新增名詞",
+    "removeTerm": "移除名詞"
   }
 }

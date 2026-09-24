@@ -756,7 +756,7 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 | `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
 | `GET /api/measures/{id}/export/elm` | 匯出 ELM JSON |
-| `POST /api/measures/import/bundle` | 匯入 FHIR Bundle |
+| `POST /api/measures/import/bundle` | 匯入 FHIR Bundle（含 PAT-236 標準 metadata 讀回） |
 | `GET /api/measures/{id}/export/hqmf` | 匯出 HQMF R2.1 XML（CMS 申報） |
 | `GET /api/measures/{id}/export/human-readable` | 匯出人類可讀 HTML 敘述文件 |
 
@@ -774,6 +774,7 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 - **ValueSet**：由已載入的 IG 或 VSAC 解析得到者附完整定義；解析不到者以真實 URL 附上、`status = unknown`，並列入報告。
 - `format=xml` 為 HAPI 由同一份 JSON 轉出的完整 FHIR XML。
 - 從其他工具匯入且**未修改**的指標再匯出時，原樣回傳原資源（含本平台不認識的擴充欄位），只有 `status` 以本機生命週期為準；修改過則由定義重建，並保留原資源中平台不建模的根元素。
+- **標準 metadata（PAT-236）**：`measureTypes[]` → `Measure.type[]`（`http://terminology.hl7.org/CodeSystem/measure-type`：`process` / `outcome` / `structure` / `patient-reported-outcome` / `composite`）；`definitionTerms[]` → `Measure.definition[]`（markdown，`**term**: definition`）；`clinicalRecommendationStatement`、`approvalDate`、`lastReviewDate`、`experimental` 原名；`effectiveStart` / `effectiveEnd` → `effectivePeriod`（未填起日時沿用建立日期的舊行為）。只寫作者填了的欄位；匯入基底的同名元素只補空缺。匯入時反向讀回（`definition` 非本平台格式者整段當 definition、term 為空）。
 
 Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL` + `/fhir`；兩者皆無時使用佔位網址，報告的 `canonicalBaseConfigured` 為 `false`。
 

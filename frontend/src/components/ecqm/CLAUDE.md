@@ -9,7 +9,7 @@ EcqmArtifactList.tsx              — 列表頁
 EcqmArtifactModal.tsx             — 新增 eCQM 對話框
 EcqmArtifactWorkspace.tsx         — 主工作區（★ 核心，auto-save）
 EcqmArtifactWorkspaceHeader.tsx   — Save / Publish 按鈕
-EcqmSummaryTab.tsx                — 量測摘要（CMS ID、NQF、用途）
+EcqmSummaryTab.tsx                — 量測摘要（CMS ID、NQF、用途；PAT-236 標準 metadata 段落共用 `measure/MeasureStandardMetadataFields`）
 EcqmPopulationGroupsTab.tsx       — 母群體群組管理
 EcqmPopulationGroupEditor.tsx     — 單一群組編輯
 EcqmPopulationTreeEditor.tsx      — 表達式樹建構（★ 複用 ConjunctionGroup）
@@ -46,6 +46,8 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 5. **分層兩種（PAT-233）** — `kind: 'criteria'`（預設，布林條件樹 → `true` / `false` 兩層）或 `kind: 'value'`（運算式的值就是分層，每個不同的值一層）。值型只有結構化來源 `gender`（`Patient.gender.value`）與 `ageBands`（測量期間結束時足歲、上下界含、標籤限 ASCII，`utils/ageBands.ts` 與後端同一套檢查）——**不要**加自由 CQL 文字欄位，artifact JSON 是 client 送來的，那是 CQL injection 面。此分頁編輯的是 artifact 層級 `stratifiers`，publish 時會套到每個 group（以前只映 group 層級，UI 又不編那層，做了等於沒做）
 7. **多元件分層（PAT-235）** — 分層第三種模式：`components[]`（每個元件有 `code` + 自己的條件式 / 值型編輯器，共用 `ValueSourceEditor`），病人的分層是各元件值的組合。`code` 會成為 define 名的一部分（`Stratifier <id> <code>`），`utils/stratifierComponents.ts` 與後端同一套檢查（1–50 字英數 / 空格 / `_.-`、不重複、2–10 個）；切回單一模式會清掉 `components`。指標編輯頁對多元件分層只顯示、不編輯
 6. **SDE 的用途與類型（PAT-234）** — 自訂 SDE 列多 `usage`（`supplemental-data` 預設 / `risk-adjustment-factor`）與 `kind`（`criteria` / `value`，值型共用 `ValueSourceEditor`）。切成風險校正因子時，還是預設名稱的列會自動改成 `RAF …`，作者自己取的名字不動、只提示（後端 publish 警告）。publish 依 `usage` 映進 `MeasureDefinition.supplementalData` / `riskAdjustments`——以前一個都沒映，所以評估與交換封裝都不知道指標有 SDE
+
+8. **標準 metadata（PAT-236）** — 摘要分頁最後一段「標準 Metadata（FHIR Measure）」：指標類型（複選）、實驗性、生效 / 核准 / 審閱日期、臨床建議聲明、名詞定義，與指標編輯頁共用 `components/measure/MeasureStandardMetadataFields`（`measures` namespace）。artifact 的 PUT 是部分更新，清掉的日期要送 `''` 才會清（`utils/measureMetadata.clearedDatesAsEmpty` 把元件送出的 `null` 換成 `''`）；publish 時只有 artifact 有值的欄位才覆蓋指標
 
 ## 狀態管理
 

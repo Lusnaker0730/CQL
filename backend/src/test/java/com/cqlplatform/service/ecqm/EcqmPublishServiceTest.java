@@ -232,6 +232,54 @@ class EcqmPublishServiceTest {
                 .containsExactly("RAF Age Band|Age at period end");
     }
 
+    // PAT-236 — the artifact's standard metadata reaches the MeasureDefinition; what the artifact
+    // does not carry leaves the published measure's own value alone (a re-publish must not erase
+    // a value the author entered on the measure page).
+    @Test
+    void publish_copiesStandardMetadata_onlyWhereTheArtifactHasIt() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setPublishedMeasureId(50L);
+        entity.setMeasureTypeList(new ArrayList<>(List.of("process")));
+        entity.setDefinitionTermList(new ArrayList<>(List.of(
+                Map.of("term", " HbA1c control ", "definition", "Most recent HbA1c < 7%"),
+                Map.of("term", "", "definition", "  "),
+                Map.of("definition", "Note without a term"))));
+        entity.setEffectiveStart(java.time.LocalDate.of(2026, 1, 1));
+        entity.setExperimental(Boolean.FALSE);
+        // Not set on the artifact: clinicalRecommendationStatement, effectiveEnd, approvalDate, lastReviewDate.
+
+        MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
+                .id(50L).name("OldName")
+                .clinicalRecommendationStatement("Kept from the measure page")
+                .approvalDate(java.time.LocalDate.of(2025, 12, 1))
+                .measureTypeList(new ArrayList<>(List.of("outcome")))
+                .build();
+
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(existingMeasure));
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        MeasureDefinitionEntity m = saved.getValue();
+        assertThat(m.getMeasureTypeList()).containsExactly("process");
+        assertThat(m.getDefinitionTermList()).extracting(t -> t.getTerm() + "=" + t.getDefinition())
+                .containsExactly("HbA1c control=Most recent HbA1c < 7%", "null=Note without a term");
+        assertThat(m.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(m.getExperimental()).isFalse();
+        assertThat(m.getClinicalRecommendationStatement()).isEqualTo("Kept from the measure page");
+        assertThat(m.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 12, 1));
+        assertThat(m.getEffectiveEnd()).isNull();
+        assertThat(m.getLastReviewDate()).isNull();
+    }
+
     @Test
     void publish_existingMeasure_shouldUpdateMeasureDefinition() {
         EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");

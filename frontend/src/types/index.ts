@@ -531,8 +531,33 @@ export interface SupplementalDataValueCount {
   count: number
 }
 
+/** PAT-236 — one Measure.definition entry: a term and what it means in this measure. */
+export interface DefinitionTerm {
+  term?: string
+  definition?: string
+}
+
+/** PAT-236 — Measure.type codes (http://terminology.hl7.org/CodeSystem/measure-type). */
+export type MeasureTypeCode = 'process' | 'outcome' | 'structure' | 'patient-reported-outcome' | 'composite'
+
+/**
+ * PAT-236 — the standard FHIR Measure metadata the platform did not model before; shared by
+ * the MeasureDefinition and the eCQM artifact (which publishes them onto the measure).
+ */
+export interface MeasureStandardMetadata {
+  measureTypes?: MeasureTypeCode[]
+  definitionTerms?: DefinitionTerm[]
+  clinicalRecommendationStatement?: string
+  /** ISO dates (yyyy-MM-dd); `null` is an explicit "cleared" (the artifact API turns it into `''`). */
+  effectiveStart?: string | null
+  effectiveEnd?: string | null
+  approvalDate?: string | null
+  lastReviewDate?: string | null
+  experimental?: boolean
+}
+
 // Measure Definition types
-export interface MeasureDefinition {
+export interface MeasureDefinition extends MeasureStandardMetadata {
   id?: number
   name: string
   version: string

@@ -37,6 +37,16 @@ public class EcqmArtifactResponse {
     private String disclaimer;
     private String supplementalDataGuidance;
 
+    // PAT-236 standard metadata
+    private List<String> measureTypes;
+    private List<Map<String, Object>> definitionTerms;
+    private String clinicalRecommendationStatement;
+    private java.time.LocalDate effectiveStart;
+    private java.time.LocalDate effectiveEnd;
+    private java.time.LocalDate approvalDate;
+    private java.time.LocalDate lastReviewDate;
+    private Boolean experimental;
+
     private List<Map<String, Object>> populationGroups;
     private List<Map<String, Object>> supplementalData;
     private List<Map<String, Object>> stratifiers;

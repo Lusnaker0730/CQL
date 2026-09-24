@@ -378,6 +378,131 @@ class CqfmMeasureBuilderTest {
         assertThat(readBack.getComponents().get(1).getDescription()).isEqualTo("Age band");
     }
 
+    // ===== PAT-236 — standard metadata: type, definition, clinical recommendation, dates, experimental =====
+
+    private static MeasureDefinition.MeasureDefinitionBuilder withStandardMetadata() {
+        return proportion()
+                .measureTypes(List.of("process", "outcome"))
+                .definitionTerms(List.of(
+                        MeasureDefinition.DefinitionTerm.builder().term("HbA1c control").definition("Most recent HbA1c < 7%").build(),
+                        MeasureDefinition.DefinitionTerm.builder().term("Diabetic").build(),
+                        MeasureDefinition.DefinitionTerm.builder().definition("Free-text note without a term").build(),
+                        MeasureDefinition.DefinitionTerm.builder().term("  ").definition(" ").build()))
+                .clinicalRecommendationStatement("ADA recommends an HbA1c goal below 7% for most non-pregnant adults.")
+                .effectiveStart(java.time.LocalDate.of(2026, 1, 1)).effectiveEnd(java.time.LocalDate.of(2026, 12, 31))
+                .approvalDate(java.time.LocalDate.of(2025, 11, 20)).lastReviewDate(java.time.LocalDate.of(2026, 6, 15))
+                .experimental(Boolean.TRUE);
+    }
+
+    @Test
+    void standardMetadata_isExportedAsTheR4Elements_andIsStrictlyValid() {
+        ObjectNode measure = build(withStandardMetadata().build(), new MeasureExportConformance());
+
+        assertThat(measure.path("type")).hasSize(2);
+        assertThat(measure.path("type").get(0).path("coding").get(0).path("system").asText())
+                .isEqualTo("http://terminology.hl7.org/CodeSystem/measure-type");
+        assertThat(measure.path("type").get(0).path("coding").get(0).path("code").asText()).isEqualTo("process");
+        assertThat(measure.path("type").get(1).path("coding").get(0).path("code").asText()).isEqualTo("outcome");
+        // Measure.definition is markdown[]: bold term, colon, definition. Blank entries are dropped.
+        assertThat(texts(measure.path("definition"))).containsExactly(
+                "**HbA1c control**: Most recent HbA1c < 7%", "**Diabetic**", "Free-text note without a term");
+        assertThat(measure.path("clinicalRecommendationStatement").asText()).startsWith("ADA recommends");
+        assertThat(measure.path("effectivePeriod").path("start").asText()).isEqualTo("2026-01-01");
+        assertThat(measure.path("effectivePeriod").path("end").asText()).isEqualTo("2026-12-31");
+        assertThat(measure.path("approvalDate").asText()).isEqualTo("2025-11-20");
+        assertThat(measure.path("lastReviewDate").asText()).isEqualTo("2026-06-15");
+        assertThat(measure.path("experimental").asBoolean()).isTrue();
+
+        Measure parsed = FhirContext.forR4Cached().newJsonParser()
+                .setParserErrorHandler(new StrictErrorHandler())
+                .parseResource(Measure.class, measure.toString());
+        assertThat(parsed.getType()).hasSize(2);
+        assertThat(parsed.getDefinition()).hasSize(3);
+        assertThat(parsed.getExperimental()).isTrue();
+    }
+
+    @Test
+    void standardMetadata_notSet_isNotWritten_andEffectivePeriodKeepsTheCreatedAtFallback() {
+        ObjectNode measure = build(proportion().build(), new MeasureExportConformance());
+
+        assertThat(measure.has("type")).isFalse();
+        assertThat(measure.has("definition")).isFalse();
+        assertThat(measure.has("clinicalRecommendationStatement")).isFalse();
+        assertThat(measure.has("approvalDate")).isFalse();
+        assertThat(measure.has("lastReviewDate")).isFalse();
+        assertThat(measure.has("experimental")).isFalse();
+        assertThat(measure.path("effectivePeriod").path("start").asText()).isEqualTo("2026-01-05");
+        assertThat(measure.path("effectivePeriod").has("end")).isFalse();
+    }
+
+    @Test
+    void standardMetadata_theAuthorsValuesWinOverTheImportedBase_whichStillFillsWhatIsEmpty() {
+        ObjectNode base = com.fasterxml.jackson.databind.json.JsonMapper.builder().build().createObjectNode();
+        base.put("experimental", false).put("approvalDate", "2020-01-01").put("purpose", "Imported purpose");
+        base.putArray("type").addObject().putArray("coding").addObject().put("code", "structure");
+
+        MeasureDefinition def = proportion().measureTypes(List.of("outcome")).experimental(Boolean.TRUE).build();
+        DataRequirementInfo requirement = new DataRequirementInfo();
+        requirement.setType("Condition");
+        ObjectNode measure = builder.build(def, def.getName(), def.getVersion(), deps(), List.of(requirement), base,
+                new MeasureExportConformance());
+
+        assertThat(measure.path("experimental").asBoolean()).isTrue();
+        assertThat(measure.path("type").get(0).path("coding").get(0).path("code").asText()).isEqualTo("outcome");
+        assertThat(measure.path("approvalDate").asText()).isEqualTo("2020-01-01");
+        assertThat(measure.path("purpose").asText()).isEqualTo("Imported purpose");
+    }
+
+    @Test
+    void standardMetadata_readsBackIntoTheSameDefinition() {
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+
+        MeasureDefinition readBack = service.parseFhirMeasure(build(withStandardMetadata().build(), new MeasureExportConformance()));
+
+        assertThat(readBack.getMeasureTypes()).containsExactly("process", "outcome");
+        assertThat(readBack.getDefinitionTerms()).extracting(t -> t.getTerm() + "=" + t.getDefinition())
+                .containsExactly("HbA1c control=Most recent HbA1c < 7%", "Diabetic=null", "null=Free-text note without a term");
+        assertThat(readBack.getClinicalRecommendationStatement()).startsWith("ADA recommends");
+        assertThat(readBack.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(readBack.getEffectiveEnd()).isEqualTo(java.time.LocalDate.of(2026, 12, 31));
+        assertThat(readBack.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 11, 20));
+        assertThat(readBack.getLastReviewDate()).isEqualTo(java.time.LocalDate.of(2026, 6, 15));
+        assertThat(readBack.getExperimental()).isTrue();
+    }
+
+    @Test
+    void standardMetadata_absentOnImport_staysNull_andAnInstantEffectiveDateIsCutToItsDate() {
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+        ObjectNode measure = build(proportion().build(), new MeasureExportConformance());
+        measure.putObject("effectivePeriod").put("start", "2026-01-01T00:00:00+08:00").put("end", "not-a-date");
+
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+
+        assertThat(readBack.getMeasureTypes()).isNull();
+        assertThat(readBack.getDefinitionTerms()).isNull();
+        assertThat(readBack.getClinicalRecommendationStatement()).isNull();
+        assertThat(readBack.getApprovalDate()).isNull();
+        assertThat(readBack.getLastReviewDate()).isNull();
+        assertThat(readBack.getExperimental()).isNull();
+        assertThat(readBack.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(readBack.getEffectiveEnd()).isNull();
+    }
+
+    @Test
+    void definitionMarkdown_roundTripsThroughDefinitionTerm_andForeignMarkdownIsKeptWhole() {
+        assertThat(FhirMeasureService.definitionTerm("**Term**: the definition").getTerm()).isEqualTo("Term");
+        assertThat(FhirMeasureService.definitionTerm("**Term**: the definition").getDefinition()).isEqualTo("the definition");
+        assertThat(FhirMeasureService.definitionTerm("**Term**").getDefinition()).isNull();
+        assertThat(FhirMeasureService.definitionTerm("**Term** — without a colon").getDefinition()).isEqualTo("— without a colon");
+        assertThat(FhirMeasureService.definitionTerm("Plain sentence from another tool").getTerm()).isNull();
+        assertThat(FhirMeasureService.definitionTerm("Plain sentence from another tool").getDefinition()).isEqualTo("Plain sentence from another tool");
+        assertThat(FhirMeasureService.definitionTerm("****")).extracting(MeasureDefinition.DefinitionTerm::getDefinition).isEqualTo("****");
+        assertThat(FhirMeasureService.definitionTerm("   ")).isNull();
+        assertThat(CqfmMeasureBuilder.definitionMarkdown(MeasureDefinition.DefinitionTerm.builder().build())).isNull();
+    }
+
     @Test
     void observation_readsBackWithThePopulationTypeItRefersTo() {
         FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
