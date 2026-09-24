@@ -1,3 +1,4 @@
+import type { BuilderSource } from '../types/ecqm'
 import type {
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
@@ -78,6 +79,12 @@ export const measureApi = {
   getMeasure: async (id: number): Promise<MeasureDefinition> => {
     const response = await api.get<MeasureDefinition>(`/measures/${id}`)
     return response.data
+  },
+
+  /** PAT-238: the eCQM builder artifact this measure was published from; null when none (204). */
+  getBuilderSource: async (id: number): Promise<BuilderSource | null> => {
+    const response = await api.get<BuilderSource | ''>(`/measures/${id}/builder-source`)
+    return response.status === 204 || !response.data ? null : (response.data as BuilderSource)
   },
 
   createMeasure: async (definition: MeasureDefinition): Promise<MeasureDefinition> => {

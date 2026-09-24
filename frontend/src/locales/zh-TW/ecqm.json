@@ -46,7 +46,8 @@
     "save": "儲存",
     "publishing": "發佈中...",
     "publish": "發佈",
-    "basedSuffix": "以 {{basis}} 為基準"
+    "basedSuffix": "以 {{basis}} 為基準",
+    "openPublishedMeasure": "已發布——開啟指標"
   },
   "summary": {
     "title": "品質指標摘要",
@@ -238,5 +239,10 @@
     "numerator-exclusion": "分子排除 (Numerator Exclusion)",
     "measure-population": "測量族群 (Measure Population)",
     "measure-population-exclusion": "測量族群排除 (Measure Population Exclusion)"
+  },
+  "publishConflict": {
+    "title": "覆寫在指標頁做的修改？",
+    "message": "這個指標在上次從 builder 發布之後，邏輯或母群對應在指標頁被改過。現在發布會用 builder 的版本取代那些修改。要保留的話，請取消，先在 builder 做同樣的改動。",
+    "overwrite": "發布並覆寫"
   }
 }

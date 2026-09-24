@@ -347,4 +347,111 @@ class EcqmPublishServiceTest {
         assertThatThrownBy(() -> publishService.publish(999L, "testuser"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    // ===== PAT-238: publish provenance, republish guard, measure → builder source =====
+
+    private EcqmArtifactEntity publishableEntity() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setPopulationGroupsList(new ArrayList<>(List.of(new LinkedHashMap<>(Map.of("groupId", "g1", "populations", Map.of())))));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        return entity;
+    }
+
+    /** First publish: returns the saved measure (id 100) and records the provenance on the artifact. */
+    private MeasureDefinitionEntity firstPublish(EcqmArtifactEntity entity) {
+        when(measureRepository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity m = inv.getArgument(0);
+            if (m.getId() == null) m.setId(100L);
+            return m;
+        });
+        publishService.publish(1L, "testuser");
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        return saved.getValue();
+    }
+
+    @Test
+    void publish_recordsWhenAndWhatWasPublished() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity measure = firstPublish(entity);
+
+        assertThat(entity.getPublishedAt()).isNotNull();
+        assertThat(entity.getPublishedContentHash())
+                .isEqualTo(PublishedContent.hash(measure.getCqlContent(), measure.getGroupDefinitionList()));
+    }
+
+    @Test
+    void republish_unchangedMeasure_goesThrough_butAMeasurePageEditIsRefusedUnlessForced() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity measure = firstPublish(entity);
+        when(measureRepository.findByIdAndTenantId(100L, 7L)).thenReturn(Optional.of(measure));
+
+        // untouched measure: re-publish is fine
+        publishService.publish(1L, "testuser");
+
+        // edited on the measure page after publish: refused before anything is written
+        measure.setCqlContent(measure.getCqlContent() + "define \"Hand edit\": true\n");
+        clearInvocations(measureRepository, ecqmRepository);
+        when(measureRepository.findByIdAndTenantId(100L, 7L)).thenReturn(Optional.of(measure));
+        assertThatThrownBy(() -> publishService.publish(1L, "testuser"))
+                .isInstanceOf(com.cqlplatform.exception.PublishConflictException.class)
+                .hasMessageContaining("Measure 100 was edited on the measure page");
+        verify(measureRepository, never()).save(any());
+        verify(ecqmRepository, never()).save(any());
+
+        // the author confirmed: force overwrites and re-baselines
+        publishService.publish(1L, "testuser", true);
+        assertThat(measure.getCqlContent()).doesNotContain("Hand edit");
+        assertThat(entity.getPublishedContentHash())
+                .isEqualTo(PublishedContent.hash(measure.getCqlContent(), measure.getGroupDefinitionList()));
+    }
+
+    @Test
+    void republish_withoutABaseline_isNotGuarded() {
+        EcqmArtifactEntity entity = publishableEntity();
+        entity.setPublishedMeasureId(50L); // published before V76: no hash recorded
+        MeasureDefinitionEntity edited = MeasureDefinitionEntity.builder().id(50L).name("MyMeasure")
+                .cqlContent("library Hand version '9'").build();
+        when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(edited));
+        when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        assertThat(edited.getCqlContent()).startsWith("library MyMeasure");
+        assertThat(entity.getPublishedContentHash()).isNotNull(); // baseline from now on
+    }
+
+    @Test
+    void builderSourceOf_reportsTheArtifactAndDriftOnBothSides() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity measure = firstPublish(entity);
+        entity.setUpdatedAt(entity.getPublishedAt());
+        when(ecqmRepository.findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(7L, 100L)).thenReturn(Optional.of(entity));
+        when(measureRepository.findByIdAndTenantId(100L, 7L)).thenReturn(Optional.of(measure));
+
+        com.cqlplatform.model.ecqm.BuilderSource clean = publishService.builderSourceOf(100L).orElseThrow();
+        assertThat(clean.getArtifactId()).isEqualTo(1L);
+        assertThat(clean.getArtifactName()).isEqualTo("MyMeasure");
+        assertThat(clean.getOwnerUsername()).isEqualTo("testuser");
+        assertThat(clean.getMeasureEditedSincePublish()).isFalse();
+        assertThat(clean.getBuilderChangedSincePublish()).isFalse();
+
+        measure.setCqlContent("library Hand version '9'");
+        entity.setUpdatedAt(entity.getPublishedAt().plusMinutes(5));
+        com.cqlplatform.model.ecqm.BuilderSource drifted = publishService.builderSourceOf(100L).orElseThrow();
+        assertThat(drifted.getMeasureEditedSincePublish()).isTrue();
+        assertThat(drifted.getBuilderChangedSincePublish()).isTrue();
+
+        // no baseline → unknown, not "false"
+        entity.setPublishedContentHash(null);
+        assertThat(publishService.builderSourceOf(100L).orElseThrow().getMeasureEditedSincePublish()).isNull();
+
+        when(ecqmRepository.findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(7L, 999L)).thenReturn(Optional.empty());
+        assertThat(publishService.builderSourceOf(999L)).isEmpty();
+    }
 }

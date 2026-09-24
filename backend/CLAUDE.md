@@ -90,7 +90,7 @@ ecqm/        (1 file)              — standard-sde
 ## 資料庫
 
 - PostgreSQL (prod & dev) / H2 (test only)
-- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V75；V56 是 Java migration，在 `src/main/java/db/migration/`）
+- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V76；V56 是 Java migration，在 `src/main/java/db/migration/`）
 - 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份；CI `migration-test` job 會數量比對，缺一個就紅）
 - JPA `ddl-auto=validate`（不會自動建表）
 - 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔 + 對應 `rollback_V{N+1}__description.sql`

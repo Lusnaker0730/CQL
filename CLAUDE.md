@@ -81,7 +81,7 @@ backend/src/main/resources/
     modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V75；V56 為 Java migration)
+  db/migration/    — Flyway forward migrations (V1~V76；V56 為 Java migration)
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-237 / BUG-145
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-238 / BUG-146
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -170,6 +170,7 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - Maven 座標：`engine-fhir-jvm`（5.x 的 `engine-fhir` 是 0 class 空殼）
 - 4.x 的 `ComparableR4FhirModelResolver` 兩個 override（Encounter.class、BUG-106 Enumeration 歧義）在 5.x 沒有掛點也不需要：`toCqlValue` 走 HAPI runtime definition 轉換。`CqlValuesTest` 與 golden 測試鎖住
 - **分層（PAT-233）**：`StratifierEvaluator` 一向以 `String.valueOf(value)` 當 stratum key，所以 define 回什麼值就分什麼層——`kind=criteria` 是 `true`/`false`，`kind=value`（builder 的 `gender` / `ageBands` 來源）是值本身；key 規則在 `StratifierEvaluator.stratumKey`（Code map → `code (display)`、空/`null` → 不屬任何層）。`toSerializable` 把 FHIR primitive `ClassInstance`（只有 `value` 元素，含 `FHIR.AdministrativeGender` 這種綁定型）轉成它的值、`Code`/`Concept` 轉成小 map；**別讓 stratifier define 回整個資源**。分層分數依 scoring type（CV 分層沒有分數，observation 值沒有逐層收集）。eCQM workspace 的 artifact 層級 stratifier 在 publish 時套到每個 group
+- **builder ↔ 指標雙向（PAT-238）**：publish 在 artifact 記 `published_at` 與 `published_content_hash`（V76；`service/ecqm/PublishedContent.hash` = CQL + group definitions 正規化後的 SHA-256：換行統一、去尾端空白、刪 null / 空陣列 / 空物件、key 排序——**要能撐過 JSON 欄位的 DB 往返**，`EcqmPublishRoundTripIntegrationTest` 以 flush + clear 鎖住）。再次 publish 時指標目前內容 hash 不同 = 在指標頁被改過 → `PublishConflictException`（409，`error: "Publish Conflict"`），什麼都不寫；`POST /ecqm/artifacts/{id}/publish?force=true` 才覆寫並重設基準。沒有基準（V76 之前發布的）不擋。`GET /api/measures/{id}/builder-source`（204 = 不是 builder 建的）回 artifact 與兩邊的漂移（`measureEditedSincePublish` / `builderChangedSincePublish`，無基準為 null）；前端 `measure/BuilderSourceBanner`、`/ecqm?artifact=<id>` 與 `/measures?measure=<id>` deep link、builder header 的「已發布——開啟指標」chip、`ecqm/PublishConflictDialog`（兩個 publish 入口共用，`utils/publishConflict.isPublishConflict`）。**builder 不會從指標反推**——在指標頁改的邏輯要手動帶回 builder
 - **程式庫函式呼叫（PAT-237）**：builder 元素 `externalCqlFunctionCall`（`ExpressionCqlEngine.emitFunctionCall`）產生 `"Lib"."Fn"(arg, …)`，欄位 `library_name` / `library_version` / `alias?` / `function_name` / `arguments[]`；每個引數 `mode` = `element`（基礎元素 uniqueId）/ `parameter` / `literal`（`literal_type` 白名單 Integer / Decimal / String / Boolean / Date / DateTime / Quantity，形狀各只有一種）/ `patient` / `measurementPeriod`（只有 eCQM）。**任一引數解不開 → 整個呼叫是 `null` + 警告**，不會少一個引數照樣產生。include 的 `called` 名 = alias 或消毒過的程式庫名，呼叫用同一個限定詞。ELM metadata（`CqlTranslationResponse.ExpressionInfo.kind` / `operands`，`CqlTranslationService.expressionInfo`）現在分辨 `FunctionDef`——以前函式被當普通 define 列出、引用產生沒括號的 `"Lib"."Fn"` 到 publish 才爆；`GET /api/cql/libraries/{id}/expressions` 給共用程式庫用。前端 `utils/libraryFunctions.ts` 的驗證規則與後端一對一，`contexts/ArtifactScopeContext` 提供樹裡的元素可引用的基礎元素 / 參數 / 是否有 Measurement Period（CDS 與 eCQM workspace 各提供一次）
 - **多元件分層（PAT-235）**：`StratifierDefinition.components[]`（每元件自己的 define `Stratifier <id> <code>`，stratifier 本身 `criteriaExpression` 為 null）。評估器把各元件值以 ASCII 分隔字元（`\u001E` code / `\u001F` 元件）編成自描述的內部 key 放進同一個累積 map，`buildStratifierResults` 解回 `StratifierResult.components` 並把 `strataValue` 顯示成 `female | 65+`；`ValueKeys.of` 會剝掉這兩個字元，值偽造不了元件邊界。任一元件無值 → 不屬任何層。報表 `measure_report_stratifier.component_values`（V74，JSON），FHIR MeasureReport `stratum.component[]`、CQFM `stratifier.component[]`（匯入會讀回）。測試案例期望值仍是字串（寫 `female | 65+`）；smoke `assert.sh` 也仍以 `strataValue` 比對，另可斷言 `components`
 - **標準 metadata（PAT-236）**：`MeasureDefinition` 與 `EcqmArtifact` 都帶 `measureTypes[]`（FHIR measure-type 代碼，最多 5）、`definitionTerms[] {term, definition}`、`clinicalRecommendationStatement`、`effectiveStart` / `effectiveEnd` / `approvalDate` / `lastReviewDate`、`experimental`（V75，兩張表各 8 欄）。CQFM 匯出寫成 R4 元素（`type[].coding`、`definition[]` markdown `**term**: definition`、`effectivePeriod`、`approvalDate`…，`CqfmMeasureBuilder.addStandardMetadata`），匯入 `FhirMeasureService.definitionTerm` 解回；作者填的值優先，匯入基底只補空缺（`passThrough`）。publish 只在 artifact **有值**時覆蓋指標（重新發布不清掉指標頁填的內容）。**eCQM artifact 的 PUT 是部分更新**（缺鍵 = 保留）：四個日期在 `EcqmArtifactRequest` 是字串，`""` = 清除、缺鍵 = 保留、ISO 日期 = 設定——前端 `utils/measureMetadata.clearedDatesAsEmpty` 把共用欄位元件的 `null` 換成 `""`；經 HTTP converter 的 `Optional` 缺鍵也會變 `Optional.empty()`，分不出來，別改回去。生效迄日早於起日兩個 service 都以 `MeasureMetadataRules` 擋成 400

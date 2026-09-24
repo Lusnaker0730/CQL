@@ -51,6 +51,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Measure Not Evaluable", ex.getMessage());
     }
 
+    /** PAT-238: re-publish would overwrite measure-page edits; the builder asks and retries with force. */
+    @ExceptionHandler(PublishConflictException.class)
+    public ResponseEntity<ErrorResponse> handlePublishConflictException(PublishConflictException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Publish Conflict", ex.getMessage());
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());

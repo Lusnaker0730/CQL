@@ -47,6 +47,8 @@ export interface EcqmArtifact extends MeasureStandardMetadata {
   parameters: Parameter[]
 
   publishedMeasureId: number | null
+  /** PAT-238: when the artifact was last published (null = never / before provenance was recorded) */
+  publishedAt?: string | null
   ownerUsername: string
   createdAt: string
   updatedAt: string
@@ -179,6 +181,19 @@ export interface SupplementalDataElement {
    *  Ethnicity/Race/Sex/Payer templates). Lets name collisions with
    *  standard SDE names stay in the custom list instead of disappearing. */
   custom?: boolean
+}
+
+/** PAT-238 — the eCQM builder artifact a measure was published from, and drift since that publish. */
+export interface BuilderSource {
+  artifactId: number
+  artifactName: string
+  artifactVersion?: string
+  ownerUsername?: string
+  publishedAt?: string | null
+  artifactUpdatedAt?: string | null
+  /** null = unknown (published before publish provenance was recorded) */
+  measureEditedSincePublish?: boolean | null
+  builderChangedSincePublish?: boolean | null
 }
 
 export interface PublishResult {

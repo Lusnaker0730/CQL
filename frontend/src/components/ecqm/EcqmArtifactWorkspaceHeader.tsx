@@ -10,6 +10,7 @@ import {
   ErrorOutlined as ErrorIcon,
 } from '@mui/icons-material'
 import type { EcqmArtifact } from '../../types/ecqm'
+import { useNavigate } from 'react-router-dom'
 import type { SaveStatus } from './EcqmArtifactWorkspace'
 
 interface Props {
@@ -25,6 +26,7 @@ export default function EcqmArtifactWorkspaceHeader({
   artifact, saveStatus, onBack, onSave, onPublish, publishing,
 }: Props) {
   const { t } = useTranslation('ecqm')
+  const navigate = useNavigate()
 
   const saveIndicator = (() => {
     switch (saveStatus) {
@@ -105,7 +107,14 @@ export default function EcqmArtifactWorkspaceHeader({
               <Chip label={t('header.basedSuffix', { basis: artifact.populationBasis })} size="small" color="secondary" />
             )}
             {artifact.publishedMeasureId && (
-              <Chip label={t('list.published')} size="small" color="success" />
+              // PAT-238: the published measure is one click away
+              <Chip
+                label={t('header.openPublishedMeasure')}
+                size="small"
+                color="success"
+                clickable
+                onClick={() => navigate(`/measures?measure=${artifact.publishedMeasureId}`)}
+              />
             )}
           </Stack>
         </Box>

@@ -68,7 +68,8 @@ export function useValidateEcqmCql() {
 export function usePublishEcqm() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => ecqmApi.publish(id),
+    mutationFn: (args: number | { id: number; force?: boolean }) =>
+      typeof args === 'number' ? ecqmApi.publish(args) : ecqmApi.publish(args.id, args.force ?? false),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ECQM_KEY }) },
   })
 }

@@ -46,7 +46,8 @@
     "save": "Save",
     "publishing": "Publishing...",
     "publish": "Publish",
-    "basedSuffix": "{{basis}}-based"
+    "basedSuffix": "{{basis}}-based",
+    "openPublishedMeasure": "Published — open measure"
   },
   "summary": {
     "title": "Measure Summary",
@@ -238,5 +239,10 @@
     "numerator-exclusion": "Numerator Exclusion",
     "measure-population": "Measure Population",
     "measure-population-exclusion": "Measure Population Exclusion"
+  },
+  "publishConflict": {
+    "title": "Overwrite edits made on the measure page?",
+    "message": "This measure's logic or population mapping was edited on the measure page after it was last published from the builder. Publishing now replaces those edits with the builder's version. To keep them, cancel and make the same changes in the builder first.",
+    "overwrite": "Publish and overwrite"
   }
 }

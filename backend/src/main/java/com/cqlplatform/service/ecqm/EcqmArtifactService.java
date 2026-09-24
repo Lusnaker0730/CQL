@@ -218,6 +218,7 @@ public class EcqmArtifactService {
                 .baseElements(entity.getBaseElementsList())
                 .parameters(entity.getParametersList())
                 .publishedMeasureId(entity.getPublishedMeasureId())
+                .publishedAt(entity.getPublishedAt())
                 .ownerUsername(entity.getOwnerUsername())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())

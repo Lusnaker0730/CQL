@@ -1162,5 +1162,12 @@
     "definition": "Definition",
     "addTerm": "Add term",
     "removeTerm": "Remove term"
+  },
+  "builderSource": {
+    "builtIn": "Built in the eCQM builder: {{name}} (owner {{owner}}).",
+    "publishedAt": "Last published {{at}}.",
+    "openInBuilder": "Open in builder",
+    "measureEdited": "The logic or population mapping was edited here since that publish. Publishing again from the builder will ask before overwriting these edits — bring them into the builder to keep them.",
+    "builderChanged": "The builder has changes that are not on this measure yet — publish from the builder to apply them."
   }
 }
