@@ -23,6 +23,16 @@ export function useCqlLibrary(id: string | null | undefined) {
   })
 }
 
+/** PAT-237: the library's statements (defines + functions with signatures) for the picker. */
+export function useCqlLibraryExpressions(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ['cql-library-expressions', id] as const,
+    queryFn: () => cqlApi.getLibraryExpressions(id!),
+    enabled: !!id,
+    staleTime: STALE_1M,
+  })
+}
+
 export function useCqlLibraryVersions(name: string | null | undefined) {
   return useQuery({
     queryKey: ['cql-library-versions', name] as const,

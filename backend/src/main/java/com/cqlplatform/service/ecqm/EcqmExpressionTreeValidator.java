@@ -50,7 +50,7 @@ public class EcqmExpressionTreeValidator {
         // ── XSS + structural validation on expression trees ──────────────
         validateTrees("populationGroups", request.getPopulationGroups(), errors, nodeCount);
         validateTrees("baseElements", request.getBaseElements(), errors, nodeCount);
-        validateTrees("parameters", request.getParameters(), errors, nodeCount);
+        validateParameters(request, errors);
         validateTrees("supplementalData", request.getSupplementalData(), errors, nodeCount);
         validateTrees("stratifiers", request.getStratifiers(), errors, nodeCount);
         validateDefinitionTerms(request, errors);
@@ -285,6 +285,40 @@ public class EcqmExpressionTreeValidator {
     }
 
     // ── Utilities ────────────────────────────────────────────────────────
+
+    // ── BUG-146 parameters ───────────────────────────────────────────────
+
+    /** The `type` keys the CQL builder maps to CQL parameter types (`ExpressionCqlEngine.mapParameterType`). */
+    private static final Set<String> PARAMETER_TYPES = Set.of(
+            "boolean", "integer", "decimal", "string", "datetime", "time", "code", "concept", "quantity",
+            "interval<integer>", "interval<datetime>");
+
+    /**
+     * BUG-146 — parameters are {@code {uniqueId, name, type, value, comment}}, not expression trees.
+     * Walking them with the tree validator read {@code type} as an element type, so every eCQM
+     * artifact with a typed parameter ({@code integer}, {@code decimal}, …) failed to save with
+     * "unknown element type". The CDS validator never did this. The name still gets the strict HTML
+     * check; the type must be one the builder can turn into CQL.
+     */
+    private void validateParameters(EcqmArtifactRequest request, List<String> errors) {
+        List<Map<String, Object>> parameters = request.getParameters();
+        if (parameters == null) return;
+        NoXssValidator xss = new NoXssValidator();
+        for (int i = 0; i < parameters.size(); i++) {
+            Map<String, Object> param = parameters.get(i);
+            if (param == null) continue;
+            String path = "parameters[" + i + "]";
+            checkHtmlContent(path + ".name", toStr(param.get("name")), errors);
+            // comment and a string default are prose ("threshold < 7%"): the @NoXss patterns, not the
+            // tree walker's no-angle-brackets rule. The default is CQL-escaped when rendered.
+            checkProse(path + ".comment", toStr(param.get("comment")), Integer.MAX_VALUE, xss, errors);
+            if (param.get("value") instanceof String stringValue) checkProse(path + ".value", stringValue, Integer.MAX_VALUE, xss, errors);
+            String type = toStr(param.get("type"));
+            if (type != null && !type.isBlank() && !PARAMETER_TYPES.contains(type.toLowerCase())) {
+                errors.add(String.format("%s: unknown parameter type '%s'", path, type));
+            }
+        }
+    }
 
     // ── PAT-236 definition terms ─────────────────────────────────────────
 

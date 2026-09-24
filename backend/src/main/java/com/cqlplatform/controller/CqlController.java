@@ -160,6 +160,31 @@ public class CqlController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * PAT-237 — the statements of a stored library as the builder needs them: plain defines and
+     * {@code define function}s with their operand signatures. Translated on demand from the stored
+     * CQL (the same path the measure endpoint uses); the library picker used to regex-scrape the
+     * CQL text, which never saw functions.
+     */
+    @GetMapping("/libraries/{id}/expressions")
+    @Operation(summary = "List CQL Library Expressions", description = "Defines and functions (with operand signatures) of a stored library")
+    public ResponseEntity<List<CqlTranslationResponse.ExpressionInfo>> getLibraryExpressions(@PathVariable String id) {
+        return libraryService.getLibrary(id)
+                .map(lib -> {
+                    if (lib.getCqlContent() == null || lib.getCqlContent().isBlank()) {
+                        return ResponseEntity.ok(List.<CqlTranslationResponse.ExpressionInfo>of());
+                    }
+                    CqlTranslationRequest request = new CqlTranslationRequest();
+                    request.setCql(lib.getCqlContent());
+                    CqlTranslationResponse response = translationService.translate(request);
+                    List<CqlTranslationResponse.ExpressionInfo> expressions =
+                            response.getMetadata() != null && response.getMetadata().getExpressions() != null
+                                    ? response.getMetadata().getExpressions() : List.of();
+                    return ResponseEntity.ok(expressions);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/libraries")
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
     public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {

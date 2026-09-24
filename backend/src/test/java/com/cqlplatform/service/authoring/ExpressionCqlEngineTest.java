@@ -1232,4 +1232,144 @@ class ExpressionCqlEngineTest {
         String out = engine.buildExpression(heightSquared, ctx);
         assertThat(out).isEqualTo("\"Height in m\" ^ 2");
     }
+
+    // ===== PAT-237: library function calls =====
+
+    private Map<String, Object> functionCall(String name, String lib, String version, String alias,
+                                             String fn, List<Map<String, Object>> args) {
+        List<Map<String, Object>> fields = new ArrayList<>();
+        fields.add(field("element_name", name));
+        fields.add(field("library_name", lib));
+        if (version != null) fields.add(field("library_version", version));
+        if (alias != null) fields.add(field("alias", alias));
+        fields.add(field("function_name", fn));
+        Map<String, Object> argsField = new LinkedHashMap<>();
+        argsField.put("id", "arguments");
+        argsField.put("type", "functionArguments");
+        argsField.put("name", "Arguments");
+        argsField.put("value", args);
+        fields.add(argsField);
+        Map<String, Object> el = new LinkedHashMap<>();
+        el.put("uniqueId", "fn_" + name);
+        el.put("type", "externalCqlFunctionCall");
+        el.put("name", name);
+        el.put("returnType", "boolean");
+        el.put("fields", fields);
+        el.put("modifiers", new ArrayList<>());
+        return el;
+    }
+
+    private static Map<String, Object> arg(String name, String mode, String... kv) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("name", name);
+        m.put("mode", mode);
+        for (int i = 0; i + 1 < kv.length; i += 2) m.put(kv[i], kv[i + 1]);
+        return m;
+    }
+
+    private static Map<String, Object> literal(String name, String type, String value) {
+        return arg(name, "literal", "literal_type", type, "literal_value", value);
+    }
+
+    @Test
+    void functionCall_emitsQualifiedCallWithEveryArgumentMode() {
+        Map<String, Object> hba1c = new LinkedHashMap<>();
+        hba1c.put("uniqueId", "be_hba1c");
+        hba1c.put("name", "HbA1c Results");
+        Map<String, Object> threshold = new LinkedHashMap<>();
+        threshold.put("uniqueId", "p_threshold");
+        threshold.put("name", "HbA1c Threshold");
+        threshold.put("type", "Decimal");
+        BuildContext ctx = new BuildContext(List.of(hba1c), List.of(threshold));
+        ctx.hasMeasurementPeriod = true;
+
+        Map<String, Object> el = functionCall("Controlled", "HospitalCommon", "2.0.0", null, "Most Recent Below", List.of(
+                arg("observations", "element", "operand_id", "be_hba1c"),
+                arg("threshold", "parameter", "operand_id", "p_threshold"),
+                arg("period", "measurementPeriod"),
+                arg("subject", "patient"),
+                literal("unit", "String", "%"),
+                literal("count", "Integer", "3"),
+                literal("factor", "Decimal", "0.5"),
+                literal("strict", "Boolean", "true"),
+                literal("since", "Date", "2026-01-01"),
+                literal("at", "DateTime", "2026-01-01T08:30:00+08:00"),
+                arg("dose", "literal", "literal_type", "Quantity", "literal_value", "5", "literal_unit", "mg")));
+
+        String out = engine.buildExpression(el, ctx);
+
+        assertThat(out).isEqualTo("\"HospitalCommon\".\"Most Recent Below\"(\"HbA1c Results\", \"HbA1c Threshold\", "
+                + "\"Measurement Period\", Patient, '%', 3, 0.5, true, @2026-01-01, @2026-01-01T08:30:00+08:00, 5 'mg')");
+        assertThat(ctx.warnings).isEmpty();
+    }
+
+    @Test
+    void functionCall_usesTheAliasAsQualifier_andZeroArgumentsAreEmptyParens() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> el = functionCall("Flag", "Shared Logic", "1.0.0", "shared", "Any", List.of());
+
+        assertThat(engine.buildExpression(el, ctx)).isEqualTo("\"shared\".\"Any\"()");
+    }
+
+    @Test
+    void functionCall_declaresTheIncludeWithTheSameQualifier() {
+        Set<String> includes = new LinkedHashSet<>();
+        engine.collectDeclarations(functionCall("A", "Shared-Logic", "1.2.0", null, "Fn", List.of()),
+                new HashSet<>(), new HashMap<>(), new HashSet<>(), includes);
+        engine.collectDeclarations(functionCall("B", "Shared-Logic", "1.2.0", "shared", "Fn", List.of()),
+                new HashSet<>(), new HashMap<>(), new HashSet<>(), includes);
+        engine.collectDeclarations(functionCall("C", "NoVersion", null, null, "Fn", List.of()),
+                new HashSet<>(), new HashMap<>(), new HashSet<>(), includes);
+
+        assertThat(includes).containsExactly(
+                "include Shared_Logic version '1.2.0' called Shared_Logic",
+                "include Shared_Logic version '1.2.0' called shared",
+                "include NoVersion called NoVersion");
+        // and the body of A qualifies with the sanitised name the include is called
+        assertThat(engine.buildExpression(functionCall("A", "Shared-Logic", "1.2.0", null, "Fn", List.of()), new BuildContext(null, null)))
+                .isEqualTo("\"Shared_Logic\".\"Fn\"()");
+    }
+
+    @Test
+    void functionCall_anyUnresolvedArgumentMakesTheWholeCallNull_withAWarning() {
+        BuildContext ctx = new BuildContext(null, null); // no base elements, no Measurement Period (CDS)
+        for (Map<String, Object> bad : List.<Map<String, Object>>of(
+                arg("x", "element", "operand_id", "missing"),
+                arg("x", "parameter", "operand_id", "missing"),
+                arg("x", "measurementPeriod"),
+                arg("x", "somethingElse"),
+                literal("x", "Integer", "3; drop"),
+                literal("x", "Decimal", "1e5"),
+                literal("x", "Boolean", "yes"),
+                literal("x", "Date", "2026/01/01"),
+                literal("x", "DateTime", "2026-01-01 08:30"),
+                arg("x", "literal", "literal_type", "Quantity", "literal_value", "5", "literal_unit", "mg' or 1=1 --"),
+                literal("x", "Code", "1234"))) {
+            ctx.warnings.clear();
+            String out = engine.buildExpression(functionCall("Call", "Lib", "1.0.0", null, "Fn", List.of(literal("ok", "Integer", "1"), bad)), ctx);
+            assertThat(out).as(bad.toString()).isEqualTo("null /* unresolved function argument */");
+            assertThat(ctx.warnings).as(bad.toString()).hasSize(1);
+            assertThat(ctx.warnings.get(0)).contains("argument 'x' is unresolved");
+        }
+    }
+
+    @Test
+    void functionCall_stringLiteralIsEscaped_andIdentifiersAreEscaped() {
+        BuildContext ctx = new BuildContext(null, null);
+        Map<String, Object> el = functionCall("Call", "Lib", "1.0.0", null, "Say \"Hi\"", List.of(
+                literal("text", "String", "it's a 'quote' \\ slash")));
+
+        String out = engine.buildExpression(el, ctx);
+
+        assertThat(out).startsWith("\"Lib\".\"Say \\\"Hi\\\"\"(");
+        assertThat(out).contains("'it\\'s a \\'quote\\' \\\\ slash'");
+    }
+
+    @Test
+    void functionCall_withoutAFunctionName_isNullWithAWarning() {
+        BuildContext ctx = new BuildContext(null, null);
+        assertThat(engine.buildExpression(functionCall("Call", "Lib", "1.0.0", null, "", List.of()), ctx))
+                .isEqualTo("null /* missing library function */");
+        assertThat(ctx.warnings).hasSize(1);
+    }
 }

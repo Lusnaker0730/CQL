@@ -14,6 +14,7 @@ import {
   ListItemButton,
   ListItemText,
   Radio,
+  Chip,
   Stack,
   Step,
   StepLabel,
@@ -29,7 +30,8 @@ import {
 import { ArrowBack as BackIcon, Close as CloseIcon } from '@mui/icons-material'
 import { useQuery } from '@tanstack/react-query'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
-import { useCqlLibrary } from '../../hooks/useCqlLibraries'
+import { useCqlLibrary, useCqlLibraryExpressions } from '../../hooks/useCqlLibraries'
+import { functionSignature } from '../../utils/libraryFunctions'
 import { cqlApi } from '../../api'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import StatusChip from '../common/StatusChip'
@@ -41,6 +43,18 @@ export interface LibraryDefinitionReference {
   libraryVersion: string
   definitionName: string
   alias: string
+  /** PAT-237: set when the picked statement is a `define function` — the element becomes a call with arguments. */
+  kind?: 'expression' | 'function'
+  operands?: Array<{ name: string; type: string }>
+  resultType?: string
+}
+
+/** One selectable statement of the library: a define, or a function with its signature. */
+interface PickableDefinition {
+  name: string
+  kind: 'expression' | 'function'
+  operands?: Array<{ name: string; type: string }>
+  resultType?: string
 }
 
 interface LibraryDefinitionPickerProps {
@@ -75,6 +89,11 @@ export default function LibraryDefinitionPicker({
   const { data: libraryDetail, isLoading: detailLoading } = useCqlLibrary(
     activeStep === 1 ? selectedLibrary?.id : null
   )
+  // PAT-237: the ELM metadata lists defines AND functions (with signatures); the regex scrape of
+  // the CQL text below stays as the fallback when the library does not translate.
+  const { data: expressions, isLoading: expressionsLoading } = useCqlLibraryExpressions(
+    activeStep === 1 ? selectedLibrary?.id : null
+  )
 
   // Filter to only active/draft libraries
   const filteredLibraries = useMemo(
@@ -82,11 +101,20 @@ export default function LibraryDefinitionPicker({
     [libraries]
   )
 
-  // Extract definitions from library CQL content
-  const definitions = useMemo(() => {
+  // Statements to pick from: ELM metadata first, the CQL-text scrape when that is empty
+  const definitions = useMemo<PickableDefinition[]>(() => {
+    if (expressions && expressions.length > 0) {
+      return expressions.map((e) => ({
+        name: e.name,
+        kind: e.kind === 'function' ? 'function' : 'expression',
+        operands: e.operands,
+        resultType: e.resultType,
+      }))
+    }
     if (!libraryDetail?.cqlContent) return []
-    return parseCqlDefineBlocks(libraryDetail.cqlContent).map(b => b.name)
-  }, [libraryDetail?.cqlContent])
+    return parseCqlDefineBlocks(libraryDetail.cqlContent).map((b) => ({ name: b.name, kind: 'expression' as const }))
+  }, [expressions, libraryDetail?.cqlContent])
+  const selected = useMemo(() => definitions.find((d) => d.name === selectedDefinition), [definitions, selectedDefinition])
 
   const steps = [t('picker.step1Title'), t('picker.step2Title')]
 
@@ -111,14 +139,20 @@ export default function LibraryDefinitionPicker({
 
   const handleConfirm = useCallback(() => {
     if (!selectedLibrary || !selectedDefinition) return
-    onSelect({
+    const reference: LibraryDefinitionReference = {
       libraryName: selectedLibrary.name,
       libraryVersion: selectedLibrary.version,
       definitionName: selectedDefinition,
       alias: alias.trim() || generateAlias(selectedLibrary.name),
-    })
+    }
+    if (selected?.kind === 'function') {
+      reference.kind = 'function'
+      reference.operands = selected.operands ?? []
+      reference.resultType = selected.resultType
+    }
+    onSelect(reference)
     resetState()
-  }, [selectedLibrary, selectedDefinition, alias, onSelect, resetState])
+  }, [selectedLibrary, selectedDefinition, selected, alias, onSelect, resetState])
 
   const handleClose = useCallback(() => {
     resetState()
@@ -233,7 +267,7 @@ export default function LibraryDefinitionPicker({
               </Typography>
             </Stack>
 
-            {detailLoading ? (
+            {detailLoading || expressionsLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress size={32} />
               </Box>
@@ -252,24 +286,26 @@ export default function LibraryDefinitionPicker({
                   {t('picker.selectDefinition')}
                 </Typography>
                 <List sx={{ maxHeight: 300, overflow: 'auto', mb: 2 }}>
-                  {definitions.map((defName) => (
+                  {definitions.map((def) => (
                     <ListItemButton
-                      key={defName}
-                      selected={selectedDefinition === defName}
-                      onClick={() => setSelectedDefinition(defName)}
+                      key={def.name}
+                      selected={selectedDefinition === def.name}
+                      onClick={() => setSelectedDefinition(def.name)}
                       sx={{ borderRadius: 1 }}
                     >
                       <Radio
-                        checked={selectedDefinition === defName}
+                        checked={selectedDefinition === def.name}
                         size="small"
                         sx={{ mr: 1 }}
                       />
                       <ListItemText
-                        primary={defName}
+                        primary={def.kind === 'function' ? functionSignature(def.name, def.operands, def.resultType) : def.name}
+                        secondary={def.kind === 'function' ? t('picker.functionHint') : undefined}
                         slotProps={{
                           primary: { sx: { fontFamily: 'monospace', fontSize: '0.9rem' } }
                         }}
                       />
+                      {def.kind === 'function' && <Chip size="small" label={t('picker.functionChip')} color="secondary" variant="outlined" />}
                     </ListItemButton>
                   ))}
                 </List>
@@ -290,7 +326,7 @@ export default function LibraryDefinitionPicker({
                   >
                     {t('picker.generateInclude')}:{' '}
                     <Box component="span" sx={{ fontWeight: 600 }}>
-                      {alias.trim()}.&quot;{selectedDefinition}&quot;
+                      {alias.trim()}.&quot;{selectedDefinition}&quot;{selected?.kind === 'function' ? '(…)' : ''}
                     </Box>
                   </Typography>
                 )}

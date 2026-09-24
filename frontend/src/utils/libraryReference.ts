@@ -1,5 +1,6 @@
 import type { ElementInstance } from '../types/authoring'
 import type { LibraryDefinitionReference } from '../components/cql-libraries/LibraryDefinitionPicker'
+import { functionCallElement } from './libraryFunctions'
 
 /**
  * Convert a {@link LibraryDefinitionReference} chosen in the library picker
@@ -14,7 +15,19 @@ import type { LibraryDefinitionReference } from '../components/cql-libraries/Lib
  * with no shared contract. A drift would silently produce different CQL
  * outputs between the two authoring paths for the same library pick.
  */
-export function libraryReferenceToElement(reference: LibraryDefinitionReference): ElementInstance {
+export function libraryReferenceToElement(reference: LibraryDefinitionReference, hasMeasurementPeriod = false): ElementInstance {
+  if (reference.kind === 'function') {
+    // PAT-237: a function becomes a call element with one argument slot per operand; the alias
+    // is what the include is `called` and what the call is qualified with.
+    return functionCallElement({
+      libraryName: reference.libraryName,
+      libraryVersion: reference.libraryVersion,
+      alias: reference.alias,
+      functionName: reference.definitionName,
+      operands: reference.operands ?? [],
+      resultType: reference.resultType,
+    }, hasMeasurementPeriod)
+  }
   return {
     uniqueId: `libref-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
     type: 'externalCqlElement',

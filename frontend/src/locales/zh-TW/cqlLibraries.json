@@ -181,7 +181,9 @@
     "step1Title": "選取程式庫",
     "step2Title": "選取定義",
     "generateInclude": "參考表達式",
-    "useLibraryDefinition": "使用程式庫定義"
+    "useLibraryDefinition": "使用程式庫定義",
+    "functionChip": "函式",
+    "functionHint": "帶引數呼叫，引數在元素上填"
   },
   "errors": {
     "createFailed": "建立程式庫失敗：{{error}}",

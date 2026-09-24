@@ -10,6 +10,7 @@ import type {
   VersionComparison,
   RepositoryLibrary,
   DependencyAnalysisResult,
+  ExpressionInfo,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -43,6 +44,12 @@ export const cqlApi = {
 
   getLibrary: async (id: string): Promise<CqlLibrary> => {
     const response = await api.get<CqlLibrary>(`/cql/libraries/${id}`)
+    return response.data
+  },
+
+  /** PAT-237: a stored library's defines and functions (with operand signatures), from its ELM. */
+  getLibraryExpressions: async (id: string): Promise<ExpressionInfo[]> => {
+    const response = await api.get<ExpressionInfo[]>(`/cql/libraries/${id}/expressions`)
     return response.data
   },
 

@@ -340,6 +340,38 @@ export interface QueryBuilderOperator {
   applicableTypes: string[]
 }
 
+/** One statement of an uploaded library, as the ELM metadata reports it (PAT-237: functions carry their signature). */
+export interface ExternalCqlDefinition {
+  name: string
+  context?: string
+  resultType?: string
+  kind?: 'expression' | 'function'
+  operands?: Array<{ name: string; type: string }>
+}
+
+/**
+ * PAT-237 — one argument of a library function call (`externalCqlFunctionCall` element, field
+ * `arguments`). `mode` says where the value comes from; the backend resolves it the same way
+ * (`ExpressionCqlEngine.resolveFunctionArgument`) and refuses anything outside these shapes.
+ */
+export interface FunctionArgument {
+  /** Declared operand name (display only). */
+  name: string
+  /** Declared operand type (display + default mode). */
+  type?: string
+  mode: FunctionArgumentMode
+  /** element / parameter: the referenced base element's or parameter's uniqueId. */
+  operand_id?: string
+  /** literal: one of LITERAL_TYPES. */
+  literal_type?: LiteralType
+  literal_value?: string
+  /** literal Quantity: UCUM unit. */
+  literal_unit?: string
+}
+
+export type FunctionArgumentMode = 'element' | 'parameter' | 'literal' | 'patient' | 'measurementPeriod'
+export type LiteralType = 'Integer' | 'Decimal' | 'String' | 'Boolean' | 'Date' | 'DateTime' | 'Quantity'
+
 // External CQL Library
 export interface ExternalCqlLibrary {
   id: number
@@ -349,7 +381,7 @@ export interface ExternalCqlLibrary {
   fhirVersion?: string
   cqlContent: string
   details?: {
-    definitions?: Array<{ name: string; context?: string; resultType?: string }>
+    definitions?: ExternalCqlDefinition[]
     parameters?: string[]
     valueSets?: string[]
     includes?: string[]

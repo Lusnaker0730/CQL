@@ -1,0 +1,312 @@
+{
+  "name": "SmokeLibraryFunctionCall",
+  "version": "1.0.0",
+  "description": "Smoke test scenario: the builder calls functions of an uploaded library with arguments from every source (literal Integer / Date, artifact parameter, Measurement Period, base element), publishes, evaluates, exports the package and re-imports it (PAT-237).",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "boolean",
+  "improvementNotation": "increase",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Library function calls with arguments",
+      "populationBasis": "boolean",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "FnIp",
+              "uniqueId": "FnIp",
+              "name": "Adult by function",
+              "type": "externalCqlFunctionCall",
+              "returnType": "boolean",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "Adult by function"
+                },
+                {
+                  "id": "library_name",
+                  "type": "string",
+                  "value": "SmokeFnUtil",
+                  "static": true
+                },
+                {
+                  "id": "library_version",
+                  "type": "string",
+                  "value": "1.0.0",
+                  "static": true
+                },
+                {
+                  "id": "function_name",
+                  "type": "string",
+                  "value": "AgeAtLeast",
+                  "static": true
+                },
+                {
+                  "id": "reference_id",
+                  "type": "string",
+                  "value": "SmokeFnUtil:AgeAtLeast",
+                  "static": true
+                },
+                {
+                  "id": "arguments",
+                  "type": "functionArguments",
+                  "value": [
+                    {
+                      "name": "threshold",
+                      "type": "Integer",
+                      "mode": "literal",
+                      "literal_type": "Integer",
+                      "literal_value": "18"
+                    }
+                  ]
+                }
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "denominator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "FnDenom",
+              "uniqueId": "FnDenom",
+              "name": "Fifty plus by function",
+              "type": "externalCqlFunctionCall",
+              "returnType": "boolean",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "Fifty plus by function"
+                },
+                {
+                  "id": "library_name",
+                  "type": "string",
+                  "value": "SmokeFnUtil",
+                  "static": true
+                },
+                {
+                  "id": "library_version",
+                  "type": "string",
+                  "value": "1.0.0",
+                  "static": true
+                },
+                {
+                  "id": "function_name",
+                  "type": "string",
+                  "value": "AgeBetweenAsOf",
+                  "static": true
+                },
+                {
+                  "id": "reference_id",
+                  "type": "string",
+                  "value": "SmokeFnUtil:AgeBetweenAsOf",
+                  "static": true
+                },
+                {
+                  "id": "arguments",
+                  "type": "functionArguments",
+                  "value": [
+                    {
+                      "name": "low",
+                      "type": "Integer",
+                      "mode": "literal",
+                      "literal_type": "Integer",
+                      "literal_value": "50"
+                    },
+                    {
+                      "name": "high",
+                      "type": "Integer",
+                      "mode": "literal",
+                      "literal_type": "Integer",
+                      "literal_value": "120"
+                    },
+                    {
+                      "name": "asOf",
+                      "type": "Date",
+                      "mode": "literal",
+                      "literal_type": "Date",
+                      "literal_value": "2024-06-30"
+                    }
+                  ]
+                }
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "numerator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "FnNumer",
+              "uniqueId": "FnNumer",
+              "name": "Senior at period end",
+              "type": "externalCqlFunctionCall",
+              "returnType": "boolean",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "Senior at period end"
+                },
+                {
+                  "id": "library_name",
+                  "type": "string",
+                  "value": "SmokeFnUtil",
+                  "static": true
+                },
+                {
+                  "id": "library_version",
+                  "type": "string",
+                  "value": "1.0.0",
+                  "static": true
+                },
+                {
+                  "id": "function_name",
+                  "type": "string",
+                  "value": "AtLeastAtPeriodEnd",
+                  "static": true
+                },
+                {
+                  "id": "reference_id",
+                  "type": "string",
+                  "value": "SmokeFnUtil:AtLeastAtPeriodEnd",
+                  "static": true
+                },
+                {
+                  "id": "arguments",
+                  "type": "functionArguments",
+                  "value": [
+                    {
+                      "name": "period",
+                      "type": "Interval<DateTime>",
+                      "mode": "measurementPeriod"
+                    },
+                    {
+                      "name": "threshold",
+                      "type": "Integer",
+                      "mode": "parameter",
+                      "operand_id": "p-senior"
+                    }
+                  ]
+                }
+              ],
+              "modifiers": []
+            },
+            {
+              "id": "FnNumerBe",
+              "uniqueId": "FnNumerBe",
+              "name": "Adult flag via base element",
+              "type": "externalCqlFunctionCall",
+              "returnType": "boolean",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "Adult flag via base element"
+                },
+                {
+                  "id": "library_name",
+                  "type": "string",
+                  "value": "SmokeFnUtil",
+                  "static": true
+                },
+                {
+                  "id": "library_version",
+                  "type": "string",
+                  "value": "1.0.0",
+                  "static": true
+                },
+                {
+                  "id": "function_name",
+                  "type": "string",
+                  "value": "Identity",
+                  "static": true
+                },
+                {
+                  "id": "reference_id",
+                  "type": "string",
+                  "value": "SmokeFnUtil:Identity",
+                  "static": true
+                },
+                {
+                  "id": "arguments",
+                  "type": "functionArguments",
+                  "value": [
+                    {
+                      "name": "flag",
+                      "type": "Boolean",
+                      "mode": "element",
+                      "operand_id": "be-adult"
+                    }
+                  ]
+                }
+              ],
+              "modifiers": []
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [
+    {
+      "uniqueId": "be-adult",
+      "id": "AgeRange",
+      "name": "Is Adult",
+      "type": "AgeRange",
+      "returnType": "boolean",
+      "fields": [
+        {
+          "id": "element_name",
+          "type": "string",
+          "value": "Is Adult"
+        },
+        {
+          "id": "min_age",
+          "type": "string",
+          "value": "18"
+        },
+        {
+          "id": "max_age",
+          "type": "string",
+          "value": ""
+        },
+        {
+          "id": "unit_of_time",
+          "type": "string",
+          "value": "year"
+        }
+      ],
+      "modifiers": []
+    }
+  ],
+  "parameters": [
+    {
+      "uniqueId": "p-senior",
+      "name": "Senior Threshold",
+      "type": "integer",
+      "value": 65
+    }
+  ],
+  "rationale": "Exchange packages must carry the logic, not only the population names.",
+  "steward": "Smoke Harness Hospital"
+}

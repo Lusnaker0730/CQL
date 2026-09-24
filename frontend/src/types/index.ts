@@ -138,6 +138,17 @@ export interface ExpressionInfo {
   context?: string
   accessLevel?: string
   resultType?: string
+  /** PAT-237: `expression` (plain define) or `function`; older stored metadata has none (= expression). */
+  kind?: 'expression' | 'function'
+  /** PAT-237: declared operands of a function, in order. */
+  operands?: FunctionOperand[]
+}
+
+/** PAT-237: one declared operand of a library `define function`. */
+export interface FunctionOperand {
+  name: string
+  /** Declared type in CQL terms, e.g. `Integer`, `List<FHIR.Observation>`, `Interval<DateTime>`. */
+  type: string
 }
 
 export interface CqlExecutionRequest {

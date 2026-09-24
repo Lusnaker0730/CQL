@@ -538,4 +538,59 @@ class EcqmCqlBuilderTest {
         // Should produce valid CQL library even if defines are skipped (empty trees produce "null")
         assertThat(result.cql()).contains("library EmptyTreeMeasure");
     }
+
+    // ===== PAT-237: library function call inside a population =====
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buildEcqmCql_functionCallInPopulation_emitsIncludeAndCall_withMeasurementPeriodArgument() {
+        Map<String, Object> hba1c = new LinkedHashMap<>();
+        hba1c.put("uniqueId", "be_hba1c");
+        hba1c.put("name", "HbA1c Results");
+        hba1c.put("returnType", "boolean");
+        // a base element is itself an element the engine can render — here an AgeRange, the
+        // simplest one; what matters for the call is the name the index resolves the id to
+        hba1c.put("type", "AgeRange");
+        hba1c.put("fields", List.of(
+                Map.of("id", "element_name", "type", "string", "value", "HbA1c Results"),
+                Map.of("id", "min_age", "type", "string", "value", "18"),
+                Map.of("id", "max_age", "type", "string", "value", ""),
+                Map.of("id", "unit_of_time", "type", "string", "value", "year")));
+        hba1c.put("modifiers", new ArrayList<>());
+
+        List<Map<String, Object>> args = List.of(
+                Map.of("name", "observations", "mode", "element", "operand_id", "be_hba1c"),
+                Map.of("name", "period", "mode", "measurementPeriod"),
+                Map.of("name", "threshold", "mode", "literal", "literal_type", "Decimal", "literal_value", "7.0"));
+        Map<String, Object> call = new LinkedHashMap<>();
+        call.put("uniqueId", "fn-1");
+        call.put("type", "externalCqlFunctionCall");
+        call.put("name", "Controlled");
+        call.put("returnType", "boolean");
+        call.put("fields", List.of(
+                Map.of("id", "element_name", "type", "string", "value", "Controlled"),
+                Map.of("id", "library_name", "type", "string", "value", "HospitalCommon", "static", true),
+                Map.of("id", "library_version", "type", "string", "value", "2.0.0", "static", true),
+                Map.of("id", "function_name", "type", "string", "value", "Most Recent Below", "static", true),
+                Map.of("id", "arguments", "type", "functionArguments", "value", args)));
+        call.put("modifiers", new ArrayList<>());
+        Map<String, Object> tree = emptyTree();
+        ((List<Object>) tree.get("childInstances")).add(call);
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("groupId", "group-1");
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", populationTree());
+        pops.put("denominator", populationTree());
+        pops.put("numerator", tree);
+        group.put("populations", pops);
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "FnMeasure", "1.0.0", "proportion", "boolean",
+                List.of(group), List.of(hba1c), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("include HospitalCommon version '2.0.0' called HospitalCommon");
+        assertThat(result.cql()).contains(
+                "\"HospitalCommon\".\"Most Recent Below\"(\"HbA1c Results\", \"Measurement Period\", 7.0)");
+        assertThat(result.warnings()).isEmpty();
+    }
 }

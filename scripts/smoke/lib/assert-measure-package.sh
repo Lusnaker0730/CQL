@@ -97,6 +97,16 @@ if echo "$decoded" | grep -q "^library $primary_name "; then
 else
     bad "packaged CQL does not start with 'library $primary_name' (got: $(echo "$decoded" | head -1))"
 fi
+# PAT-237: exact fragments the packaged primary CQL must contain (e.g. a library function call
+# with its arguments, the include it needs, a parameter declaration).
+while IFS= read -r fragment; do
+    [ -z "$fragment" ] && continue
+    if printf '%s' "$decoded" | grep -qF -- "$fragment"; then
+        ok "packaged CQL contains: $fragment"
+    else
+        bad "packaged CQL lacks: $fragment"
+    fi
+done < <(jq -r '.package.cqlContains[]?' "$EXPECTED" | tr -d '\r')
 
 # ── XML ─────────────────────────────────────────────────────────────────────
 if grep -q '<Bundle xmlns="http://hl7.org/fhir">' "$DIR/bundle.xml" && grep -q '<Measure' "$DIR/bundle.xml" \
