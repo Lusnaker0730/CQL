@@ -345,6 +345,39 @@ class CqfmMeasureBuilderTest {
         assertThat(group.getStratifiers().get(0).getStratifierId()).isEqualTo("strat-elderly");
     }
 
+    // PAT-235 — a multi-component stratifier is Measure.group.stratifier.component[] with one
+    // criteria per component and no stratifier-level criteria; it reads back as components.
+    @Test
+    void componentStratifier_exportsAsComponents_andReadsBack() {
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+        MeasureDefinition original = proportion().build();
+        original.getGroupDefinitions().get(0).setStratifiers(List.of(StratifierDefinition.builder()
+                .stratifierId("sex-age").description("Sex by age band")
+                .components(List.of(
+                        StratifierDefinition.Component.builder().code("sex").criteriaExpression("Stratifier sex-age sex").kind("value").build(),
+                        StratifierDefinition.Component.builder().code("age").criteriaExpression("Stratifier sex-age age").description("Age band").build()))
+                .build()));
+
+        ObjectNode measure = build(original, new MeasureExportConformance());
+        JsonNode strat = measure.path("group").get(0).path("stratifier").get(0);
+        assertThat(strat.path("code").path("text").asText()).isEqualTo("sex-age");
+        assertThat(strat.has("criteria")).isFalse();
+        assertThat(strat.path("component")).hasSize(2);
+        assertThat(strat.path("component").get(0).path("code").path("text").asText()).isEqualTo("sex");
+        assertThat(strat.path("component").get(0).path("criteria").path("expression").asText()).isEqualTo("Stratifier sex-age sex");
+        assertThat(strat.path("component").get(0).path("criteria").path("language").asText()).isEqualTo("text/cql-identifier");
+        assertThat(strat.path("component").get(1).path("description").asText()).isEqualTo("Age band");
+        assertThat(strat.path("component").get(1).path("id").asText()).isNotBlank();
+
+        StratifierDefinition readBack = service.parseFhirMeasure(measure).getGroupDefinitions().get(0).getStratifiers().get(0);
+        assertThat(readBack.getStratifierId()).isEqualTo("sex-age");
+        assertThat(readBack.getCriteriaExpression()).isNull();
+        assertThat(readBack.getComponents()).extracting(c -> c.getCode() + "=" + c.getCriteriaExpression())
+                .containsExactly("sex=Stratifier sex-age sex", "age=Stratifier sex-age age");
+        assertThat(readBack.getComponents().get(1).getDescription()).isEqualTo("Age band");
+    }
+
     @Test
     void observation_readsBackWithThePopulationTypeItRefersTo() {
         FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),

@@ -134,4 +134,35 @@ class MeasureReportExportServiceTest {
                 .contains("SDE Sex,supplemental-data,(no value),1")
                 .contains("RAF Age Band,risk-adjustment-factor,65+,3");
     }
+
+    // PAT-235 — a multi-component stratum carries stratum.component[] next to the combined value.
+    @Test
+    void fhirExport_writesStratumComponents() throws Exception {
+        MeasureEvaluationResult result = MeasureEvaluationResult.builder()
+                .groups(List.of(GroupResult.builder().groupId("group-1").populations(List.of())
+                        .stratifiers(List.of(
+                                StratifierResult.builder().strataId("sex-age").strataValue("female | 65+")
+                                        .components(List.of(
+                                                MeasureEvaluationResult.StratumComponent.builder().code("sex").value("female").build(),
+                                                MeasureEvaluationResult.StratumComponent.builder().code("age").value("65+").build()))
+                                        .populations(List.of(PopulationResult.builder().populationType("initial-population").count(1).build()))
+                                        .build(),
+                                stratum("gender", "true", 3, 2, 2, 100.0)))
+                        .build()))
+                .build();
+        MeasureReportEntity report = MeasureReportEntity.builder().id(44L).measureName("Demo")
+                .periodStart(LocalDate.of(2022, 1, 1)).periodEnd(LocalDate.of(2022, 6, 30)).build();
+        when(reportService.getReport(44L)).thenReturn(Optional.of(report));
+        when(reportReader.reconstruct(44L)).thenReturn(Optional.of(result));
+
+        JsonNode measureReport = new ObjectMapper().readTree(exportService.exportReport(44L, "fhir").getBody());
+        JsonNode stratifiers = measureReport.path("group").get(0).path("stratifier");
+        JsonNode combined = stratifiers.get(0).path("stratum").get(0);
+        assertThat(combined.path("value").path("text").asText()).isEqualTo("female | 65+");
+        assertThat(combined.path("component")).hasSize(2);
+        assertThat(combined.path("component").get(0).path("code").path("text").asText()).isEqualTo("sex");
+        assertThat(combined.path("component").get(0).path("value").path("text").asText()).isEqualTo("female");
+        assertThat(combined.path("component").get(1).path("value").path("text").asText()).isEqualTo("65+");
+        assertThat(stratifiers.get(1).path("stratum").get(0).has("component")).isFalse();
+    }
 }

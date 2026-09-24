@@ -18,6 +18,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.when;
 
 @DisplayName("NormalizedMeasureReportReader — rebuild MeasureEvaluationResult from normalized tables")
@@ -217,5 +218,35 @@ class NormalizedMeasureReportReaderTest {
             Long reportId, String definition, String usage, String value, int count, int ordinal) {
         return com.cqlplatform.entity.MeasureReportSupplementalDataEntity.builder()
                 .measureReportId(reportId).definition(definition).usage(usage).value(value).count(count).ordinal(ordinal).build();
+    }
+
+    // PAT-235 — component JSON reads back into StratifierResult.components; garbage is isolated.
+    @Test
+    @DisplayName("stratum component_values rebuild the components; malformed JSON leaves them null")
+    void stratumComponents_rebuild() {
+        MeasureReportGroupEntity g = MeasureReportGroupEntity.builder()
+                .id(70L).measureReportId(7L).groupId("g").ordinal(0).build();
+        when(groupRepo.findByMeasureReportIdOrderByOrdinalAsc(7L)).thenReturn(List.of(g));
+        when(popRepo.findByMeasureReportGroupIdOrderByOrdinalAsc(70L)).thenReturn(List.of());
+        MeasureReportStratifierEntity withComponents = MeasureReportStratifierEntity.builder()
+                .id(700L).measureReportGroupId(70L).strataId("sex-age").strataValue("female | 65+")
+                .componentValuesJson("[{\"code\":\"sex\",\"value\":\"female\"},{\"code\":\"age\",\"value\":\"65+\"}]")
+                .ordinal(0).build();
+        MeasureReportStratifierEntity broken = MeasureReportStratifierEntity.builder()
+                .id(701L).measureReportGroupId(70L).strataId("sex-age").strataValue("male | 18-49")
+                .componentValuesJson("{not json").ordinal(1).build();
+        MeasureReportStratifierEntity plain = MeasureReportStratifierEntity.builder()
+                .id(702L).measureReportGroupId(70L).strataId("gender").strataValue("true").ordinal(2).build();
+        when(stratRepo.findByMeasureReportGroupIdOrderByOrdinalAsc(70L)).thenReturn(List.of(withComponents, broken, plain));
+        when(stratPopRepo.findByMeasureReportStratifierIdOrderByOrdinalAsc(anyLong())).thenReturn(List.of());
+        when(sdeRepo.findByMeasureReportIdOrderByOrdinalAsc(7L)).thenReturn(List.of());
+
+        var strata = reader.reconstruct(7L).orElseThrow().getGroups().get(0).getStratifiers();
+
+        assertThat(strata.get(0).getComponents()).extracting(c -> c.getCode() + "=" + c.getValue()).containsExactly("sex=female", "age=65+");
+        assertThat(strata.get(0).getStrataValue()).isEqualTo("female | 65+");
+        assertThat(strata.get(1).getComponents()).isNull();
+        assertThat(strata.get(1).getStrataValue()).isEqualTo("male | 18-49");
+        assertThat(strata.get(2).getComponents()).isNull();
     }
 }

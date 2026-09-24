@@ -77,3 +77,25 @@ describe('EvaluationResultCard — supplemental data distributions', () => {
     expect(screen.queryByText('evaluationResult.supplementalData')).not.toBeInTheDocument()
   })
 })
+
+// PAT-235 — a multi-component stratum shows one chip per component instead of the combined text.
+describe('EvaluationResultCard — component strata', () => {
+  it('renders component chips for a multi-component stratum and a plain chip otherwise', () => {
+    render(<EvaluationResultCard result={{
+      ...base,
+      groups: [{
+        ...base.groups[0],
+        stratifiers: [
+          { strataId: 'sex-age', strataValue: 'female | 65+', components: [{ code: 'sex', value: 'female' }, { code: 'age', value: '65+' }],
+            populations: [{ populationType: 'initial-population', count: 3 }], measureScore: 100 },
+          { strataId: 'gender', strataValue: 'true', populations: [{ populationType: 'initial-population', count: 3 }], measureScore: 100 },
+        ],
+      }],
+    }} />)
+
+    const chips = within(screen.getByTestId('stratum-components')).getAllByText(/./)
+    expect(chips.map((c) => c.textContent)).toEqual(['sex: female', 'age: 65+'])
+    expect(screen.getByText('true')).toBeInTheDocument()
+    expect(screen.queryByText('female | 65+')).not.toBeInTheDocument()
+  })
+})

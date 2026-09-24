@@ -148,3 +148,55 @@ describe('EcqmStratifiersTab — value stratifiers', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('stratifiers.bandErrors.order')
   })
 })
+
+// PAT-235 — multi-component stratifiers: a patient's stratum is the combination of component values.
+describe('EcqmStratifiersTab — component stratifiers', () => {
+  const criteriaStrat = { stratifierId: 's1', description: '', criteria: { type: 'and', children: [] } as never }
+
+  it('switching to components seeds sex × age band, and back to a single kind drops them', () => {
+    const onChange = vi.fn()
+    const first = render(<EcqmStratifiersTab templates={[]} modifiers={[]} stratifiers={[criteriaStrat]} onChange={onChange} />)
+
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.kind.components' }))
+    const seeded = onChange.mock.calls[0][0][0]
+    expect(seeded.components.map((c: { code: string; kind: string }) => `${c.code}:${c.kind}`)).toEqual(['sex:value', 'age:value'])
+    expect(seeded.components[1].value.bands).toHaveLength(4)
+
+    first.unmount()
+    onChange.mockClear()
+    render(<EcqmStratifiersTab templates={[]} modifiers={[]} stratifiers={[seeded]} onChange={onChange} />)
+    expect(screen.getAllByTestId('stratifier-component')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: 'stratifiers.kind.components', pressed: true })).toBeInTheDocument()
+    expect(screen.queryByTestId('tree-editor')).not.toBeInTheDocument() // both components are value kind
+
+    // the stratifier-level toggle comes first; each component has its own criteria / value toggle
+    fireEvent.click(screen.getAllByRole('button', { name: 'stratifiers.kind.criteria' })[0])
+    expect(onChange.mock.calls[0][0][0].components).toBeUndefined()
+  })
+
+  it('edits a component code, adds a criteria component, removes one, and flags bad codes', () => {
+    const onChange = vi.fn()
+    const strat = { ...criteriaStrat, components: [
+      { code: 'sex', kind: 'value' as const, value: { source: 'gender' as const } },
+      { code: 'age', kind: 'value' as const, value: { source: 'ageBands' as const, bands: [{ label: '65+', min: 65 }] } },
+    ] }
+    const first = render(<EcqmStratifiersTab templates={[]} modifiers={[]} stratifiers={[strat]} onChange={onChange} />)
+
+    fireEvent.change(screen.getAllByLabelText('stratifiers.component.codeAria')[0], { target: { value: 'gender' } })
+    expect(onChange.mock.calls[0][0][0].components[0].code).toBe('gender')
+
+    fireEvent.click(screen.getByRole('button', { name: 'stratifiers.component.add' }))
+    const added = onChange.mock.calls[1][0][0].components
+    expect(added).toHaveLength(3)
+    expect(added[2]).toMatchObject({ code: '', kind: 'criteria' })
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'stratifiers.component.remove' })[0])
+    expect(onChange.mock.calls[2][0][0].components.map((c: { code: string }) => c.code)).toEqual(['age'])
+
+    first.unmount()
+    render(<EcqmStratifiersTab templates={[]} modifiers={[]} onChange={onChange}
+      stratifiers={[{ ...strat, components: [{ code: 'a<b', kind: 'value', value: { source: 'gender' } }, { code: 'a<b', kind: 'value', value: { source: 'gender' } }] }]} />)
+    expect(screen.getByRole('alert')).toHaveTextContent('stratifiers.componentErrors.code')
+    expect(screen.getByRole('alert')).toHaveTextContent('stratifiers.componentErrors.duplicate')
+  })
+})

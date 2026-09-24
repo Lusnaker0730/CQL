@@ -158,6 +158,43 @@ class EcqmPublishServiceTest {
         assertThat(groups.get(0).getStratifiers().get(1).isValueBased()).isTrue();
     }
 
+    // PAT-235 — a multi-component stratifier maps to one define per component; the stratifier
+    // itself has no criteria expression.
+    @Test
+    void publish_mapsComponentStratifiers_withOneDefinePerComponent() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setPopulationGroupsList(new ArrayList<>(List.of(
+                new LinkedHashMap<>(Map.of("groupId", "g1", "populations", Map.of())),
+                new LinkedHashMap<>(Map.of("groupId", "g2", "populations", Map.of())))));
+        entity.setStratifiersList(new ArrayList<>(List.of(Map.of("stratifierId", "sex-age", "description", "Sex by age",
+                "components", List.of(
+                        Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")),
+                        Map.of("code", "age", "kind", "value", "description", "Age band", "value", Map.of("source", "ageBands")))))));
+
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity m = inv.getArgument(0);
+            m.setId(100L);
+            return m;
+        });
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        com.cqlplatform.model.measure.StratifierDefinition strat = saved.getValue().getGroupDefinitionList().get(1).getStratifiers().get(0);
+        assertThat(strat.getStratifierId()).isEqualTo("sex-age");
+        assertThat(strat.getCriteriaExpression()).isNull();
+        assertThat(strat.hasComponents()).isTrue();
+        assertThat(strat.getComponents()).extracting(c -> c.getCode() + "|" + c.getCriteriaExpression() + "|" + c.getKind() + "|" + c.getDescription())
+                .containsExactly("sex|Stratifier sex-age sex|value|null", "age|Stratifier sex-age age|value|Age band");
+    }
+
     // PAT-234 — the workspace's SDE elements become the measure's declared supplemental data /
     // risk adjustment factors (by usage). Before, publish carried none of them, so neither the
     // evaluation nor the exchange package knew the measure had any.

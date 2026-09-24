@@ -159,4 +159,70 @@ class StratifierEvaluatorTest {
         assertThat(evaluator.buildStratifierResults(data, "Proportion").get(0).getMeasureScore())
                 .as("case-insensitive").isEqualTo(50.0);
     }
+
+    // ---------------------------------------------------------------- PAT-235: multi-component strata
+
+    private static StratifierDefinition sexByAge() {
+        return StratifierDefinition.builder().stratifierId("sex-age").components(List.of(
+                StratifierDefinition.Component.builder().code("sex").criteriaExpression("Stratifier sex-age sex").kind("value").build(),
+                StratifierDefinition.Component.builder().code("age").criteriaExpression("Stratifier sex-age age").kind("value").build()))
+                .build();
+    }
+
+    @Test
+    void componentStratifier_bucketsByTheCombination_andReportsEachComponent() {
+        Map<String, Map<String, Map<String, Integer>>> data = new HashMap<>();
+        Object[][] patients = {
+                {"female", "65+", true, true, true},
+                {"male", "18-49", true, false, false},
+                {"female", "65+", true, true, false},
+                {"female", null, true, true, true},      // missing a component → no stratum
+                {null, "65+", true, true, true},
+        };
+        for (Object[] p : patients) {
+            Map<String, CqlExecutionResponse.ExpressionResult> results = new HashMap<>();
+            results.put("Stratifier sex-age sex", value(p[0]));
+            results.put("Stratifier sex-age age", value(p[1]));
+            results.put("Initial Population", value(p[2]));
+            results.put("Denominator", value(p[3]));
+            results.put("Numerator", value(p[4]));
+            evaluator.evaluatePatientStratifiers(List.of(sexByAge()), results, data);
+        }
+
+        List<StratifierResult> strata = evaluator.buildStratifierResults(data, ScoringTypeConstants.PROPORTION);
+        assertThat(strata).extracting(StratifierResult::getStrataValue).containsExactly("female | 65+", "male | 18-49");
+        StratifierResult femaleElderly = strata.get(0);
+        assertThat(femaleElderly.getComponents()).extracting(c -> c.getCode() + "=" + c.getValue())
+                .containsExactly("sex=female", "age=65+");
+        assertThat(femaleElderly.getPopulations()).extracting(p -> p.getPopulationType() + "=" + p.getCount())
+                .contains("initial-population=2", "denominator=2", "numerator=1");
+        assertThat(femaleElderly.getMeasureScore()).isEqualTo(50.0);
+        assertThat(strata.get(1).getComponents()).extracting(c -> c.getValue()).containsExactly("male", "18-49");
+        // the two patients missing a component value are in no stratum: 2 + 1 = 3 of 5 in strata
+        assertThat(strata).flatExtracting(StratifierResult::getPopulations)
+                .filteredOn(p -> "initial-population".equals(p.getPopulationType()))
+                .extracting(p -> p.getCount()).containsExactly(2, 1);
+    }
+
+    @Test
+    void componentStratifier_testCaseRunnerSeesTheSameCombinedValue_andSeparatorsCannotBeForged() {
+        Map<String, CqlExecutionResponse.ExpressionResult> results = Map.of(
+                "Stratifier sex-age sex", value("female"),   // a value trying to fake a boundary
+                "Stratifier sex-age age", value("65+"));
+        assertThat(evaluator.resolveStratumValue(sexByAge(), results)).isEqualTo("fe male | 65+");
+
+        String key = evaluator.resolveStratumKey(sexByAge(), results);
+        assertThat(StratifierEvaluator.decodeComponents(key)).extracting(c -> c.getCode() + "=" + c.getValue())
+                .containsExactly("sex=fe male", "age=65+");
+        assertThat(StratifierEvaluator.decodeComponents("plain")).isEmpty();
+        assertThat(StratifierEvaluator.displayValue("plain")).isEqualTo("plain");
+
+        // a stratifier with components but a component missing from the results → no stratum
+        assertThat(evaluator.resolveStratumValue(sexByAge(), Map.of("Stratifier sex-age sex", value("female")))).isNull();
+        // single-expression stratifiers keep carrying no components
+        Map<String, Map<String, Map<String, Integer>>> data = new HashMap<>();
+        evaluator.evaluatePatientStratifiers(List.of(stratifier("s", "Stratifier s", null)),
+                Map.of("Stratifier s", value(true), "Initial Population", value(true)), data);
+        assertThat(evaluator.buildStratifierResults(data, null).get(0).getComponents()).isNull();
+    }
 }

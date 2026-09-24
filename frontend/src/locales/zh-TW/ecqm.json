@@ -151,7 +151,9 @@
       "criteria": "條件式",
       "value": "值",
       "criteriaHint": "布林條件：病人落入 true 或 false 兩層。",
-      "valueHint": "運算式的結果就是分層：每個不同的值各成一層（Bonnie / MADiE 的做法）。"
+      "valueHint": "運算式的結果就是分層：每個不同的值各成一層（Bonnie / MADiE 的做法）。",
+      "components": "多元件",
+      "componentsHint": "多個運算式；病人的分層是各元件值的組合（例如 female | 65+）。任一元件沒有值的病人不屬於任何分層。"
     },
     "value": {
       "source": "分層依據",
@@ -178,6 +180,19 @@
       "noBound": "每個年齡帶至少要有起或迄其中一個。",
       "order": "起不能大於迄。",
       "duplicate": "標籤不能重複——相同標籤會把兩帶合併成同一層。"
+    },
+    "component": {
+      "code": "元件代碼",
+      "codeAria": "元件 {{number}} 代碼",
+      "kindAria": "元件 {{number}} 類型",
+      "add": "新增元件",
+      "remove": "移除元件 {{number}}"
+    },
+    "componentErrors": {
+      "tooFew": "多元件分層至少要兩個元件。",
+      "tooMany": "元件最多 10 個。",
+      "code": "元件代碼限 1–50 個英數字、空格、_ . -（它會成為 CQL define 名稱的一部分）。",
+      "duplicate": "元件代碼不能重複。"
     }
   },
   "cqlPreview": {

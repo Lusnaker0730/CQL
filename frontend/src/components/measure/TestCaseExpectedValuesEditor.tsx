@@ -215,7 +215,7 @@ export default function TestCaseExpectedValuesEditor({
                       freeSolo
                       size="small"
                       disabled={readOnly}
-                      options={stratifier.kind === 'value' ? NO_OPTIONS : CRITERIA_STRATUM_OPTIONS}
+                      options={stratifier.kind === 'value' || stratifier.components?.length ? NO_OPTIONS : CRITERIA_STRATUM_OPTIONS}
                       value={expected.stratifiers?.[stratifier.stratifierId] ?? ''}
                       onInputChange={(_, stratum) => setStratum(groupId, stratifier.stratifierId, stratum)}
                       renderInput={(params) => (

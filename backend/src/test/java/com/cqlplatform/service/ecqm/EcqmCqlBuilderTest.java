@@ -344,6 +344,45 @@ class EcqmCqlBuilderTest {
         assertThat(lf(result)).contains("define \"Stratifier sex 1\":\n  Patient.gender.value");
     }
 
+    // PAT-235 — a multi-component stratifier is one define per component, "Stratifier <id> <code>".
+    @Test
+    void componentStratifier_emitsOneDefinePerComponent_andDropsTheWholeStratifierOnABadComponent() {
+        Map<String, Object> sexByAge = new LinkedHashMap<>();
+        sexByAge.put("stratifierId", "sex-age");
+        sexByAge.put("description", "Sex by age band");
+        sexByAge.put("components", List.of(
+                Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")),
+                Map.of("code", "age", "kind", "value", "value", Map.of("source", "ageBands", "bands", List.of(band("65+", 65, null)))),
+                Map.of("code", "elderly", "criteria", populationTree())));
+        Map<String, Object> group1 = proportionGroup();
+        group1.put("stratifiers", List.of(sexByAge));
+
+        CqlBuildResult top = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(sexByAge), "R4");
+        assertThat(lf(top)).contains("// Sex by age band")
+                .contains("define \"Stratifier sex-age sex\":\n  Patient.gender.value")
+                .contains("define \"Stratifier sex-age age\":\n  case\n")
+                .contains("define \"Stratifier sex-age elderly\":\n  ")
+                .doesNotContain("define \"Stratifier sex-age\":");
+        assertThat(top.warnings()).isEmpty();
+
+        CqlBuildResult grouped = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                List.of(group1, proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+        assertThat(lf(grouped)).contains("define \"Stratifier sex-age sex 1\":").contains("define \"Stratifier sex-age age 1\":");
+
+        for (Map<String, Object> bad : List.of(
+                Map.of("code", "a<b", "kind", "value", "value", Map.of("source", "gender")),   // code not plain
+                Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")),   // duplicate code
+                Map.of("code", "zip", "kind", "value", "value", Map.of("source", "postal")))) { // unbuildable
+            Map<String, Object> strat = new LinkedHashMap<>(sexByAge);
+            strat.put("components", List.of(Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")), bad));
+            CqlBuildResult result = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                    List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(strat), "R4");
+            assertThat(result.cql()).as("bad " + bad).doesNotContain("define \"Stratifier sex-age");
+            assertThat(result.warnings()).as("bad " + bad).anyMatch(w -> w.contains("Stratifier sex-age"));
+        }
+    }
+
     // PAT-234 — a custom SDE element can be a value expression too (a risk adjustment factor
     // such as an age band), and a RAF define should be named "RAF …" (QM IG 3.19).
     @Test

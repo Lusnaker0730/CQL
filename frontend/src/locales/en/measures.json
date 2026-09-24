@@ -314,6 +314,7 @@
       "stratifierId": "Stratifier ID",
       "cqlExpression": "CQL Expression",
       "removeStratifier": "Remove stratifier",
+      "components": "Components: {{list}} — a patient's stratum is the combination of the component values.",
       "populationAssociations": "Population Associations",
       "addStratifier": "Add Stratifier",
       "description": "Description",

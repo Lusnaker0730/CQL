@@ -44,6 +44,7 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 3. **多群組名稱** — 多群組量測自動加後綴（" 1", " 2"）避免 CQL 命名衝突
 4. **Observation 聚合方法** — Continuous Variable 必須選擇聚合方法（Count, Sum, Average, etc.）
 5. **分層兩種（PAT-233）** — `kind: 'criteria'`（預設，布林條件樹 → `true` / `false` 兩層）或 `kind: 'value'`（運算式的值就是分層，每個不同的值一層）。值型只有結構化來源 `gender`（`Patient.gender.value`）與 `ageBands`（測量期間結束時足歲、上下界含、標籤限 ASCII，`utils/ageBands.ts` 與後端同一套檢查）——**不要**加自由 CQL 文字欄位，artifact JSON 是 client 送來的，那是 CQL injection 面。此分頁編輯的是 artifact 層級 `stratifiers`，publish 時會套到每個 group（以前只映 group 層級，UI 又不編那層，做了等於沒做）
+7. **多元件分層（PAT-235）** — 分層第三種模式：`components[]`（每個元件有 `code` + 自己的條件式 / 值型編輯器，共用 `ValueSourceEditor`），病人的分層是各元件值的組合。`code` 會成為 define 名的一部分（`Stratifier <id> <code>`），`utils/stratifierComponents.ts` 與後端同一套檢查（1–50 字英數 / 空格 / `_.-`、不重複、2–10 個）；切回單一模式會清掉 `components`。指標編輯頁對多元件分層只顯示、不編輯
 6. **SDE 的用途與類型（PAT-234）** — 自訂 SDE 列多 `usage`（`supplemental-data` 預設 / `risk-adjustment-factor`）與 `kind`（`criteria` / `value`，值型共用 `ValueSourceEditor`）。切成風險校正因子時，還是預設名稱的列會自動改成 `RAF …`，作者自己取的名字不動、只提示（後端 publish 警告）。publish 依 `usage` 映進 `MeasureDefinition.supplementalData` / `riskAdjustments`——以前一個都沒映，所以評估與交換封裝都不知道指標有 SDE
 
 ## 狀態管理

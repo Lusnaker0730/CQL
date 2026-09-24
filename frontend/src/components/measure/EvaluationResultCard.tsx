@@ -278,7 +278,16 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Chip label={strat.strataValue} size="small" />
+                              {strat.components && strat.components.length > 0 ? (
+                                // PAT-235: a multi-component stratum shows one chip per component
+                                <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }} data-testid="stratum-components">
+                                  {strat.components.map((c) => (
+                                    <Chip key={c.code} size="small" label={`${c.code}: ${c.value}`} />
+                                  ))}
+                                </Stack>
+                              ) : (
+                                <Chip label={strat.strataValue} size="small" />
+                              )}
                             </TableCell>
                             <TableCell align="right">
                               {strat.measureScore != null && (

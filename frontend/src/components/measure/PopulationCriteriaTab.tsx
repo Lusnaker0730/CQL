@@ -962,20 +962,30 @@ export default function PopulationCriteriaTab({ measure, onMeasureUpdate, readOn
                               onChange={(e) => updateStratifier(groupIdx, stratIdx, 'stratifierId', e.target.value)}
                               sx={{ minWidth: 140 }}
                             />
-                            <TextField
-                              select={expressionNames.length > 0}
-                              label={t('populationCriteria.stratifierFields.cqlExpression')}
-                              size="small"
-                              fullWidth
-                              value={strat.criteriaExpression}
-                              onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
-                            >
-                              {expressionNames.map((name) => (
-                                <MenuItem key={name} value={name}>
-                                  {name}
-                                </MenuItem>
-                              ))}
-                            </TextField>
+                            {strat.components && strat.components.length > 0 ? (
+                              // PAT-235: a multi-component stratifier (built in the eCQM workspace) is
+                              // shown, not edited, here — one define per component.
+                              <Typography variant="body2" sx={{ color: 'text.secondary', flex: 1 }}>
+                                {t('populationCriteria.stratifierFields.components', {
+                                  list: strat.components.map((c) => `${c.code} = ${c.criteriaExpression}`).join(', '),
+                                })}
+                              </Typography>
+                            ) : (
+                              <TextField
+                                select={expressionNames.length > 0}
+                                label={t('populationCriteria.stratifierFields.cqlExpression')}
+                                size="small"
+                                fullWidth
+                                value={strat.criteriaExpression}
+                                onChange={(e) => updateStratifier(groupIdx, stratIdx, 'criteriaExpression', e.target.value)}
+                              >
+                                {expressionNames.map((name) => (
+                                  <MenuItem key={name} value={name}>
+                                    {name}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
+                            )}
                             <IconButton size="small" aria-label={t('populationCriteria.stratifierFields.removeStratifier')} color="error" onClick={() => removeStratifier(groupIdx, stratIdx)}>
                               <DeleteIcon fontSize="small" />
                             </IconButton>

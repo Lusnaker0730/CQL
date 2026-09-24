@@ -279,15 +279,35 @@ public class EcqmPublishService {
     }
 
     /** The define the CQL builder emits for this stratifier, plus what the report needs to label it. */
+    @SuppressWarnings("unchecked")
     private static StratifierDefinition stratifierDefinition(Map<String, Object> strat, String suffix) {
         String stratId = strat.get("stratifierId") != null ? strat.get("stratifierId").toString() : "strat";
         String kind = "value".equals(strat.get("kind")) ? StratifierDefinition.KIND_VALUE : StratifierDefinition.KIND_CRITERIA;
         Object description = strat.get("description");
+        // PAT-235: a multi-component stratifier points at one define per component,
+        // "Stratifier <id> <code><suffix>", the names the CQL builder emits.
+        List<StratifierDefinition.Component> components = null;
+        if (strat.get("components") instanceof List<?> list && !list.isEmpty()) {
+            components = new ArrayList<>();
+            for (Object o : list) {
+                if (!(o instanceof Map<?, ?> component) || component.get("code") == null) continue;
+                String code = component.get("code").toString().trim();
+                Object componentDescription = component.get("description");
+                components.add(StratifierDefinition.Component.builder()
+                        .code(code)
+                        .criteriaExpression("Stratifier " + stratId + " " + code + suffix)
+                        .kind("value".equals(component.get("kind")) ? StratifierDefinition.KIND_VALUE : StratifierDefinition.KIND_CRITERIA)
+                        .description(componentDescription != null && !componentDescription.toString().isBlank()
+                                ? componentDescription.toString() : null)
+                        .build());
+            }
+        }
         return StratifierDefinition.builder()
                 .stratifierId(stratId)
-                .criteriaExpression("Stratifier " + stratId + suffix)
+                .criteriaExpression(components != null ? null : "Stratifier " + stratId + suffix)
                 .description(description != null && !description.toString().isBlank() ? description.toString() : null)
                 .kind(kind)
+                .components(components)
                 .build();
     }
 }

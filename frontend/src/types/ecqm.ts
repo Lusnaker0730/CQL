@@ -133,6 +133,16 @@ export interface ValueStratifier {
   bands?: AgeBand[]
 }
 
+/** PAT-235 — one component of a multi-component stratifier: its own criteria or value expression. */
+export interface StratifierComponentElement {
+  /** Plain text (letters, digits, space, `_.-`; unique within the stratifier) — part of the define name. */
+  code: string
+  description?: string
+  kind?: StratifierKind
+  criteria?: ConjunctionGroup
+  value?: ValueStratifier
+}
+
 export interface StratifierElement {
   stratifierId: string
   description?: string
@@ -142,6 +152,12 @@ export interface StratifierElement {
   criteria: ConjunctionGroup
   /** The stratum-valued expression when `kind === 'value'`: every distinct value is a stratum. */
   value?: ValueStratifier
+  /**
+   * PAT-235: when non-empty, the stratifier is multi-component (FHIR `stratifier.component[]`):
+   * a patient's stratum is the combination of the components' values, and `kind` / `criteria` /
+   * `value` above are ignored.
+   */
+  components?: StratifierComponentElement[]
 }
 
 /** PAT-234 — FHIR measure-data-usage: plain supplemental data, or a risk adjustment factor. */

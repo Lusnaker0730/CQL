@@ -1,0 +1,35 @@
+{
+  "periodStart": "2022-01-01",
+  "periodEnd": "2022-06-30",
+  "score": 60.0,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 7,
+    "denominator": 5,
+    "numerator": 3
+  },
+  "stratifiers": [
+    {
+      "strataId": "gender",
+      "expectedStrata": [
+        {"strataValue": "true",  "populations": {"initial-population": 3, "denominator": 2, "numerator": 2}, "score": 100.0},
+        {"strataValue": "false", "populations": {"initial-population": 4, "denominator": 3, "numerator": 1}, "score": 33.33}
+      ],
+      "scoreTolerance": 0.5
+    },
+    {
+      "strataId": "sex-age",
+      "expectedStrata": [
+        {"strataValue": "male | 65+",     "components": {"sex": "male",   "age": "65+"},   "populations": {"initial-population": 2, "denominator": 2, "numerator": 2}, "score": 100.0},
+        {"strataValue": "female | 65+",   "components": {"sex": "female", "age": "65+"},   "populations": {"initial-population": 1, "denominator": 1, "numerator": 1}, "score": 100.0},
+        {"strataValue": "female | 50-64", "components": {"sex": "female", "age": "50-64"}, "populations": {"initial-population": 2, "denominator": 2, "numerator": 0}, "score": 0.0},
+        {"strataValue": "male | 18-49",   "components": {"sex": "male",   "age": "18-49"}, "populations": {"initial-population": 1, "denominator": 0, "numerator": 0}},
+        {"strataValue": "female | 18-49", "components": {"sex": "female", "age": "18-49"}, "populations": {"initial-population": 1, "denominator": 0, "numerator": 0}}
+      ],
+      "scoreTolerance": 0.5
+    }
+  ],
+  "exactStrata": true,
+  "maxEvaluationTimeMs": 8000,
+  "_note": "PAT-235. Scenario 19's seven patients and proportion measure (p1 72M, p2 69M, p3 67F, p4 62F, p5 57F, p6 42M, p7 32F; IP = adults, Denom = 50+, Numer = 65+) with the classic boolean `gender` stratifier (group-level) and one ARTIFACT-level multi-component stratifier `sex-age` = sex (Patient.gender.value) × age band (18-49 / 50-64 / 65+), as the eCQM workspace builds it. Locks: the CQL has one define per component (`Stratifier sex-age sex`, `Stratifier sex-age age`); a patient's stratum is the combination (`female | 50-64`), reported with per-component values; the male 50-64 cell has nobody and therefore no stratum (exactStrata: exactly the five combinations that occur); per-stratum populations and scores (18-49 cells have an empty denominator → no score). Runs on PostgreSQL with V74 (`measure_report_stratifier.component_values`) applied by Flyway."
+}

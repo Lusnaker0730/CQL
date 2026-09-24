@@ -238,12 +238,13 @@ public class EcqmCqlBuilder {
             for (Map<String, Object> strat : stratifiers) {
                 String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
                 String desc = engine.getStr(strat, "description", "");
-                String stratExpr = stratifierExpression(strat, ctx);
-                if (stratExpr != null) {
+                // PAT-235: a multi-component stratifier is one define per component,
+                // "Stratifier <id> <code>"; a plain stratifier is one define "Stratifier <id>".
+                for (Map.Entry<String, String> define : stratifierDefines(strat, stratId, ctx).entrySet()) {
                     Map<String, String> sm = new HashMap<>();
-                    sm.put("id", stratId);
+                    sm.put("id", define.getKey());
                     sm.put("description", engine.escapeCqlIdentifier(desc));
-                    sm.put("expression", stratExpr);
+                    sm.put("expression", define.getValue());
                     topStratModels.add(sm);
                 }
             }
@@ -403,15 +404,58 @@ public class EcqmCqlBuilder {
             String suffix, BuildContext ctx) {
         String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
         String desc = engine.getStr(strat, "description", "");
-        String expr = stratifierExpression(strat, ctx);
-        if (expr != null && !"null".equals(expr)) {
-            if (!desc.isEmpty()) {
+        boolean first = true;
+        for (Map.Entry<String, String> define : stratifierDefines(strat, stratId, ctx).entrySet()) {
+            if (first && !desc.isEmpty()) {
                 // Sanitize description for CQL comment: strip newlines to prevent injection
                 String safeDesc = desc.replace("\n", " ").replace("\r", " ");
                 block.append(String.format("// %s\n", safeDesc));
             }
-            block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
+            first = false;
+            block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", define.getKey(), suffix, define.getValue()));
         }
+    }
+
+    /** Codes are part of a CQL identifier ({@code "Stratifier <id> <code>"}); keep them plain. */
+    private static final java.util.regex.Pattern COMPONENT_CODE = java.util.regex.Pattern.compile("^[A-Za-z0-9][A-Za-z0-9 _.-]{0,49}$");
+
+    /**
+     * PAT-235 — the defines one stratifier needs, keyed by the id part after {@code "Stratifier "}:
+     * {@code <id>} → expression for a plain stratifier, {@code <id> <code>} → expression per
+     * component for a multi-component one. A component that cannot be built (bad code,
+     * duplicate code, unbuildable expression) drops the whole stratifier with a warning — a
+     * stratum made of some of its components would be a different stratifier.
+     */
+    @SuppressWarnings("unchecked")
+    Map<String, String> stratifierDefines(Map<String, Object> strat, String escapedStratId, BuildContext ctx) {
+        Map<String, String> defines = new LinkedHashMap<>();
+        Object componentsObj = strat.get("components");
+        if (componentsObj instanceof List<?> components && !components.isEmpty()) {
+            String rawId = engine.getStr(strat, "stratifierId", "strat");
+            Set<String> codes = new HashSet<>();
+            for (Object componentObj : components) {
+                if (!(componentObj instanceof Map<?, ?> component)) {
+                    ctx.warn(String.format("Stratifier %s: malformed component. Skipping the stratifier.", rawId));
+                    return Map.of();
+                }
+                String code = String.valueOf(component.get("code")).trim();
+                if (!COMPONENT_CODE.matcher(code).matches() || !codes.add(code)) {
+                    ctx.warn(String.format("Stratifier %s: component code '%s' is invalid or duplicated "
+                            + "(letters, digits, space, _.- ; 1-50 chars; unique). Skipping the stratifier.", rawId, code));
+                    return Map.of();
+                }
+                String expr = valueOrCriteriaExpression((Map<String, Object>) component, "Stratifier " + rawId + "/" + code, ctx);
+                if (expr == null || "null".equals(expr)) {
+                    ctx.warn(String.format("Stratifier %s: component '%s' has no expression. Skipping the stratifier.", rawId, code));
+                    return Map.of();
+                }
+                defines.put(escapedStratId + " " + engine.escapeCqlIdentifier(code), expr);
+            }
+            return defines;
+        }
+        String expr = stratifierExpression(strat, ctx);
+        if (expr != null && !"null".equals(expr)) defines.put(escapedStratId, expr);
+        return defines;
     }
 
     // ------------------------------------------------------------------ stratifier expressions (PAT-233)

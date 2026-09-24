@@ -31,6 +31,10 @@ public class MeasureReportStratifierEntity {
     @Column(name = "measure_score")
     private Double measureScore;
 
+    /** PAT-235: {@code [{"code","value"}, …]} for a multi-component stratum; null otherwise (V74). */
+    @Column(name = "component_values", columnDefinition = "TEXT")
+    private String componentValuesJson;
+
     @Column(name = "ordinal", nullable = false)
     private Integer ordinal;
 }
