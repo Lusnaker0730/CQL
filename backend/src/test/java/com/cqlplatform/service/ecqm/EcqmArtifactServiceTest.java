@@ -309,6 +309,106 @@ class EcqmArtifactServiceTest {
         assertThat(saved.getBaseElementsList()).isNotSameAs(originalBE);
     }
 
+    // ── PAT-236 standard metadata ───────────────────────────────────────
+
+    // Lists and strings follow the partial-update rule; the dates are ISO strings so that ""
+    // clears while an absent key (null field) keeps — a LocalDate could not say "clear".
+    @Test
+    void update_standardMetadata_absentKeeps_emptyStringClears_valueSets() {
+        EcqmArtifactEntity existing = entity(5L, "alice");
+        existing.setMeasureTypeList(new java.util.ArrayList<>(List.of("outcome")));
+        existing.setEffectiveStart(java.time.LocalDate.of(2026, 1, 1));
+        existing.setEffectiveEnd(java.time.LocalDate.of(2026, 12, 31));
+        existing.setApprovalDate(java.time.LocalDate.of(2025, 11, 20));
+        existing.setClinicalRecommendationStatement("keep me");
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        EcqmArtifactRequest req = EcqmArtifactRequest.builder()
+                .measureTypes(List.of("process", "structure"))
+                .definitionTerms(List.of(Map.of("term", "HbA1c control", "definition", "< 7%")))
+                .effectiveEnd("")                                                 // clear
+                .lastReviewDate("2026-06-15")                                     // set
+                .experimental(Boolean.TRUE)
+                .build();                                  // effectiveStart / approvalDate / statement absent
+        EcqmArtifactResponse result = service.update(5L, req, "alice");
+
+        assertThat(result.getMeasureTypes()).containsExactly("process", "structure");
+        assertThat(result.getDefinitionTerms()).hasSize(1);
+        assertThat(result.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(result.getEffectiveEnd()).isNull();
+        assertThat(result.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 11, 20));
+        assertThat(result.getLastReviewDate()).isEqualTo(java.time.LocalDate.of(2026, 6, 15));
+        assertThat(result.getClinicalRecommendationStatement()).isEqualTo("keep me");
+        assertThat(result.getExperimental()).isTrue();
+    }
+
+    @Test
+    void update_effectivePeriodEndingBeforeStart_isRejectedBeforeSave() {
+        EcqmArtifactEntity existing = entity(5L, "alice");
+        existing.setEffectiveStart(java.time.LocalDate.of(2026, 6, 1));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
+
+        EcqmArtifactRequest req = EcqmArtifactRequest.builder()
+                .effectiveEnd("2026-01-01")
+                .build();
+
+        assertThatThrownBy(() -> service.update(5L, req, "alice"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("before it starts");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_dateThatMatchesThePatternButIsNotACalendarDate_isRejected() {
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(entity(5L, "alice")));
+
+        assertThatThrownBy(() -> service.update(5L, EcqmArtifactRequest.builder().approvalDate("2026-13-45").build(), "alice"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("Not a calendar date");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_carriesStandardMetadata_andDuplicateCopiesIt() {
+        when(repository.save(any())).thenAnswer(inv -> {
+            EcqmArtifactEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(9L);
+            return e;
+        });
+        EcqmArtifactRequest req = EcqmArtifactRequest.builder()
+                .name("Meta").scoringType("proportion")
+                .measureTypes(List.of("process"))
+                .definitionTerms(List.of(Map.of("term", "T", "definition", "D")))
+                .clinicalRecommendationStatement("CRS")
+                .effectiveStart("2026-01-01")
+                .approvalDate("")
+                .experimental(Boolean.FALSE)
+                .build();
+
+        EcqmArtifactResponse created = service.create(req, "alice");
+
+        assertThat(created.getMeasureTypes()).containsExactly("process");
+        assertThat(created.getDefinitionTerms()).extracting(m -> m.get("term")).containsExactly("T");
+        assertThat(created.getClinicalRecommendationStatement()).isEqualTo("CRS");
+        assertThat(created.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(created.getApprovalDate()).isNull();
+        assertThat(created.getExperimental()).isFalse();
+
+        ArgumentCaptor<EcqmArtifactEntity> saved = ArgumentCaptor.forClass(EcqmArtifactEntity.class);
+        verify(repository).save(saved.capture());
+        EcqmArtifactEntity original = saved.getValue();
+        when(repository.findByIdAndTenantId(9L, 7L)).thenReturn(Optional.of(original));
+
+        EcqmArtifactResponse copy = service.duplicate(9L, "alice");
+
+        assertThat(copy.getMeasureTypes()).containsExactly("process");
+        assertThat(copy.getDefinitionTerms()).hasSize(1);
+        assertThat(copy.getClinicalRecommendationStatement()).isEqualTo("CRS");
+        assertThat(copy.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(copy.getExperimental()).isFalse();
+    }
+
     @Test
     void duplicate_missingArtifact_shouldThrow() {
         when(repository.findByIdAndTenantId(404L, 7L)).thenReturn(Optional.empty());

@@ -82,6 +82,7 @@ public class MeasureDefinitionService {
                     definition.getStatus(), definition.getName());
         }
         definition.setStatus(DRAFT);
+        MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
         // Pre-compile CQL on create, same as update — surfaces translation errors at
@@ -126,6 +127,8 @@ public class MeasureDefinitionService {
                             + "submit-for-review, approve, reject or retire.");
         }
 
+        MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
         entity.setTitle(definition.getTitle());
@@ -160,6 +163,15 @@ public class MeasureDefinitionService {
         entity.setSupplementalDataList(definition.getSupplementalData());
         entity.setImprovementNotation(definition.getImprovementNotation());
         entity.setRateAggregation(definition.getRateAggregation());
+        // PAT-236 standard metadata
+        entity.setMeasureTypeList(definition.getMeasureTypes() != null ? definition.getMeasureTypes() : new java.util.ArrayList<>());
+        entity.setDefinitionTermList(definition.getDefinitionTerms() != null ? definition.getDefinitionTerms() : new java.util.ArrayList<>());
+        entity.setClinicalRecommendationStatement(definition.getClinicalRecommendationStatement());
+        entity.setEffectiveStart(definition.getEffectiveStart());
+        entity.setEffectiveEnd(definition.getEffectiveEnd());
+        entity.setApprovalDate(definition.getApprovalDate());
+        entity.setLastReviewDate(definition.getLastReviewDate());
+        entity.setExperimental(definition.getExperimental());
 
         // Indicator code mapping
         entity.setMohIndicatorCode(definition.getMohIndicatorCode());
@@ -408,6 +420,15 @@ public class MeasureDefinitionService {
                 .supplementalData(entity.getSupplementalDataList())
                 .improvementNotation(entity.getImprovementNotation())
                 .rateAggregation(entity.getRateAggregation())
+                // PAT-236 standard metadata
+                .measureTypes(entity.getMeasureTypeList())
+                .definitionTerms(entity.getDefinitionTermList())
+                .clinicalRecommendationStatement(entity.getClinicalRecommendationStatement())
+                .effectiveStart(entity.getEffectiveStart())
+                .effectiveEnd(entity.getEffectiveEnd())
+                .approvalDate(entity.getApprovalDate())
+                .lastReviewDate(entity.getLastReviewDate())
+                .experimental(entity.getExperimental())
                 // Indicator code mapping
                 .mohIndicatorCode(entity.getMohIndicatorCode())
                 .nhiaP4pCode(entity.getNhiaP4pCode())
@@ -722,6 +743,15 @@ public class MeasureDefinitionService {
                 .supplementalDataList(model.getSupplementalData())
                 .improvementNotation(model.getImprovementNotation())
                 .rateAggregation(model.getRateAggregation())
+                // PAT-236 standard metadata
+                .measureTypeList(model.getMeasureTypes() != null ? model.getMeasureTypes() : new java.util.ArrayList<>())
+                .definitionTermList(model.getDefinitionTerms() != null ? model.getDefinitionTerms() : new java.util.ArrayList<>())
+                .clinicalRecommendationStatement(model.getClinicalRecommendationStatement())
+                .effectiveStart(model.getEffectiveStart())
+                .effectiveEnd(model.getEffectiveEnd())
+                .approvalDate(model.getApprovalDate())
+                .lastReviewDate(model.getLastReviewDate())
+                .experimental(model.getExperimental())
                 // Indicator code mapping
                 .mohIndicatorCode(model.getMohIndicatorCode())
                 .nhiaP4pCode(model.getNhiaP4pCode())

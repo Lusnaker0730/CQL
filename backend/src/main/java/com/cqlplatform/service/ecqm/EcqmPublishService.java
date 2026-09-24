@@ -108,6 +108,16 @@ public class EcqmPublishService {
         measureDef.setNqfNumber(ecqm.getNqfNumber());
         measureDef.setCmsMeasureId(ecqm.getCmsMeasureId());
         measureDef.setSupplementalDataGuidance(ecqm.getSupplementalDataGuidance());
+        // PAT-236 standard metadata: copied only when the artifact has them, so a value the
+        // author entered on the published measure survives a re-publish.
+        if (ecqm.getMeasureTypeList() != null && !ecqm.getMeasureTypeList().isEmpty()) measureDef.setMeasureTypeList(new ArrayList<>(ecqm.getMeasureTypeList()));
+        if (ecqm.getDefinitionTermList() != null && !ecqm.getDefinitionTermList().isEmpty()) measureDef.setDefinitionTermList(definitionTerms(ecqm.getDefinitionTermList()));
+        if (ecqm.getClinicalRecommendationStatement() != null) measureDef.setClinicalRecommendationStatement(ecqm.getClinicalRecommendationStatement());
+        if (ecqm.getEffectiveStart() != null) measureDef.setEffectiveStart(ecqm.getEffectiveStart());
+        if (ecqm.getEffectiveEnd() != null) measureDef.setEffectiveEnd(ecqm.getEffectiveEnd());
+        if (ecqm.getApprovalDate() != null) measureDef.setApprovalDate(ecqm.getApprovalDate());
+        if (ecqm.getLastReviewDate() != null) measureDef.setLastReviewDate(ecqm.getLastReviewDate());
+        if (ecqm.getExperimental() != null) measureDef.setExperimental(ecqm.getExperimental());
         // PAT-234: the workspace's SDE elements become the measure's declared supplemental
         // data / risk adjustment factors (by usage) — what the evaluation distributes and the
         // exchange package lists. Before, publish carried none of them.
@@ -276,6 +286,21 @@ public class EcqmPublishService {
                 sdeDefs.add(MeasureDefinition.SupplementalDataDef.builder().definition(name.toString().trim()).description(desc).build());
             }
         }
+    }
+
+    /** PAT-236 — the artifact's {@code [{term, definition}]} maps as typed definition terms; blank terms are dropped. */
+    static List<MeasureDefinition.DefinitionTerm> definitionTerms(List<Map<String, Object>> raw) {
+        List<MeasureDefinition.DefinitionTerm> out = new ArrayList<>();
+        for (Map<String, Object> entry : raw) {
+            Object term = entry.get("term");
+            Object definition = entry.get("definition");
+            if ((term == null || term.toString().isBlank()) && (definition == null || definition.toString().isBlank())) continue;
+            out.add(MeasureDefinition.DefinitionTerm.builder()
+                    .term(term != null ? term.toString().trim() : null)
+                    .definition(definition != null ? definition.toString().trim() : null)
+                    .build());
+        }
+        return out;
     }
 
     /** The define the CQL builder emits for this stratifier, plus what the report needs to label it. */

@@ -197,6 +197,39 @@ public class MeasureDefinitionEntity {
     @Column(name = "improvement_notation", length = 20)
     private String improvementNotation;
 
+    // PAT-236 — standard FHIR Measure metadata (V75)
+    @Column(name = "measure_types", columnDefinition = "TEXT")
+    private String measureTypesJson;
+
+    @Transient
+    @Builder.Default
+    private List<String> measureTypeList = new ArrayList<>();
+
+    @Column(name = "definition_terms", columnDefinition = "TEXT")
+    private String definitionTermsJson;
+
+    @Transient
+    @Builder.Default
+    private List<MeasureDefinition.DefinitionTerm> definitionTermList = new ArrayList<>();
+
+    @Column(name = "clinical_recommendation_statement", columnDefinition = "TEXT")
+    private String clinicalRecommendationStatement;
+
+    @Column(name = "effective_start")
+    private java.time.LocalDate effectiveStart;
+
+    @Column(name = "effective_end")
+    private java.time.LocalDate effectiveEnd;
+
+    @Column(name = "approval_date")
+    private java.time.LocalDate approvalDate;
+
+    @Column(name = "last_review_date")
+    private java.time.LocalDate lastReviewDate;
+
+    @Column(name = "experimental")
+    private Boolean experimental;
+
     @Column(name = "rate_aggregation", length = 2000)
     private String rateAggregation;
 
@@ -242,6 +275,8 @@ public class MeasureDefinitionEntity {
         serializeJsonList(referenceList, (json) -> measureReferences = json, "[]");
         serializeJsonList(riskAdjustmentList, (json) -> riskAdjustmentsJson = json, "[]");
         serializeJsonList(supplementalDataList, (json) -> supplementalDataJson = json, "[]");
+        serializeJsonList(measureTypeList, (json) -> measureTypesJson = json, "[]");
+        serializeJsonList(definitionTermList, (json) -> definitionTermsJson = json, "[]");
         serializeJsonList(sharedWithList, (json) -> sharedWith = json, "[]");
     }
 
@@ -252,6 +287,8 @@ public class MeasureDefinitionEntity {
         referenceList = deserializeJsonList(measureReferences, new TypeReference<>() {});
         riskAdjustmentList = deserializeJsonList(riskAdjustmentsJson, new TypeReference<>() {});
         supplementalDataList = deserializeJsonList(supplementalDataJson, new TypeReference<>() {});
+        measureTypeList = deserializeJsonList(measureTypesJson, new TypeReference<>() {});
+        definitionTermList = deserializeJsonList(definitionTermsJson, new TypeReference<>() {});
         sharedWithList = deserializeJsonList(sharedWith, new TypeReference<>() {});
     }
 

@@ -152,6 +152,56 @@ class EcqmControllerTest {
                 .andExpect(jsonPath("$.description").value("Updated"));
     }
 
+    // PAT-236 — the workspace autosaves only changed keys, so the request must tell "not sent"
+    // from "clear": through the real HTTP converter an absent date stays null, "" arrives as ""
+    // (clear), an ISO date as itself. (An Optional would not do: absent arrives as
+    // Optional.empty() too.) The response carries the metadata back as ISO dates / lists.
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateArtifact_standardMetadata_absentKeepsAndEmptyStringClears() throws Exception {
+        EcqmArtifactResponse response = createArtifactResponse();
+        response.setMeasureTypes(List.of("process"));
+        response.setDefinitionTerms(List.of(java.util.Map.of("term", "HbA1c control", "definition", "< 7%")));
+        response.setEffectiveStart(java.time.LocalDate.of(2026, 1, 1));
+        response.setExperimental(Boolean.TRUE);
+        org.mockito.ArgumentCaptor<EcqmArtifactRequest> captor = org.mockito.ArgumentCaptor.forClass(EcqmArtifactRequest.class);
+        when(artifactService.update(eq(1L), captor.capture(), eq("testuser"))).thenReturn(response);
+
+        mockMvc.perform(put("/api/ecqm/artifacts/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\": \"Test eCQM\", \"measureTypes\": [\"process\", \"outcome\"],"
+                                + " \"definitionTerms\": [{\"term\": \"HbA1c control\", \"definition\": \"< 7%\"}],"
+                                + " \"effectiveStart\": \"2026-01-01\", \"effectiveEnd\": \"\", \"experimental\": true}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.measureTypes[0]").value("process"))
+                .andExpect(jsonPath("$.definitionTerms[0].term").value("HbA1c control"))
+                .andExpect(jsonPath("$.effectiveStart").value("2026-01-01"))
+                .andExpect(jsonPath("$.experimental").value(true));
+
+        EcqmArtifactRequest sent = captor.getValue();
+        org.assertj.core.api.Assertions.assertThat(sent.getMeasureTypes()).containsExactly("process", "outcome");
+        org.assertj.core.api.Assertions.assertThat(sent.getDefinitionTerms()).hasSize(1);
+        org.assertj.core.api.Assertions.assertThat(sent.getEffectiveStart()).isEqualTo("2026-01-01");
+        org.assertj.core.api.Assertions.assertThat(sent.getEffectiveEnd()).isEmpty();      // "" → clear
+        org.assertj.core.api.Assertions.assertThat(sent.getApprovalDate()).isNull();       // absent → keep
+        org.assertj.core.api.Assertions.assertThat(sent.getLastReviewDate()).isNull();
+        org.assertj.core.api.Assertions.assertThat(sent.getExperimental()).isTrue();
+    }
+
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateArtifact_unknownMeasureTypeOrMalformedDate_isRejected() throws Exception {
+        mockMvc.perform(put("/api/ecqm/artifacts/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\": \"Test eCQM\", \"measureTypes\": [\"efficiency\"]}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(put("/api/ecqm/artifacts/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\": \"Test eCQM\", \"approvalDate\": \"01/02/2026\"}"))
+                .andExpect(status().isBadRequest());
+        verify(artifactService, never()).update(anyLong(), any(), anyString());
+    }
+
     // ===== Delete =====
 
     @Test

@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { Box, TextField, MenuItem, Stack, Typography, Divider } from '@mui/material'
 import type { EcqmArtifact, EcqmArtifactRequest } from '../../types/ecqm'
 import { SCORING_TYPES, POPULATION_BASIS_OPTIONS, IMPROVEMENT_NOTATIONS } from '../../constants/ecqmConstants'
+import MeasureStandardMetadataFields from '../measure/MeasureStandardMetadataFields'
+import { clearedDatesAsEmpty } from '../../utils/measureMetadata'
 
 interface Props {
   artifact: EcqmArtifact
@@ -137,6 +139,18 @@ export default function EcqmSummaryTab({ artifact, onChange }: Props) {
           label={t('summary.disclaimer')} fullWidth multiline rows={2}
           value={artifact.disclaimer || ''}
           onChange={(e) => onChange({ disclaimer: e.target.value })}
+        />
+
+        {/* PAT-236: standard FHIR Measure metadata, published onto the measure with the rest */}
+        <Divider />
+        <Typography variant="subtitle1" sx={{
+          fontWeight: 600
+        }}>{t('summary.standardMetadata')}</Typography>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>{t('summary.standardMetadataHint')}</Typography>
+        <MeasureStandardMetadataFields
+          value={artifact}
+          onChange={(updates) => onChange(clearedDatesAsEmpty(updates))}
+          size="medium"
         />
       </Stack>
     </Box>

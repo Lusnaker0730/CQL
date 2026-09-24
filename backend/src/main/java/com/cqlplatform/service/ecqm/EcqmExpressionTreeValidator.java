@@ -53,6 +53,7 @@ public class EcqmExpressionTreeValidator {
         validateParameters(request, errors);
         validateTrees("supplementalData", request.getSupplementalData(), errors, nodeCount);
         validateTrees("stratifiers", request.getStratifiers(), errors, nodeCount);
+        validateDefinitionTerms(request, errors);
 
         // ── eCQM-specific structural validation ──────────────────────────
         validateDefineNameUniqueness(request, errors);
@@ -296,8 +297,8 @@ public class EcqmExpressionTreeValidator {
      * BUG-146 — parameters are {@code {uniqueId, name, type, value, comment}}, not expression trees.
      * Walking them with the tree validator read {@code type} as an element type, so every eCQM
      * artifact with a typed parameter ({@code integer}, {@code decimal}, …) failed to save with
-     * "unknown element type". The CDS validator never did this. Strings still get the HTML check;
-     * the type must be one the builder can turn into CQL.
+     * "unknown element type". The CDS validator never did this. The name still gets the strict HTML
+     * check; the type must be one the builder can turn into CQL.
      */
     private void validateParameters(EcqmArtifactRequest request, List<String> errors) {
         List<Map<String, Object>> parameters = request.getParameters();
@@ -316,6 +317,30 @@ public class EcqmExpressionTreeValidator {
             if (type != null && !type.isBlank() && !PARAMETER_TYPES.contains(type.toLowerCase())) {
                 errors.add(String.format("%s: unknown parameter type '%s'", path, type));
             }
+        }
+    }
+
+    // ── PAT-236 definition terms ─────────────────────────────────────────
+
+    /** Prose limits shared with {@code MeasureDefinition.DefinitionTerm}. */
+    private static final int DEFINITION_TERM_MAX = 200;
+    private static final int DEFINITION_TEXT_MAX = 2000;
+
+    /**
+     * Definition terms are prose ({@code {term, definition}}), not expression trees: "HbA1c < 7%"
+     * is a legitimate definition, so they get the rules the measure side applies to the same
+     * fields (the {@link NoXssValidator} patterns + lengths) rather than the tree walker's
+     * "no angle brackets at all" check.
+     */
+    private void validateDefinitionTerms(EcqmArtifactRequest request, List<String> errors) {
+        List<Map<String, Object>> terms = request.getDefinitionTerms();
+        if (terms == null) return;
+        NoXssValidator xss = new NoXssValidator();
+        for (int i = 0; i < terms.size(); i++) {
+            Map<String, Object> term = terms.get(i);
+            if (term == null) continue;
+            checkProse("definitionTerms[" + i + "].term", toStr(term.get("term")), DEFINITION_TERM_MAX, xss, errors);
+            checkProse("definitionTerms[" + i + "].definition", toStr(term.get("definition")), DEFINITION_TEXT_MAX, xss, errors);
         }
     }
 

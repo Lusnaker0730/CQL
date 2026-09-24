@@ -16,6 +16,7 @@
 #   package.dependsOn[]         canonical-URL suffixes the primary Library must depend on
 #   package.populationBasis     cqfm-populationBasis valueCode
 #   package.improvementNotation improvementNotation code
+#   package.standardMetadata    PAT-236 measureTypes / experimental / dates / clinicalRecommendationStatement / definitions[]
 #   importAsVersion             version the round-tripped Measure is imported as
 #   expectLibrariesSkipped      dependency libraries already stored here
 #
@@ -137,6 +138,39 @@ skipped=$(jq -r '.expectLibrariesSkipped // empty' "$EXPECTED" | tr -d '\r')
 if [ -n "$skipped" ]; then
     check "dependency libraries already stored here are skipped ($skipped)" \
         ".librariesSkipped == $skipped and .librariesImported == 0" "$DIR/import-result.json"
+fi
+
+# ── PAT-236 standard metadata: on the exported Measure and back on the import ──
+# expected.json `package.standardMetadata` (all optional): measureTypes[], experimental,
+# effectiveStart, effectiveEnd, approvalDate, lastReviewDate, clinicalRecommendationStatement,
+# definitions[] (the exact Measure.definition markdown entries).
+if [ "$(jq -r '.package.standardMetadata != null' "$EXPECTED" | tr -d '\r')" = "true" ]; then
+    SM='.package.standardMetadata'
+    types=$(jq -c "$SM.measureTypes // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$types" ]; then
+        check "Measure.type codes = $types" \
+            "[$M.type[]?.coding[]? | select(.system == \"http://terminology.hl7.org/CodeSystem/measure-type\") | .code] == $types"
+        check "import: measureTypes = $types" ".measure.measureTypes == $types" "$DIR/import-result.json"
+    fi
+    for field in experimental approvalDate lastReviewDate clinicalRecommendationStatement; do
+        want=$(jq -c "$SM.$field // empty" "$EXPECTED" | tr -d '\r')
+        [ -z "$want" ] && continue
+        check "Measure.$field = $want" "$M.$field == $want"
+        check "import: $field = $want" ".measure.$field == $want" "$DIR/import-result.json"
+    done
+    for bound in start end; do
+        key=effectiveStart; [ "$bound" = "end" ] && key=effectiveEnd
+        want=$(jq -c "$SM.$key // empty" "$EXPECTED" | tr -d '\r')
+        [ -z "$want" ] && continue
+        check "Measure.effectivePeriod.$bound = $want" "$M.effectivePeriod.$bound == $want"
+        check "import: $key = $want" ".measure.$key == $want" "$DIR/import-result.json"
+    done
+    defs=$(jq -c "$SM.definitions // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$defs" ]; then
+        check "Measure.definition = $defs" "$M.definition == $defs"
+        check "import: definition terms parsed back ($(echo "$defs" | jq 'length') entries)" \
+            "(.measure.definitionTerms | length) == $(echo "$defs" | jq 'length')" "$DIR/import-result.json"
+    fi
 fi
 
 # ── Same package, same numbers ──────────────────────────────────────────────

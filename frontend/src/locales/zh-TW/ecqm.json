@@ -72,7 +72,9 @@
     "rationale": "理由",
     "clinicalGuidance": "臨床指引",
     "copyright": "版權",
-    "disclaimer": "免責聲明"
+    "disclaimer": "免責聲明",
+    "standardMetadata": "標準 Metadata（FHIR Measure）",
+    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、日期與實驗性旗標。發布時帶到指標，並匯出到 FHIR Measure。"
   },
   "populationGroups": {
     "title": "族群群組",

@@ -40,6 +40,8 @@ import {
 import type { MeasureDefinition, MeasureReference } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
 import IndicatorMappingSection from './IndicatorMappingSection'
+import MeasureStandardMetadataFields from './MeasureStandardMetadataFields'
+import { effectivePeriodInverted, standardMetadataFilled } from '../../utils/measureMetadata'
 import { MEASURE } from '../../constants/fieldConstraints'
 
 interface MeasureDetailsTabProps {
@@ -125,6 +127,9 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
   const stewardFilled = sectionFilled([form.steward, form.developers])
   const refsFilled = sectionFilled([form.references])
   const legalFilled = sectionFilled([form.copyright, form.disclaimer])
+  // PAT-236 standard metadata
+  const metadataFilled = standardMetadataFilled(form)
+  const periodInverted = effectivePeriodInverted(form.effectiveStart, form.effectiveEnd)
 
   return (
     <Box sx={{ p: 2, overflow: 'auto', height: '100%' }}>
@@ -134,7 +139,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
         actions={
           <GradientButton
             startIcon={<SaveIcon />}
-            disabled={!isDirty || updateMutation.isPending || readOnly}
+            disabled={!isDirty || updateMutation.isPending || readOnly || periodInverted}
             onClick={() => updateMutation.mutate()}
           >
             {updateMutation.isPending ? t('details.saving') : t('details.saveChanges')}
@@ -357,6 +362,37 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                 }}
               />
             </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        {/* PAT-236: Standard FHIR Measure metadata — type, dates, experimental, recommendation, definitions */}
+        <Accordion>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Stack direction="row" spacing={1} sx={{
+              alignItems: "center"
+            }}>
+              {metadataFilled && <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} />}
+              <Typography variant="subtitle2">{t('details.standardMetadata')}</Typography>
+              {(form.measureTypes || []).map((code) => (
+                <Chip key={code} label={t(`standardMetadata.types.${code}`)} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
+              ))}
+              {form.experimental && (
+                <Chip label={t('standardMetadata.experimental')} size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', mb: 2 }}>
+              {t('details.standardMetadataHint')}
+            </Typography>
+            <MeasureStandardMetadataFields
+              value={form}
+              readOnly={readOnly}
+              onChange={(updates) => {
+                setForm((prev) => ({ ...prev, ...updates }))
+                setIsDirty(true)
+              }}
+            />
           </AccordionDetails>
         </Accordion>
 

@@ -72,7 +72,9 @@
     "rationale": "Rationale",
     "clinicalGuidance": "Clinical Guidance",
     "copyright": "Copyright",
-    "disclaimer": "Disclaimer"
+    "disclaimer": "Disclaimer",
+    "standardMetadata": "Standard Metadata (FHIR Measure)",
+    "standardMetadataHint": "Measure type, definition terms, clinical recommendation statement, dates and the experimental flag. Published onto the measure and exported on the FHIR Measure."
   },
   "populationGroups": {
     "title": "Population Groups",

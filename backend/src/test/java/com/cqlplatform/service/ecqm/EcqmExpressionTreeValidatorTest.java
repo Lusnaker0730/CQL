@@ -264,6 +264,32 @@ class EcqmExpressionTreeValidatorTest {
         validator.validate(requestWithModifier("Foo", Map.of("anything", "goes")));
     }
 
+    // ── PAT-236 definition terms: prose, not expression trees ────────────
+
+    @Test
+    void definitionTerms_clinicalProseWithComparisonOperators_isAccepted() {
+        EcqmArtifactRequest request = EcqmArtifactRequest.builder().name("M")
+                .definitionTerms(List.of(
+                        Map.of("term", "HbA1c control", "definition", "Most recent HbA1c < 7% & no hypoglycaemia"),
+                        Map.of("term", "Hypertensive", "definition", "SBP > 140 or DBP >= 90")))
+                .build();
+        validator.validate(request); // the tree walker would have rejected every '<', '>' and '&'
+    }
+
+    @Test
+    void definitionTerms_scriptOrOverlongText_isRejected() {
+        EcqmArtifactRequest request = EcqmArtifactRequest.builder().name("M")
+                .definitionTerms(List.of(
+                        Map.of("term", "x", "definition", "see <script>alert(1)</script>"),
+                        Map.of("term", "y".repeat(201), "definition", "ok")))
+                .build();
+        assertThatThrownBy(() -> validator.validate(request))
+                .isInstanceOf(ValidationException.class)
+                .satisfies(e -> assertThat(((ValidationException) e).getDetails())
+                        .anyMatch(d -> d.contains("definitionTerms[0].definition") && d.contains("unsafe"))
+                        .anyMatch(d -> d.contains("definitionTerms[1].term") && d.contains("exceeds 200")));
+    }
+
     // ── BUG-146: parameters are not expression trees ──────────────────────
 
     @Test
