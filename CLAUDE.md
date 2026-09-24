@@ -81,7 +81,7 @@ backend/src/main/resources/
     modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V74；V56 為 Java migration)
+  db/migration/    — Flyway forward migrations (V1~V75；V56 為 Java migration)
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-235 / BUG-145
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-236 / BUG-145
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -171,6 +171,7 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - 4.x 的 `ComparableR4FhirModelResolver` 兩個 override（Encounter.class、BUG-106 Enumeration 歧義）在 5.x 沒有掛點也不需要：`toCqlValue` 走 HAPI runtime definition 轉換。`CqlValuesTest` 與 golden 測試鎖住
 - **分層（PAT-233）**：`StratifierEvaluator` 一向以 `String.valueOf(value)` 當 stratum key，所以 define 回什麼值就分什麼層——`kind=criteria` 是 `true`/`false`，`kind=value`（builder 的 `gender` / `ageBands` 來源）是值本身；key 規則在 `StratifierEvaluator.stratumKey`（Code map → `code (display)`、空/`null` → 不屬任何層）。`toSerializable` 把 FHIR primitive `ClassInstance`（只有 `value` 元素，含 `FHIR.AdministrativeGender` 這種綁定型）轉成它的值、`Code`/`Concept` 轉成小 map；**別讓 stratifier define 回整個資源**。分層分數依 scoring type（CV 分層沒有分數，observation 值沒有逐層收集）。eCQM workspace 的 artifact 層級 stratifier 在 publish 時套到每個 group
 - **多元件分層（PAT-235）**：`StratifierDefinition.components[]`（每元件自己的 define `Stratifier <id> <code>`，stratifier 本身 `criteriaExpression` 為 null）。評估器把各元件值以 ASCII 分隔字元（`\u001E` code / `\u001F` 元件）編成自描述的內部 key 放進同一個累積 map，`buildStratifierResults` 解回 `StratifierResult.components` 並把 `strataValue` 顯示成 `female | 65+`；`ValueKeys.of` 會剝掉這兩個字元，值偽造不了元件邊界。任一元件無值 → 不屬任何層。報表 `measure_report_stratifier.component_values`（V74，JSON），FHIR MeasureReport `stratum.component[]`、CQFM `stratifier.component[]`（匯入會讀回）。測試案例期望值仍是字串（寫 `female | 65+`）；smoke `assert.sh` 也仍以 `strataValue` 比對，另可斷言 `components`
+- **標準 metadata（PAT-236）**：`MeasureDefinition` 與 `EcqmArtifact` 都帶 `measureTypes[]`（FHIR measure-type 代碼，最多 5）、`definitionTerms[] {term, definition}`、`clinicalRecommendationStatement`、`effectiveStart` / `effectiveEnd` / `approvalDate` / `lastReviewDate`、`experimental`（V75，兩張表各 8 欄）。CQFM 匯出寫成 R4 元素（`type[].coding`、`definition[]` markdown `**term**: definition`、`effectivePeriod`、`approvalDate`…，`CqfmMeasureBuilder.addStandardMetadata`），匯入 `FhirMeasureService.definitionTerm` 解回；作者填的值優先，匯入基底只補空缺（`passThrough`）。publish 只在 artifact **有值**時覆蓋指標（重新發布不清掉指標頁填的內容）。**eCQM artifact 的 PUT 是部分更新**（缺鍵 = 保留）：四個日期在 `EcqmArtifactRequest` 是字串，`""` = 清除、缺鍵 = 保留、ISO 日期 = 設定——前端 `utils/measureMetadata.clearedDatesAsEmpty` 把共用欄位元件的 `null` 換成 `""`；經 HTTP converter 的 `Optional` 缺鍵也會變 `Optional.empty()`，分不出來，別改回去。生效迄日早於起日兩個 service 都以 `MeasureMetadataRules` 擋成 400
 - **補充資料 / 風險校正因子（PAT-234）**：指標宣告的 `supplementalData` / `riskAdjustments` define 由 `SupplementalDataEvaluator` 逐病人以 `ValueKeys.of`（與分層同一條 key 規則）分桶成「值 → 病人數」分布（`MeasureEvaluationResult.supplementalDataResults`），持久化在 `measure_report_supplemental_data`（V73，一列一值、null 值列 = 無值病人數，RLS 經 `measure_report`），`NormalizedMeasureReportReader` 會重建；FHIR MeasureReport 匯出以平台 extension（`<canonical base>/StructureDefinition/measurereport-supplemental-data`）攜帶——summary 報表沒有標準元素放 SDE 分布。舊的 `supplementalData` 計數 map（`aggregateCustomExpressions`，字串會被丟掉）仍在，只是 UI 有分布時不再顯示它。eCQM workspace 的 SDE 元素在 publish 時依 `usage` 映進 `MeasureDefinition`（以前一個都沒映）；RAF define 名應以 `RAF` 開頭（QM IG 3.19，builder 只警告不擋）。**這不是風險模型**：IG 只帶變數，不算校正後的率
 - **逐子句覆蓋率（PAT-232）**：`service/cql/ClauseCoverageCollector` 實作 5.x 的 `BreakpointHandler`，掛在 `engine.getState().setBreakpointHandler(...)`，引擎每個運算式節點都會呼叫——**只在** `CqlExecutionRequest.clauseCoverage=true` 時建立（`TestCaseService` 除錯模式與 `measureClauseCoverage`），`$evaluate-measure` 與一般測試案例執行不碰。分母是 `BaseElmLibraryVisitor` 靜態走訪 ELM（有 `localId` + `locator` 的節點），分子是 handler 的動態記錄，兩者必須來自同一次翻譯的 `Library`。引擎**不**對 `and` 短路、query 的 `where` 逐次迭代各記一次——測試鎖住的是引擎事實，別在前端套語言假設。覆蓋率不持久化（`persistRunResult` 抹掉）
 

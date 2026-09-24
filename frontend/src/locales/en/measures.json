@@ -259,7 +259,9 @@
     "legalFields": {
       "copyright": "Copyright",
       "disclaimer": "Disclaimer"
-    }
+    },
+    "standardMetadata": "Standard Metadata (FHIR Measure)",
+    "standardMetadataHint": "Measure type, definition terms, clinical recommendation statement, effective / approval / review dates and the experimental flag — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here."
   },
   "cql": {
     "translate": "Translate",
@@ -1134,5 +1136,31 @@
       "info": "Note"
     },
     "canonicalBaseHint": "Canonical URLs use a placeholder. Ask an administrator to set FHIR_CANONICAL_BASE to a domain your organisation owns before sharing packages."
+  },
+  "standardMetadata": {
+    "measureTypes": "Measure type",
+    "measureTypesHelper": "FHIR Measure.type — one or more (up to 5)",
+    "types": {
+      "process": "Process",
+      "outcome": "Outcome",
+      "structure": "Structure",
+      "patient-reported-outcome": "Patient-reported outcome",
+      "composite": "Composite"
+    },
+    "experimental": "Experimental",
+    "experimentalHelper": "For testing only, not for real-world use",
+    "effectiveStart": "Effective from",
+    "effectiveEnd": "Effective until",
+    "effectivePeriodInverted": "The effective period ends before it starts.",
+    "approvalDate": "Approval date",
+    "lastReviewDate": "Last review date",
+    "clinicalRecommendationStatement": "Clinical recommendation statement",
+    "clinicalRecommendationStatementPlaceholder": "Summary of the clinical guideline or recommendation this measure is based on, e.g. \"ADA recommends an HbA1c goal below 7% for most non-pregnant adults.\"",
+    "definitionTerms": "Definition terms",
+    "definitionTermsHelper": "Terms used in the measure and what they mean here (FHIR Measure.definition). Up to 50.",
+    "term": "Term",
+    "definition": "Definition",
+    "addTerm": "Add term",
+    "removeTerm": "Remove term"
   }
 }

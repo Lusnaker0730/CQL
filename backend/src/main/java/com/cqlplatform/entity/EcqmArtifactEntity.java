@@ -114,6 +114,40 @@ public class EcqmArtifactEntity {
     @Builder.Default
     private String parametersJson = "[]";
 
+    // PAT-236 — standard FHIR Measure metadata (V75); published onto the MeasureDefinition
+    @Column(name = "measure_types", columnDefinition = "TEXT")
+    private String measureTypesJson;
+
+    @Transient
+    @Builder.Default
+    private List<String> measureTypeList = new ArrayList<>();
+
+    @Column(name = "definition_terms", columnDefinition = "TEXT")
+    private String definitionTermsJson;
+
+    /** {@code [{term, definition}]} */
+    @Transient
+    @Builder.Default
+    private List<Map<String, Object>> definitionTermList = new ArrayList<>();
+
+    @Column(name = "clinical_recommendation_statement", columnDefinition = "TEXT")
+    private String clinicalRecommendationStatement;
+
+    @Column(name = "effective_start")
+    private java.time.LocalDate effectiveStart;
+
+    @Column(name = "effective_end")
+    private java.time.LocalDate effectiveEnd;
+
+    @Column(name = "approval_date")
+    private java.time.LocalDate approvalDate;
+
+    @Column(name = "last_review_date")
+    private java.time.LocalDate lastReviewDate;
+
+    @Column(name = "experimental")
+    private Boolean experimental;
+
     @Column(name = "published_measure_id")
     private Long publishedMeasureId;
 
@@ -180,6 +214,28 @@ public class EcqmArtifactEntity {
         stratifiersJson = serializeList(stratifiersList, "[]");
         baseElementsJson = serializeList(baseElementsList, "[]");
         parametersJson = serializeList(parametersList, "[]");
+        definitionTermsJson = serializeList(definitionTermList, "[]");
+        measureTypesJson = serializeStrings(measureTypeList);
+    }
+
+    private String serializeStrings(List<String> list) {
+        if (list == null || list.isEmpty()) return "[]";
+        try {
+            return MAPPER.writeValueAsString(list);
+        } catch (JsonProcessingException e) {
+            log.warn("Failed to serialize string list for ecqm_artifact id={}: {}", id, e.getMessage());
+            return "[]";
+        }
+    }
+
+    private List<String> deserializeStrings(String json) {
+        if (json == null || json.isBlank()) return new ArrayList<>();
+        try {
+            return MAPPER.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to deserialize string list for ecqm_artifact id={}: {}", id, e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     private void deserializeAll() {
@@ -188,6 +244,8 @@ public class EcqmArtifactEntity {
         stratifiersList = deserializeList(stratifiersJson);
         baseElementsList = deserializeList(baseElementsJson);
         parametersList = deserializeList(parametersJson);
+        definitionTermList = deserializeList(definitionTermsJson);
+        measureTypeList = deserializeStrings(measureTypesJson);
     }
 
     private String serializeList(List<Map<String, Object>> list, String defaultVal) {

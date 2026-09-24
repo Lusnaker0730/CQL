@@ -286,6 +286,17 @@ public class FhirMeasureService {
         }
 
         List<MeasureDefinition.SupplementalDataDef> supplementalData = new ArrayList<>();
+        // PAT-236: Measure.type[] codes and Measure.definition[] markdown entries
+        List<String> measureTypes = new ArrayList<>();
+        for (JsonNode typeNode : json.path("type")) {
+            String code = firstCode(typeNode, null);
+            if (code != null && !code.isBlank() && !measureTypes.contains(code)) measureTypes.add(code);
+        }
+        List<MeasureDefinition.DefinitionTerm> definitionTerms = new ArrayList<>();
+        for (JsonNode definitionNode : json.path("definition")) {
+            MeasureDefinition.DefinitionTerm term = definitionTerm(definitionNode.asText(null));
+            if (term != null) definitionTerms.add(term);
+        }
         List<MeasureDefinition.RiskAdjustmentDef> riskAdjustments = new ArrayList<>();
         for (JsonNode sde : json.path("supplementalData")) {
             String define = sde.path("criteria").path("expression").asText(null);
@@ -343,8 +354,46 @@ public class FhirMeasureService {
                 .references(references.isEmpty() ? null : references)
                 .supplementalData(supplementalData.isEmpty() ? null : supplementalData)
                 .riskAdjustments(riskAdjustments.isEmpty() ? null : riskAdjustments)
+                // PAT-236 standard metadata
+                .measureTypes(measureTypes.isEmpty() ? null : measureTypes)
+                .definitionTerms(definitionTerms.isEmpty() ? null : definitionTerms)
+                .clinicalRecommendationStatement(json.path("clinicalRecommendationStatement").asText(null))
+                .effectiveStart(localDate(json.path("effectivePeriod").path("start")))
+                .effectiveEnd(localDate(json.path("effectivePeriod").path("end")))
+                .approvalDate(localDate(json.path("approvalDate")))
+                .lastReviewDate(localDate(json.path("lastReviewDate")))
+                .experimental(json.path("experimental").isBoolean() ? json.path("experimental").asBoolean() : null)
                 .groupDefinitions(groups)
                 .build();
+    }
+
+    /** A FHIR date / dateTime node as a LocalDate (its first 10 characters), or null. */
+    private static java.time.LocalDate localDate(JsonNode node) {
+        if (node == null || !node.isTextual() || node.asText().length() < 10) return null;
+        try {
+            return java.time.LocalDate.parse(node.asText().substring(0, 10));
+        } catch (java.time.format.DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    /**
+     * PAT-236 — a Measure.definition markdown entry back into a term + definition. The platform
+     * writes {@code **term**: definition}; anything else is kept whole as the definition.
+     */
+    static MeasureDefinition.DefinitionTerm definitionTerm(String markdown) {
+        if (markdown == null || markdown.isBlank()) return null;
+        String text = markdown.trim();
+        if (text.startsWith("**")) {
+            int close = text.indexOf("**", 2);
+            if (close > 2) {
+                String term = text.substring(2, close).trim();
+                String rest = text.substring(close + 2).trim();
+                if (rest.startsWith(":")) rest = rest.substring(1).trim();
+                return MeasureDefinition.DefinitionTerm.builder().term(term).definition(rest.isEmpty() ? null : rest).build();
+            }
+        }
+        return MeasureDefinition.DefinitionTerm.builder().definition(text).build();
     }
 
     /** {@code https://x/fhir/Library/Foo|1.2.0} → {@code Foo}. */

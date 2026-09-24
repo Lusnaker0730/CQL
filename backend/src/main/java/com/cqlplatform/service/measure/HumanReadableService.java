@@ -82,6 +82,10 @@ public class HumanReadableService {
         sb.append("<nav class=\"toc\">\n");
         sb.append("  <h2>Table of Contents</h2>\n<ul>\n");
         sb.append("    <li><a href=\"#description\">Description</a></li>\n");
+        // PAT-236 standard metadata sections (each only when it has content)
+        if (hasStandardMetadataTable(measure)) sb.append("    <li><a href=\"#standard-metadata\">Measure Metadata</a></li>\n");
+        if (notBlank(measure.getClinicalRecommendationStatement())) sb.append("    <li><a href=\"#recommendation\">Clinical Recommendation Statement</a></li>\n");
+        if (measure.getDefinitionTerms() != null && !measure.getDefinitionTerms().isEmpty()) sb.append("    <li><a href=\"#definitions\">Definitions</a></li>\n");
         if (measure.getRationale() != null) sb.append("    <li><a href=\"#rationale\">Rationale</a></li>\n");
         if (measure.getClinicalGuidance() != null) sb.append("    <li><a href=\"#guidance\">Clinical Guidance</a></li>\n");
         sb.append("    <li><a href=\"#populations\">Population Criteria</a></li>\n");
@@ -95,6 +99,41 @@ public class HumanReadableService {
         sb.append("  <h2>Description</h2>\n");
         sb.append("  <p>").append(esc(measure.getDescription() != null ? measure.getDescription() : "No description provided.")).append("</p>\n");
         sb.append("</section>\n\n");
+
+        // PAT-236: standard metadata — type, dates, experimental, clinical recommendation, definitions
+        boolean hasTypes = measure.getMeasureTypes() != null && !measure.getMeasureTypes().isEmpty();
+        if (hasStandardMetadataTable(measure)) {
+            sb.append("<section id=\"standard-metadata\">\n");
+            sb.append("  <h2>Measure Metadata</h2>\n");
+            sb.append("  <table>\n    <tbody>\n");
+            if (hasTypes) sb.append("      <tr><th>Measure Type</th><td>").append(esc(String.join(", ", measure.getMeasureTypes()))).append("</td></tr>\n");
+            if (measure.getEffectiveStart() != null || measure.getEffectiveEnd() != null) {
+                sb.append("      <tr><th>Effective Period</th><td>")
+                        .append(esc(measure.getEffectiveStart() != null ? measure.getEffectiveStart().toString() : "…"))
+                        .append(" – ")
+                        .append(esc(measure.getEffectiveEnd() != null ? measure.getEffectiveEnd().toString() : "…"))
+                        .append("</td></tr>\n");
+            }
+            if (measure.getApprovalDate() != null) sb.append("      <tr><th>Approval Date</th><td>").append(measure.getApprovalDate()).append("</td></tr>\n");
+            if (measure.getLastReviewDate() != null) sb.append("      <tr><th>Last Review Date</th><td>").append(measure.getLastReviewDate()).append("</td></tr>\n");
+            if (Boolean.TRUE.equals(measure.getExperimental())) sb.append("      <tr><th>Experimental</th><td>Yes — for testing, not for real-world use</td></tr>\n");
+            sb.append("    </tbody>\n  </table>\n</section>\n\n");
+        }
+        if (notBlank(measure.getClinicalRecommendationStatement())) {
+            sb.append("<section id=\"recommendation\">\n");
+            sb.append("  <h2>Clinical Recommendation Statement</h2>\n");
+            sb.append("  <p>").append(esc(measure.getClinicalRecommendationStatement())).append("</p>\n");
+            sb.append("</section>\n\n");
+        }
+        if (measure.getDefinitionTerms() != null && !measure.getDefinitionTerms().isEmpty()) {
+            sb.append("<section id=\"definitions\">\n");
+            sb.append("  <h2>Definitions</h2>\n  <dl>\n");
+            for (MeasureDefinition.DefinitionTerm term : measure.getDefinitionTerms()) {
+                sb.append("    <dt>").append(esc(term.getTerm() != null ? term.getTerm() : "")).append("</dt>\n");
+                sb.append("    <dd>").append(esc(term.getDefinition() != null ? term.getDefinition() : "")).append("</dd>\n");
+            }
+            sb.append("  </dl>\n</section>\n\n");
+        }
 
         // Rationale
         if (measure.getRationale() != null && !measure.getRationale().isBlank()) {
@@ -316,6 +355,18 @@ public class HumanReadableService {
         if (value != null && !value.isBlank()) {
             sb.append("      <tr><td><strong>").append(esc(label)).append("</strong></td><td>").append(esc(value)).append("</td></tr>\n");
         }
+    }
+
+    /** PAT-236: the "Measure Metadata" table has a row to show. */
+    private static boolean hasStandardMetadataTable(MeasureDefinition measure) {
+        return (measure.getMeasureTypes() != null && !measure.getMeasureTypes().isEmpty())
+                || measure.getEffectiveStart() != null || measure.getEffectiveEnd() != null
+                || measure.getApprovalDate() != null || measure.getLastReviewDate() != null
+                || Boolean.TRUE.equals(measure.getExperimental());
+    }
+
+    private static boolean notBlank(String s) {
+        return s != null && !s.isBlank();
     }
 
     private boolean hasSupplementalData(MeasureDefinition measure) {

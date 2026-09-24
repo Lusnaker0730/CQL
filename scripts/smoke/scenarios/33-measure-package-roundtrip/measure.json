@@ -7,6 +7,26 @@
   "scoringType": "proportion",
   "populationBasis": "boolean",
   "improvementNotation": "increase",
+  "measureTypes": [
+    "process",
+    "outcome"
+  ],
+  "definitionTerms": [
+    {
+      "term": "Adult",
+      "definition": "18 years or older at the end of the measurement period"
+    },
+    {
+      "term": "Elderly",
+      "definition": "65 years or older at the end of the measurement period"
+    }
+  ],
+  "clinicalRecommendationStatement": "Smoke: adults aged 65+ should be counted in the numerator.",
+  "effectiveStart": "2024-01-01",
+  "effectiveEnd": "2024-12-31",
+  "approvalDate": "2023-11-20",
+  "lastReviewDate": "2024-06-15",
+  "experimental": true,
   "populationGroups": [
     {
       "groupId": "group-1",
