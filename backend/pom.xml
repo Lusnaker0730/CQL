@@ -50,6 +50,10 @@
         <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10 (fixed 42.7.11).
              CVE-2026-54291: scram-client auth vuln in pgjdbc 42.7.11 (fixed 42.7.12). -->
         <postgresql.version>42.7.12</postgresql.version>
+        <!-- PAT-239: freemarker 2.3.34 -> 2.3.35: CVE-2026-84939 (CRITICAL, path traversal via malformed
+             locale identifier). Comes in through spring-boot-starter-freemarker; overrides the Spring Boot
+             4.1 BOM property. CQL generation renders every artifact through FreeMarker templates. -->
+        <freemarker.version>2.3.35</freemarker.version>
     </properties>
 
     <dependencyManagement>
