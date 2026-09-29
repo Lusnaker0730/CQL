@@ -199,6 +199,12 @@ export interface BuilderSource {
 export interface PublishResult {
   measureDefinitionId: number
   measureName: string
+  /** BUG-147: publish never approves — the measure's version and lifecycle status after it. */
+  measureVersion?: string
+  measureStatus?: string
+  /** BUG-147: changed logic of an approved measure went into a new draft version. */
+  newVersion?: boolean
+  supersedesMeasureId?: number | null
   cql: string
   message: string
 }

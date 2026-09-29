@@ -244,5 +244,10 @@
     "title": "Overwrite edits made on the measure page?",
     "message": "This measure's logic or population mapping was edited on the measure page after it was last published from the builder. Publishing now replaces those edits with the builder's version. To keep them, cancel and make the same changes in the builder first.",
     "overwrite": "Publish and overwrite"
+  },
+  "publishOutcome": {
+    "draft": "Published as draft (measure #{{id}}). Submit it for review and approve it before it can be evaluated.",
+    "newVersion": "The approved measure is unchanged; your changes were published as new draft version {{version}}. It replaces the approved version once it is reviewed and approved.",
+    "updated": "Published to measure #{{id}}."
   }
 }

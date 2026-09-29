@@ -42,6 +42,8 @@ class EcqmPublishRoundTripIntegrationTest {
     @Autowired private EcqmArtifactRepository artifactRepository;
     @Autowired private MeasureDefinitionRepository measureRepository;
     @Autowired private EntityManager entityManager;
+    @Autowired private com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
+    @Autowired private com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
 
     @BeforeEach
     void setTenant() {
@@ -126,5 +128,66 @@ class EcqmPublishRoundTripIntegrationTest {
         flushAndClear();
         assertThat(measureRepository.findByIdAndTenantId(measureId, TENANT).orElseThrow().getCqlContent()).doesNotContain("Hand edit");
         assertThat(publishService.builderSourceOf(measureId).orElseThrow().getMeasureEditedSincePublish()).isFalse();
+    }
+
+    // BUG-147 — the whole lifecycle through real persistence: publish never approves; changed
+    // logic on an approved measure becomes a new draft version (header and ELM carry the new
+    // version); approving it retires the old version and moves its schedules.
+    @Test
+    @SuppressWarnings("unchecked")
+    void publishNeverApproves_andChangedApprovedLogicBecomesANewVersion_thatSupersedesOnApproval() {
+        Long artifactId = newArtifact();
+        var first = publishService.publish(artifactId, OWNER);
+        flushAndClear();
+        MeasureDefinitionEntity v1 = measureRepository.findByIdAndTenantId(first.getMeasureDefinitionId(), TENANT).orElseThrow();
+        assertThat(v1.getStatus()).isEqualTo("draft");
+        assertThat(first.getMeasureStatus()).isEqualTo("draft");
+
+        measureDefinitionService.submitForReview(v1.getId(), OWNER);
+        measureDefinitionService.approveMeasure(v1.getId(), OWNER);
+        com.cqlplatform.entity.MeasureScheduleEntity schedule = scheduleRepository.saveAndFlush(
+                com.cqlplatform.entity.MeasureScheduleEntity.builder().measureDefinitionId(v1.getId())
+                        .cronExpression("0 0 2 * * *").createdBy(OWNER).build());
+        flushAndClear();
+
+        // re-publish with unchanged logic: same measure, still approved
+        var same = publishService.publish(artifactId, OWNER);
+        flushAndClear();
+        assertThat(same.getMeasureDefinitionId()).isEqualTo(v1.getId());
+        assertThat(same.isNewVersion()).isFalse();
+        assertThat(measureRepository.findByIdAndTenantId(v1.getId(), TENANT).orElseThrow().getStatus()).isEqualTo("active");
+
+        // change the logic in the builder: numerator threshold 65 → 70
+        EcqmArtifactEntity artifact = artifactRepository.findByIdAndTenantId(artifactId, TENANT).orElseThrow();
+        Map<String, Object> group = new LinkedHashMap<>(artifact.getPopulationGroupsList().get(0));
+        Map<String, Object> pops = new LinkedHashMap<>((Map<String, Object>) group.get("populations"));
+        pops.put("numerator", ageTree("Senior", "70"));
+        group.put("populations", pops);
+        artifact.setPopulationGroupsList(new ArrayList<>(List.of(group)));
+        artifact.serializeAll();
+        artifactRepository.saveAndFlush(artifact);
+        entityManager.clear();
+
+        var v2Result = publishService.publish(artifactId, OWNER);
+        flushAndClear();
+        assertThat(v2Result.isNewVersion()).isTrue();
+        assertThat(v2Result.getSupersedesMeasureId()).isEqualTo(v1.getId());
+        MeasureDefinitionEntity v1After = measureRepository.findByIdAndTenantId(v1.getId(), TENANT).orElseThrow();
+        MeasureDefinitionEntity v2 = measureRepository.findByIdAndTenantId(v2Result.getMeasureDefinitionId(), TENANT).orElseThrow();
+        assertThat(v1After.getStatus()).isEqualTo("active");
+        assertThat(v1After.getCqlContent()).doesNotContain(">= 70");
+        assertThat(v2.getStatus()).isEqualTo("draft");
+        assertThat(v2.getVersion()).isEqualTo("1.1.0");
+        assertThat(v2.getCqlContent()).contains("version '1.1.0'").contains(">= 70");
+        assertThat(v2.getElmJson()).contains("1.1.0");
+        assertThat(artifactRepository.findByIdAndTenantId(artifactId, TENANT).orElseThrow().getVersion()).isEqualTo("1.1.0");
+
+        // approving v2 retires v1 and moves the schedule
+        measureDefinitionService.submitForReview(v2.getId(), OWNER);
+        measureDefinitionService.approveMeasure(v2.getId(), OWNER);
+        flushAndClear();
+        assertThat(measureRepository.findByIdAndTenantId(v1.getId(), TENANT).orElseThrow().getStatus()).isEqualTo("retired");
+        assertThat(measureRepository.findByIdAndTenantId(v2.getId(), TENANT).orElseThrow().getStatus()).isEqualTo("active");
+        assertThat(scheduleRepository.findById(schedule.getId()).orElseThrow().getMeasureDefinitionId()).isEqualTo(v2.getId());
     }
 }

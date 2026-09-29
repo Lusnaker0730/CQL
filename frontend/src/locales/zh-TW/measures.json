@@ -202,6 +202,11 @@
       "unlockFailed": "解鎖失敗",
       "exportFailed": "匯出失敗：{{error}}",
       "loadVersionFailed": "無法載入指標版本：{{error}}"
+    },
+    "logicLocked": {
+      "approved": "此版本已核准（或已退役）：邏輯（CQL、母群對應、計分方式）不能再改，說明類欄位仍可編輯。要改邏輯請建立新版本——新版本從 draft 開始走審核，核准後取代此版本。",
+      "inReview": "此版本審核中：審核結束前邏輯不能改（審核者可退回 draft）。",
+      "createVersion": "建立新版本"
     }
   },
   "details": {
@@ -227,7 +232,8 @@
       "department": "科別",
       "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
-      "compositeScoring": "複合評分"
+      "compositeScoring": "複合評分",
+      "scoringTypeLocked": "計分方式屬於邏輯——要改請建立新版本"
     },
     "measureOverview": "指標概述",
     "overviewFields": {

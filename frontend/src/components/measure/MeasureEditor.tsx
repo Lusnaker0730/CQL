@@ -102,6 +102,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
 
   const isLockedByOther = !!measure.lockedBy && measure.lockedBy !== currentUser
   const isLockedByMe = !!measure.lockedBy && measure.lockedBy === currentUser
+  // BUG-147: only a draft's logic (CQL, population mapping, scoring) may change; approved,
+  // in-review and retired logic is fixed — changes go into a new version (the backend refuses
+  // them with 409 "Measure Logic Locked"). Descriptive metadata stays editable.
+  const logicLocked = measure.status !== MEASURE_STATUS.DRAFT
 
   /**
    * PAT-130: shared workflow / lock action runner. Original code had two
@@ -250,6 +254,20 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
           {t('editor.lockedWarning', { user: measure.lockedBy })}
           {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
+        </Alert>
+      )}
+      {logicLocked && (
+        <Alert
+          severity="info"
+          sx={{ borderRadius: 0 }}
+          data-testid="logic-locked-notice"
+          action={measure.status !== MEASURE_STATUS.IN_REVIEW && !isLockedByOther ? (
+            <Button color="inherit" size="small" onClick={() => setVersionDialogOpen(true)}>
+              {t('editor.logicLocked.createVersion')}
+            </Button>
+          ) : undefined}
+        >
+          {t(measure.status === MEASURE_STATUS.IN_REVIEW ? 'editor.logicLocked.inReview' : 'editor.logicLocked.approved')}
         </Alert>
       )}
       {measure.reviewComment && measure.status === MEASURE_STATUS.DRAFT && (
@@ -429,16 +447,16 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {tab === 0 && (
-          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} logicLocked={logicLocked} />
         )}
         {tab === 1 && (
-          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther || logicLocked} />
         )}
         {tab === 2 && (
           <DataRequirementsTab measure={measure} />
         )}
         {tab === 3 && (
-          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther || logicLocked} />
         )}
         {tab === 4 && (
           <MeasureEvaluationTab measure={measure} />

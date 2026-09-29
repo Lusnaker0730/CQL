@@ -244,5 +244,10 @@
     "title": "覆寫在指標頁做的修改？",
     "message": "這個指標在上次從 builder 發布之後，邏輯或母群對應在指標頁被改過。現在發布會用 builder 的版本取代那些修改。要保留的話，請取消，先在 builder 做同樣的改動。",
     "overwrite": "發布並覆寫"
+  },
+  "publishOutcome": {
+    "draft": "已發布為 draft（指標 #{{id}}）。送審並核准後才能正式評估。",
+    "newVersion": "已核准的指標沒有變動；你的修改發布成新的 draft 版本 {{version}}，審核核准後會取代目前的版本。",
+    "updated": "已發布到指標 #{{id}}。"
   }
 }

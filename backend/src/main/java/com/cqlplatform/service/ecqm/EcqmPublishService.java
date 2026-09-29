@@ -29,6 +29,7 @@ public class EcqmPublishService {
     private final EcqmCqlBuilder ecqmCqlBuilder;
     private final EcqmCqlGenerationService cqlGenerationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -74,36 +75,67 @@ public class EcqmPublishService {
                     + " error(s):\n" + String.join("\n", errorMessages));
         }
 
-        // Generate CQL
-        CqlBuildResult buildResult = ecqmCqlBuilder.buildEcqmCql(
-                ecqm.getName(), ecqm.getVersion(), ecqm.getScoringType(),
-                ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
-                ecqm.getBaseElementsList(), ecqm.getParametersList(),
-                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4");
-
         // Build group definitions for MeasureDefinition
         List<GroupDefinition> groupDefs = buildGroupDefinitions(
                 ecqm.getScoringType(), ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
                 ecqm.getStratifiersList());
 
-        // Create or update MeasureDefinition
+        // Generate CQL
+        CqlBuildResult buildResult = buildCql(ecqm, ecqm.getVersion());
+        String libraryId = ecqm.getName().replaceAll("[^a-zA-Z0-9_]", "_");
+
+        // BUG-147: which measure the logic lands on. Publish never makes anything `active` — that
+        // is the review workflow's job (PAT-222 / PAT-219). A first publish creates a draft; a draft
+        // is updated in place; approved / retired logic is immutable, so changed logic goes into a
+        // new draft version (the approved one keeps running until the new one is approved); a
+        // measure under review cannot take changed logic at all.
+        MeasureDefinitionEntity previous = ecqm.getPublishedMeasureId() == null ? null
+                : measureRepository.findByIdAndTenantId(ecqm.getPublishedMeasureId(), effectiveTenantId()).orElse(null);
         MeasureDefinitionEntity measureDef;
-        if (ecqm.getPublishedMeasureId() != null) {
-            measureDef = measureRepository.findByIdAndTenantId(ecqm.getPublishedMeasureId(), effectiveTenantId())
-                    .orElse(newMeasureDefinition(ecqm, currentUser));
-        } else {
+        boolean newVersion = false;
+        if (previous == null) {
             measureDef = newMeasureDefinition(ecqm, currentUser);
-        }
-        // PAT-238: refuse to overwrite logic edited on the measure page since the last publish
-        if (!force && measureDef.getId() != null && measureEditedSincePublish(ecqm, measureDef)) {
-            throw new PublishConflictException(measureDef.getId());
+        } else if (MeasureStatusConstants.DRAFT.equals(previous.getStatus())) {
+            // PAT-238: refuse to overwrite logic edited on the measure page since the last publish
+            if (!force && measureEditedSincePublish(ecqm, previous)) {
+                throw new PublishConflictException(previous.getId());
+            }
+            measureDef = previous;
+        } else {
+            boolean sameVersion = Objects.equals(ecqm.getVersion(), previous.getVersion());
+            boolean logicChanged = !sameVersion || com.cqlplatform.service.measure.MeasureLogic.changed(previous,
+                    buildResult.cql(), groupDefs, ecqm.getScoringType(), previous.getCompositeScoring(),
+                    previous.getComponentMeasureIdList(), libraryId);
+            if (!logicChanged) {
+                measureDef = previous; // descriptive metadata only; status untouched
+            } else if (MeasureStatusConstants.IN_REVIEW.equals(previous.getStatus())) {
+                throw new com.cqlplatform.exception.MeasureLogicLockedException(previous.getId(), previous.getStatus());
+            } else {
+                String version = sameVersion
+                        || measureRepository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), previous.getName(), ecqm.getVersion())
+                        ? measureDefinitionService.nextFreeMinorVersion(previous.getName(), previous.getVersion())
+                        : ecqm.getVersion();
+                Long newId = measureDefinitionService.createVersionAs(previous.getId(), version).getId();
+                measureDef = measureRepository.findByIdAndTenantId(newId, effectiveTenantId())
+                        .orElseThrow(() -> new IllegalStateException("New version " + newId + " not found"));
+                if (!version.equals(ecqm.getVersion())) {
+                    ecqm.setVersion(version);               // the artifact follows the measure's version…
+                    buildResult = buildCql(ecqm, version);  // …and so does the CQL library header
+                    validation = cqlGenerationService.validateCql(artifactId); // ELM for the new header
+                    if (!validation.isSuccess()) {
+                        throw new CqlGenerationException("Cannot publish: CQL for version " + version + " failed validation");
+                    }
+                }
+                newVersion = true;
+            }
         }
 
         measureDef.setName(ecqm.getName());
         measureDef.setVersion(ecqm.getVersion());
         measureDef.setTitle(ecqm.getName());
         measureDef.setDescription(ecqm.getDescription());
-        measureDef.setStatus("active");
+        // BUG-147: never set the status here — a new measure is created as draft, an existing
+        // one keeps its status (draft stays draft; approved logic was not changed in place).
         measureDef.setScoringType(ecqm.getScoringType());
         measureDef.setCqlContent(buildResult.cql());
         // Persist the compiled ELM alongside the CQL so MeasureReportService can
@@ -111,7 +143,7 @@ public class EcqmPublishService {
         // leave elm_json null on measure_definition → report.elm_hash null →
         // audit can't verify semantic equivalence of the measure actually run.
         measureDef.setElmJson(validation.getElmJson());
-        measureDef.setCqlLibraryId(ecqm.getName().replaceAll("[^a-zA-Z0-9_]", "_"));
+        measureDef.setCqlLibraryId(libraryId);
         measureDef.setGroupDefinitionList(groupDefs);
         measureDef.setImprovementNotation(ecqm.getImprovementNotation());
         measureDef.setRationale(ecqm.getRationale());
@@ -156,8 +188,16 @@ public class EcqmPublishService {
         return PublishResult.builder()
                 .measureDefinitionId(measureDef.getId())
                 .measureName(measureDef.getName())
+                .measureVersion(measureDef.getVersion())
+                .measureStatus(measureDef.getStatus())
+                .newVersion(newVersion)
+                .supersedesMeasureId(newVersion ? previous.getId() : null)
                 .cql(buildResult.cql())
-                .message("eCQM artifact published successfully")
+                .message(newVersion
+                        ? "Published as new draft version " + measureDef.getVersion() + "; the approved version keeps running until this one is approved"
+                        : MeasureStatusConstants.DRAFT.equals(measureDef.getStatus())
+                            ? "Published as draft; submit it for review and approve it before it can be evaluated"
+                            : "eCQM artifact published successfully")
                 .build();
     }
 
@@ -197,8 +237,17 @@ public class EcqmPublishService {
                 });
     }
 
+    private CqlBuildResult buildCql(EcqmArtifactEntity ecqm, String version) {
+        return ecqmCqlBuilder.buildEcqmCql(
+                ecqm.getName(), version, ecqm.getScoringType(),
+                ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
+                ecqm.getBaseElementsList(), ecqm.getParametersList(),
+                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4");
+    }
+
     private MeasureDefinitionEntity newMeasureDefinition(EcqmArtifactEntity ecqm, String currentUser) {
         return MeasureDefinitionEntity.builder()
+                .status(MeasureStatusConstants.DRAFT) // BUG-147: approval is the review workflow's job
                 .createdBy(currentUser)
                 .ownerUsername(currentUser)
                 .tenantId(ecqm.getTenantId()) // published measure inherits the artifact's tenant

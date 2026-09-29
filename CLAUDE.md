@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-238 / BUG-146
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-238 / BUG-147
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -143,6 +143,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - 多步驟變更必須加 `@Transactional`
 - 拋出領域例外（`ResourceNotFoundException`, `ValidationException`, `MeasureNotEvaluableException` 等），GlobalExceptionHandler 統一處理（對照表見 `backend/CLAUDE.md`）
 - CQL 產生：`CqlArtifactBuilder` 組裝 context Map → 呼叫 FreeMarker 模板
+- **指標邏輯只能在 draft 改（BUG-147）**：`MeasureLogic.changed`（CQL + group definitions 經 `PublishedContent.hash` 正規化比對、scoring、composite、components、cqlLibraryId）——`update()` 對非 draft 的邏輯變更丟 `MeasureLogicLockedException`（409 `Measure Logic Locked`），說明類 metadata 照常可改。eCQM **publish 從不把指標設 active**：第一次發布建 draft；draft 就地更新；已核准 / 退役的邏輯有變 → `MeasureDefinitionService.createVersionAs` 建新 draft 版本（版本號遞增、artifact 版本跟著改、以新版本重新驗證 CQL），舊版本照常運作；審核中的邏輯有變 → 409。`approveMeasure` 會把同名其他 active 版本退役（稽核 `SUPERSEDE`）並把排程改指新版本。smoke `save-and-publish.sh` 斷言發布為 draft 後走 `approve-measure.sh`
 - **儲存指標的評估一律經 `MeasureEvaluationService.evaluateMeasure(request, id, def)`**（3-arg overload）：`MeasureStatusGuard` 在此只放行 `active`（PAT-219）。新增評估路徑不要繞過這個 overload，否則守門會漏
 
 ### CQL 執行（BUG-107 規範）

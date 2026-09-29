@@ -142,3 +142,24 @@ describe('MeasureEditor — PAT-130 workflow button unification', () => {
     )
   })
 })
+
+// BUG-147 — only a draft's logic can change: other statuses show why and (unless under review)
+// offer to create a new version.
+describe('MeasureEditor — BUG-147 logic lock notice', () => {
+  it('a draft has no notice', () => {
+    render(<MeasureEditor measure={baseMeasure} onMeasureUpdate={vi.fn()} />)
+    expect(screen.queryByTestId('logic-locked-notice')).not.toBeInTheDocument()
+  })
+
+  it('an approved measure explains the lock and offers a new version', () => {
+    render(<MeasureEditor measure={{ ...baseMeasure, status: 'active' }} onMeasureUpdate={vi.fn()} />)
+    expect(screen.getByTestId('logic-locked-notice')).toHaveTextContent('editor.logicLocked.approved')
+    expect(screen.getByRole('button', { name: 'editor.logicLocked.createVersion' })).toBeInTheDocument()
+  })
+
+  it('a measure under review explains the lock without the new-version shortcut', () => {
+    render(<MeasureEditor measure={{ ...baseMeasure, status: 'in-review' }} onMeasureUpdate={vi.fn()} />)
+    expect(screen.getByTestId('logic-locked-notice')).toHaveTextContent('editor.logicLocked.inReview')
+    expect(screen.queryByRole('button', { name: 'editor.logicLocked.createVersion' })).not.toBeInTheDocument()
+  })
+})

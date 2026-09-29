@@ -48,6 +48,9 @@ class MeasureDefinitionServiceTest {
     @Mock
     private com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
 
+    @Mock
+    private com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
+
     @InjectMocks
     private MeasureDefinitionService service;
 
@@ -692,5 +695,85 @@ class MeasureDefinitionServiceTest {
         // Creating a version used to force the SOURCE to active — a silent approval.
         assertThat(entity.getStatus()).isEqualTo("draft");
         verify(repository, times(1)).save(any());   // only the new copy is written
+    }
+
+    // ===== BUG-147: approved logic is immutable; approving a new version supersedes the old =====
+
+    private MeasureDefinitionEntity approved() {
+        MeasureDefinitionEntity e = createEntity(1L, "M", "1.0.0");
+        e.setStatus("active");
+        e.setCqlContent("library M version '1.0.0'\ndefine \"Numerator\": true\n");
+        e.setScoringType("proportion");
+        return e;
+    }
+
+    private MeasureDefinition bodyOf(MeasureDefinitionEntity e) {
+        return MeasureDefinition.builder().name(e.getName()).version(e.getVersion()).status(e.getStatus())
+                .scoringType(e.getScoringType()).cqlContent(e.getCqlContent()).groupDefinitions(e.getGroupDefinitionList())
+                .build();
+    }
+
+    @Test
+    void update_changingTheLogicOfAnApprovedMeasure_isRefused_andNothingIsSaved() {
+        MeasureDefinitionEntity entity = approved();
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+
+        MeasureDefinition cqlChange = bodyOf(entity);
+        cqlChange.setCqlContent(entity.getCqlContent().replace("true", "false"));
+        MeasureDefinition scoringChange = bodyOf(entity);
+        scoringChange.setScoringType("cohort");
+
+        for (MeasureDefinition body : List.of(cqlChange, scoringChange)) {
+            assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                    .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class)
+                    .hasMessageContaining("Create a new version");
+        }
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_metadataOnlyOrCosmeticCqlOnAnApprovedMeasure_isAllowed() {
+        MeasureDefinitionEntity entity = approved();
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition body = bodyOf(entity);
+        body.setTitle("Better title");
+        body.setRationale("Why it matters");
+        body.setCqlContent(entity.getCqlContent().replace("\n", "\r\n") + "   "); // editor line endings
+        when(cqlTranslationService.translate(any())).thenReturn(CqlTranslationResponse.builder().success(true).elmJson("{}").build());
+
+        MeasureDefinition result = service.update(1L, body, "owner");
+
+        assertThat(result.getTitle()).isEqualTo("Better title");
+        assertThat(result.getStatus()).isEqualTo("active");
+    }
+
+    @Test
+    void approve_retiresTheOtherApprovedVersion_andMovesItsSchedules() {
+        MeasureDefinitionEntity old = approved();
+        MeasureDefinitionEntity next = createEntity(2L, "M", "1.1.0");
+        next.setStatus("in-review");
+        old.setTenantId(7L);
+        next.setTenantId(7L);
+        MeasureDefinitionEntity otherName = createEntity(3L, "Other", "1.0.0");
+        otherName.setStatus("active");
+        com.cqlplatform.entity.MeasureScheduleEntity schedule = new com.cqlplatform.entity.MeasureScheduleEntity();
+        schedule.setMeasureDefinitionId(1L);
+        when(repository.findByIdAndTenantId(2L, 7L)).thenReturn(Optional.of(next));
+        when(repository.findByTenantIdAndName(7L, "M")).thenReturn(List.of(old, next));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+        when(scheduleRepository.findByMeasureDefinitionId(1L)).thenReturn(List.of(schedule));
+
+        service.approveMeasure(2L, "owner");
+
+        assertThat(next.getStatus()).isEqualTo("active");
+        assertThat(old.getStatus()).isEqualTo("retired");
+        assertThat(otherName.getStatus()).isEqualTo("active");
+        assertThat(schedule.getMeasureDefinitionId()).isEqualTo(2L);
+        verify(scheduleRepository).save(schedule);
+        verify(auditRepository).save(argThat(a -> "SUPERSEDE".equals(a.getAction()) && a.getMeasureId() == 1L));
     }
 }
