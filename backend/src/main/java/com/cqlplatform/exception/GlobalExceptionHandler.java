@@ -51,6 +51,12 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Measure Not Evaluable", ex.getMessage());
     }
 
+    /** BUG-147: the logic of a non-draft measure is immutable — change it in a new version. */
+    @ExceptionHandler(MeasureLogicLockedException.class)
+    public ResponseEntity<ErrorResponse> handleMeasureLogicLockedException(MeasureLogicLockedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Measure Logic Locked", ex.getMessage());
+    }
+
     /** PAT-238: re-publish would overwrite measure-page edits; the builder asks and retries with force. */
     @ExceptionHandler(PublishConflictException.class)
     public ResponseEntity<ErrorResponse> handlePublishConflictException(PublishConflictException ex) {

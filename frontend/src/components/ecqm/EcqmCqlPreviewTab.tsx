@@ -10,6 +10,8 @@ import type { CqlTranslationResponse } from '../../types'
 import { useGenerateEcqmCql, useValidateEcqmCql, usePublishEcqm } from '../../hooks/useEcqm'
 import PublishConflictDialog from './PublishConflictDialog'
 import { isPublishConflict } from '../../utils/publishConflict'
+import { publishOutcomeMessage } from '../../utils/publishOutcome'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface Props {
   artifactId: number
@@ -138,13 +140,12 @@ export default function EcqmCqlPreviewTab({ artifactId, artifactUpdatedAt, onPub
         </Alert>
       )}
 
-      {publish.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {t('cqlPreview.publishedSuccess', { id: publish.data.measureDefinitionId })}
-        </Alert>
-      )}
+      {publish.isSuccess && (() => {
+        const outcome = publishOutcomeMessage(publish.data)
+        return <Alert severity="success" sx={{ mb: 2 }}>{t(outcome.key, outcome.params)}</Alert>
+      })()}
       {publish.isError && !isPublishConflict(publish.error) && (
-        <Alert severity="error" sx={{ mb: 2 }}>{t('cqlPreview.publishFailed')}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(publish.error) || t('cqlPreview.publishFailed')}</Alert>
       )}
       <PublishConflictDialog
         open={publishConflict}

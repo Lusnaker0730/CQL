@@ -48,6 +48,8 @@ interface MeasureDetailsTabProps {
   measure: MeasureDefinition
   onMeasureUpdate: (updated: MeasureDefinition) => void
   readOnly?: boolean
+  /** BUG-147: not a draft — the scoring type is logic and cannot change (metadata still can). */
+  logicLocked?: boolean
 }
 
 function sectionFilled(fields: (string | undefined | null | unknown[])[]): boolean {
@@ -57,7 +59,7 @@ function sectionFilled(fields: (string | undefined | null | unknown[])[]): boole
   })
 }
 
-export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }: MeasureDetailsTabProps) {
+export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, logicLocked }: MeasureDetailsTabProps) {
   const { t } = useTranslation('measures')
   const queryClient = useQueryClient()
   const [form, setForm] = useState<MeasureDefinition>({ ...measure })
@@ -215,6 +217,8 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly }
                   fullWidth
                   value={form.scoringType}
                   onChange={(e) => updateField('scoringType', e.target.value)}
+                  disabled={logicLocked}
+                  helperText={logicLocked ? t('details.fields.scoringTypeLocked') : undefined}
                 >
                   {SCORING_TYPE_OPTIONS.map((opt) => (
                     <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>

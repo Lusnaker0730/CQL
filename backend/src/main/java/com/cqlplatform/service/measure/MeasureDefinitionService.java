@@ -36,6 +36,7 @@ public class MeasureDefinitionService {
     private final CqlTranslationService cqlTranslationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -128,6 +129,16 @@ public class MeasureDefinitionService {
         }
 
         MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+
+        // BUG-147: approved / in-review / retired logic is immutable. PAT-222 stopped a PUT from
+        // flipping the status, but a PUT could still rewrite the CQL of an approved measure — the
+        // evaluation guard trusts `active`, so that was unreviewed logic running as approved.
+        // Descriptive metadata stays editable; logic changes go into a new (draft) version.
+        if (!DRAFT.equals(entity.getStatus()) && MeasureLogic.changed(entity, definition.getCqlContent(),
+                definition.getGroupDefinitions(), definition.getScoringType(), definition.getCompositeScoring(),
+                definition.getComponentMeasureIds(), definition.getCqlLibraryId())) {
+            throw new com.cqlplatform.exception.MeasureLogicLockedException(id, entity.getStatus());
+        }
 
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
@@ -258,8 +269,28 @@ public class MeasureDefinitionService {
     public MeasureDefinition createVersion(Long id, String versionType) {
         MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        return createVersionAs(id, bumpVersion(existing.getVersion(), versionType));
+    }
 
-        String newVersion = bumpVersion(existing.getVersion(), versionType);
+    /** The next minor version of {@code version} that this measure name does not use yet in the tenant. */
+    @Transactional(readOnly = true)
+    public String nextFreeMinorVersion(String name, String version) {
+        String candidate = bumpVersion(version, "minor");
+        while (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), name, candidate)) {
+            candidate = bumpVersion(candidate, "minor");
+        }
+        return candidate;
+    }
+
+    /**
+     * A new draft copy of measure {@code id} with the given version (BUG-147: the eCQM builder
+     * publishes changed logic of an approved measure into one of these). Everything is copied —
+     * department, indicator codes, sharing, metadata — and the status starts as draft.
+     */
+    @Transactional
+    public MeasureDefinition createVersionAs(Long id, String newVersion) {
+        MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
         if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), existing.getName(), newVersion)) {
             throw new IllegalArgumentException("Version already exists: " + existing.getName() + " v" + newVersion);
@@ -618,6 +649,7 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, ACTIVE);
         log.info("Measure {} approved by {}", id, currentUser);
+        supersedeOtherActiveVersions(entity, currentUser);
 
         // Notify the measure owner
         notificationService.notifyMeasureApproved(currentUser, entity.getOwnerUsername(), entity.getName(), id);
@@ -661,6 +693,27 @@ public class MeasureDefinitionService {
         recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, RETIRED);
         log.info("Measure {} retired by {}", id, currentUser);
         return entityToModel(entity);
+    }
+
+    /**
+     * BUG-147 — approving a new version replaces the approved one: every other {@code active}
+     * version of the same measure (tenant + name) is retired, and the evaluation schedules that
+     * pointed at it move to the newly approved version, so scheduled runs keep going on approved
+     * logic instead of hitting the lifecycle guard.
+     */
+    private void supersedeOtherActiveVersions(MeasureDefinitionEntity approved, String currentUser) {
+        for (MeasureDefinitionEntity other : repository.findByTenantIdAndName(approved.getTenantId(), approved.getName())) {
+            if (other.getId().equals(approved.getId()) || !ACTIVE.equals(other.getStatus())) continue;
+            other.setStatus(RETIRED);
+            repository.save(other);
+            recordAudit(other.getId(), "SUPERSEDE", currentUser,
+                    "Retired: superseded by v" + approved.getVersion() + " (measure " + approved.getId() + ")", ACTIVE, RETIRED);
+            for (com.cqlplatform.entity.MeasureScheduleEntity schedule : scheduleRepository.findByMeasureDefinitionId(other.getId())) {
+                schedule.setMeasureDefinitionId(approved.getId());
+                scheduleRepository.save(schedule);
+            }
+            log.info("Measure {} v{} superseded by {} v{}", other.getId(), other.getVersion(), approved.getId(), approved.getVersion());
+        }
     }
 
     private void validateTransition(String currentStatus, String targetStatus) {

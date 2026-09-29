@@ -202,6 +202,11 @@
       "unlockFailed": "Unlock failed",
       "exportFailed": "Export failed: {{error}}",
       "loadVersionFailed": "Failed to load measure version: {{error}}"
+    },
+    "logicLocked": {
+      "approved": "This version is approved (or retired): its logic — CQL, population mapping, scoring — can no longer change. Descriptive fields stay editable. To change the logic, create a new version; it starts as a draft and goes through review, and replaces this one when approved.",
+      "inReview": "This version is under review: its logic cannot change until the review finishes (a reviewer can reject it back to draft).",
+      "createVersion": "Create new version"
     }
   },
   "details": {
@@ -227,7 +232,8 @@
       "department": "Department",
       "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
-      "compositeScoring": "Composite Scoring"
+      "compositeScoring": "Composite Scoring",
+      "scoringTypeLocked": "Scoring is part of the logic — create a new version to change it"
     },
     "measureOverview": "Measure Overview",
     "overviewFields": {

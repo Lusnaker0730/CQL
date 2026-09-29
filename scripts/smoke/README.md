@@ -1,7 +1,9 @@
 # Smoke Test Harness
 
 Local end-to-end integration smoke test for the CQL Platform. Each scenario
-exercises a complete scoring-type pipeline (save → publish → evaluate) against a
+exercises a complete scoring-type pipeline (save → publish → approve → evaluate; since BUG-147 a
+publish lands as draft — `lib/save-and-publish.sh` asserts that, then walks submit-for-review +
+approve) against a
 real Docker stack, catching integration regressions that unit tests miss.
 
 ## Why this exists

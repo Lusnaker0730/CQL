@@ -40,6 +40,9 @@ class EcqmPublishServiceTest {
     @Mock
     private com.cqlplatform.repository.TenantRepository tenantRepository;
 
+    @Mock
+    private com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
+
     @InjectMocks
     private EcqmPublishService publishService;
 
@@ -106,9 +109,12 @@ class EcqmPublishServiceTest {
         assertThat(result.getMeasureDefinitionId()).isEqualTo(100L);
         assertThat(result.getMeasureName()).isEqualTo("MyMeasure");
         assertThat(result.getCql()).contains("library MyMeasure");
-        assertThat(result.getMessage()).contains("published successfully");
+        // BUG-147: a first publish is a draft — approval is the review workflow's job
+        assertThat(result.getMeasureStatus()).isEqualTo("draft");
+        assertThat(result.isNewVersion()).isFalse();
+        assertThat(result.getMessage()).contains("Published as draft");
 
-        verify(measureRepository).save(any(MeasureDefinitionEntity.class));
+        verify(measureRepository).save(argThat(m -> "draft".equals(m.getStatus())));
         verify(ecqmRepository).save(argThat(e -> e.getPublishedMeasureId() == 100L && "active".equals(e.getStatus())));
     }
 
@@ -249,7 +255,7 @@ class EcqmPublishServiceTest {
         // Not set on the artifact: clinicalRecommendationStatement, effectiveEnd, approvalDate, lastReviewDate.
 
         MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
-                .id(50L).name("OldName")
+                .id(50L).name("OldName").status("draft")
                 .clinicalRecommendationStatement("Kept from the measure page")
                 .approvalDate(java.time.LocalDate.of(2025, 12, 1))
                 .measureTypeList(new ArrayList<>(List.of("outcome")))
@@ -286,7 +292,7 @@ class EcqmPublishServiceTest {
         entity.setPublishedMeasureId(50L);
 
         MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
-                .id(50L).name("OldName").build();
+                .id(50L).name("OldName").status("draft").build();
 
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
@@ -415,7 +421,7 @@ class EcqmPublishServiceTest {
     void republish_withoutABaseline_isNotGuarded() {
         EcqmArtifactEntity entity = publishableEntity();
         entity.setPublishedMeasureId(50L); // published before V76: no hash recorded
-        MeasureDefinitionEntity edited = MeasureDefinitionEntity.builder().id(50L).name("MyMeasure")
+        MeasureDefinitionEntity edited = MeasureDefinitionEntity.builder().id(50L).name("MyMeasure").status("draft")
                 .cqlContent("library Hand version '9'").build();
         when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(edited));
         when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -453,5 +459,80 @@ class EcqmPublishServiceTest {
 
         when(ecqmRepository.findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(7L, 999L)).thenReturn(Optional.empty());
         assertThat(publishService.builderSourceOf(999L)).isEmpty();
+    }
+
+    // ===== BUG-147: publish never approves; approved logic changes go into a new draft version =====
+
+    /** An approved measure that the artifact published earlier; its content matches what the artifact builds now. */
+    private MeasureDefinitionEntity approvedFromFirstPublish(EcqmArtifactEntity entity) {
+        MeasureDefinitionEntity measure = firstPublish(entity);
+        measure.setStatus("active");
+        clearInvocations(measureRepository, ecqmRepository, cqlGenerationService);
+        when(measureRepository.findByIdAndTenantId(100L, 7L)).thenReturn(Optional.of(measure));
+        return measure;
+    }
+
+    @Test
+    void republish_unchangedLogicOnAnApprovedMeasure_updatesMetadataInPlace_andKeepsItApproved() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity measure = approvedFromFirstPublish(entity);
+        entity.setDescription("Clarified description");
+
+        PublishResult result = publishService.publish(1L, "testuser");
+
+        assertThat(result.getMeasureDefinitionId()).isEqualTo(100L);
+        assertThat(result.isNewVersion()).isFalse();
+        assertThat(measure.getStatus()).isEqualTo("active");
+        assertThat(measure.getDescription()).isEqualTo("Clarified description");
+        verify(measureDefinitionService, never()).createVersionAs(anyLong(), anyString());
+    }
+
+    @Test
+    void republish_changedLogicOnAnApprovedMeasure_goesIntoANewDraftVersion_andLeavesTheApprovedOneAlone() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity approved = approvedFromFirstPublish(entity);
+        String approvedCql = approved.getCqlContent();
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenAnswer(inv -> new CqlBuildResult("library MyMeasure version '" + inv.getArgument(1) + "'\ndefine \"New\": true\n", List.of()));
+        when(measureDefinitionService.nextFreeMinorVersion("MyMeasure", "1.0.0")).thenReturn("1.1.0");
+        MeasureDefinitionEntity copy = MeasureDefinitionEntity.builder().id(101L).name("MyMeasure").version("1.1.0").status("draft").build();
+        when(measureDefinitionService.createVersionAs(100L, "1.1.0"))
+                .thenReturn(com.cqlplatform.model.measure.MeasureDefinition.builder().id(101L).build());
+        when(measureRepository.findByIdAndTenantId(101L, 7L)).thenReturn(Optional.of(copy));
+        doAnswer(inv -> inv.getArgument(0)).when(measureRepository).save(any());
+
+        PublishResult result = publishService.publish(1L, "testuser");
+
+        assertThat(result.isNewVersion()).isTrue();
+        assertThat(result.getMeasureDefinitionId()).isEqualTo(101L);
+        assertThat(result.getMeasureVersion()).isEqualTo("1.1.0");
+        assertThat(result.getMeasureStatus()).isEqualTo("draft");
+        assertThat(result.getSupersedesMeasureId()).isEqualTo(100L);
+        assertThat(copy.getCqlContent()).startsWith("library MyMeasure version '1.1.0'").contains("New");
+        assertThat(entity.getVersion()).isEqualTo("1.1.0");          // the artifact follows
+        assertThat(entity.getPublishedMeasureId()).isEqualTo(101L);   // and now points at the draft
+        // the approved measure is untouched
+        assertThat(approved.getStatus()).isEqualTo("active");
+        assertThat(approved.getCqlContent()).isEqualTo(approvedCql);
+        verify(measureRepository, never()).save(argThat(m -> m.getId() != null && m.getId() == 100L));
+        verify(cqlGenerationService, times(2)).validateCql(1L); // re-validated for the new header
+    }
+
+    @Test
+    void republish_changedLogicOnAMeasureUnderReview_isRefused_andNothingIsWritten() {
+        EcqmArtifactEntity entity = publishableEntity();
+        MeasureDefinitionEntity measure = approvedFromFirstPublish(entity);
+        measure.setStatus("in-review");
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\ndefine \"New\": true\n", List.of()));
+
+        assertThatThrownBy(() -> publishService.publish(1L, "testuser"))
+                .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class)
+                .hasMessageContaining("in-review");
+        verify(measureRepository, never()).save(any());
+        verify(ecqmRepository, never()).save(any());
+        verify(measureDefinitionService, never()).createVersionAs(anyLong(), anyString());
     }
 }

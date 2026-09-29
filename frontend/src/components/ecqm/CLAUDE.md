@@ -52,6 +52,8 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 
 10. **builder ↔ 指標雙向（PAT-238）** — header 的「已發布——開啟指標」chip 連到 `/measures?measure=<id>`；指標頁的 `BuilderSourceBanner` 連回 `/ecqm?artifact=<id>`（`EcqmPage` 讀這個參數後移除）。publish 回 409「Publish Conflict」代表指標在指標頁被改過：`PublishConflictDialog` 問作者，確認才 `publish({ id, force: true })`——workspace header 與 CQL 預覽分頁兩個入口都走這條
 
+11. **發布不核准（BUG-147）** — publish 結果訊息由 `utils/publishOutcome.publishOutcomeMessage` 決定：第一次發布是 draft（要到指標頁送審核准才能評估）、已核准指標的邏輯變更成為新 draft 版本、只改 metadata 則就地更新；409 `Measure Logic Locked`（審核中）直接顯示後端訊息。指標頁非 draft 時 CQL / 母群分頁唯讀、details 的 scoring 停用，提示條提供「建立新版本」
+
 ## 狀態管理
 
 ```

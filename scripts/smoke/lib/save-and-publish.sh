@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Save an eCQM artifact and publish it. Emits the published measure ID (the one
+# Save an eCQM artifact, publish it (lands as draft since BUG-147) and approve it through
+# the review workflow. Emits the published measure ID (the one
 # /api/measures/{id}/$evaluate-measure takes) to stdout. Designed to be called
 # as:  MEASURE_ID=$(lib/save-and-publish.sh measure.json)
 #
@@ -52,5 +53,19 @@ if [ -z "$measure_id" ]; then
     exit 1
 fi
 echo "  published as measure #$measure_id" >&2
+
+# BUG-147: a publish never approves — the eCQM builder used to set the measure straight to
+# `active`, skipping the PAT-222 review workflow the PAT-219 evaluation guard trusts. Lock that it
+# lands as a draft, then walk it through submit-for-review + approve like an author would, so the
+# scenarios evaluate an approved measure.
+measure_status=$(echo "$publish_response" | jq -r '.measureStatus // empty' | tr -d '\r')
+if [ "$measure_status" != "draft" ]; then
+    echo "publish must land as draft (BUG-147), got measureStatus='${measure_status:-<null>}': $publish_response" >&2
+    exit 1
+fi
+if ! bash "$(dirname "$0")/approve-measure.sh" "$measure_id"; then
+    echo "approving published measure #$measure_id failed" >&2
+    exit 1
+fi
 
 printf '%s' "$measure_id"

@@ -822,6 +822,10 @@ Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL`
 
 eCQM builder 的 `POST /api/ecqm/artifacts/{id}/publish` 若指標在上次發布後於指標頁被改過（CQL 或母群對應），回 **409** `{"error": "Publish Conflict"}` 且不寫入；加 `?force=true` 覆寫（PAT-238）。
 
+**發布不核准（BUG-147）**：回應 `PublishResult` 多 `measureVersion`、`measureStatus`、`newVersion`、`supersedesMeasureId`。第一次發布建立 `draft`；目標是 draft 就地更新；目標已核准（`active`）或已退役且邏輯有變 → 發布成**新的 draft 版本**（`newVersion: true`，原版本不動、繼續運作，新版本核准後取代它）；只改說明類 metadata 則就地更新、維持原狀態；目標審核中（`in-review`）且邏輯有變 → **409** `{"error": "Measure Logic Locked"}`。
+
+`PUT /api/measures/{id}` 對非 draft 指標的**邏輯**變更（CQL、母群對應、scoring、composite、components、CQL library id）回 **409** `Measure Logic Locked`，要改請先建立新版本；說明、理由、臨床指引等欄位可直接改。`POST /api/measures/{id}/approve` 會把同名的其他 `active` 版本改為 `retired`，並把它們的排程改指向新核准的版本（BUG-147）。
+
 ---
 
 ### 4.4 指標評估

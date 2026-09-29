@@ -19,6 +19,7 @@ import Parameters from '../authoring/parameters/Parameters'
 import EcqmExternalCql from './EcqmExternalCql'
 import PublishConflictDialog from './PublishConflictDialog'
 import { isPublishConflict } from '../../utils/publishConflict'
+import { publishOutcomeMessage } from '../../utils/publishOutcome'
 import type { BaseElement, Parameter } from '../../types/authoring'
 import { extractApiError } from '../../utils/errorUtils'
 import { ArtifactScopeProvider } from '../../contexts/ArtifactScopeContext'
@@ -181,14 +182,17 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
     // Flush any pending changes before publishing
     flushSave()
     publishMutation.mutate({ id: artifact.id, force }, {
-      onSuccess: () => {
-        setSnack({ message: t('workspace.publishSuccess'), severity: 'success' })
+      onSuccess: (result) => {
+        // BUG-147: say what happened — draft needing review, new version, or metadata update
+        const outcome = publishOutcomeMessage(result)
+        setSnack({ message: t(outcome.key, outcome.params), severity: 'success' })
         onArtifactUpdate()
       },
       onError: (error) => {
         // PAT-238: the measure was edited on the measure page since the last publish — ask first
         if (!force && isPublishConflict(error)) { setPublishConflict(true); return }
-        setSnack({ message: t('workspace.publishFailed'), severity: 'error' })
+        // BUG-147: e.g. "under review" — the server message says what to do
+        setSnack({ message: extractApiError(error) || t('workspace.publishFailed'), severity: 'error' })
       },
     })
   }

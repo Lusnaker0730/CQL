@@ -356,7 +356,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
 
         measure-status-guard)
             # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
-            # NOT the eCQM publish path, which always lands as `active`) is created
+            # the eCQM publish path lands as draft too since BUG-147) is created
             # as draft, evaluated (must be refused with 409), walked through
             # submit-for-review + approve, then evaluated again (must succeed with
             # the real cohort result). Locks that the guard keys on lifecycle
