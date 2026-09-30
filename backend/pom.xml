@@ -32,8 +32,9 @@
         <byte-buddy.version>1.15.11</byte-buddy.version>
         <resilience4j.version>2.4.0</resilience4j.version>
         <kotlin.version>2.3.10</kotlin.version>
-        <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization) -->
-        <jackson-bom.version>3.1.4</jackson-bom.version>
+        <!-- jackson 3.1.4: CVE-2026-54512 / CVE-2026-54513 (jackson-databind deserialization)
+             jackson 3.1.7: CVE-2026-68497 (HIGH, jackson-databind; fixed 3.1.6) — PAT-240 -->
+        <jackson-bom.version>3.1.7</jackson-bom.version>
         <!-- CVE overrides above the versions shipped with Spring Boot 4.1.0 -->
         <!-- tomcat 10.1.55: CVE-2026-41293 (CRITICAL) + 43512/43515/41284/42498/43513
              tomcat 10.1.60: CVE-2026-65182 (CRITICAL, security constraint bypass) + 65905/68525 (PAT-221).
@@ -320,10 +321,11 @@
         <!-- Jackson -->
         <!-- 2.21.4: CVE-2026-54512 / CVE-2026-54513 — pins the Jackson 2.x (com.fasterxml)
              jackson-databind pulled transitively above the 2.21.2 shipped by Spring Boot 4.0.6. -->
+        <!-- 2.21.7: CVE-2026-68497 (HIGH, jackson-databind; fixed 2.21.6) — PAT-240 -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.21.4</version>
+            <version>2.21.7</version>
         </dependency>
         <!-- 2.21.4: GHSA-r7wm-3cxj-wff9 (jackson-core Async parser maxNumberLength
              bypass). The Spring Boot 4.0.6 BOM holds jackson-core (2.x) at 2.21.2 and
@@ -399,12 +401,12 @@
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>3.1.4</version>
+            <version>3.1.7</version>
         </dependency>
         <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>3.1.4</version>
+            <version>3.1.7</version>
         </dependency>
 
         <!-- Observability: Prometheus Metrics -->
