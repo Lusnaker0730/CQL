@@ -1,8 +1,8 @@
 # CQL Platform
 
-> **Version 2.6.0** | Updated 2026-05-21
+> **Version 2.7.0** | Updated 2026-09-30
 
-A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, eCQM visual authoring with CQL generation, electronic quality measure (eCQM) evaluation, quality measure dashboards, FHIR resource browsing, EHR integration (SMART Backend Services), TW Core synthetic patient generation, AI-assisted CQL repair, an interactive Learn Center, internationalization (i18n), and an admin dashboard with audit logging. The platform is developed under an IEC 62304 / ISO 14971 / TFDA workflow with automated regulatory document generation.
+A comprehensive Clinical Quality Language (CQL) development platform featuring CQL editing, translation, execution, CDS Hooks integration, CDS authoring, eCQM visual authoring with CQL generation, electronic quality measure (eCQM) evaluation, quality measure dashboards, FHIR resource browsing, EHR integration (SMART Backend Services), TW Core synthetic patient generation, AI-assisted CQL repair, an interactive Learn Center, internationalization (i18n), multi-tenant clinic isolation, platform-managed value sets, HL7 Quality Measure IG exchange packages, and an admin dashboard with audit logging. The platform is developed under an IEC 62304 / ISO 14971 / TFDA workflow with automated regulatory document generation.
 
 ## Features
 
@@ -37,6 +37,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Duplicate `define` name detection: same-category duplicates, cross-category collisions, reserved system name conflicts
 - CQL three-valued logic correctness: empty exclusion produces `false` instead of `null`
 - External CQL library upload, parsing, and integration
+- Library function calls: pick a `define function` from an uploaded or shared library and fill each argument from a base element, parameter, typed literal, `Patient` or the Measurement Period — generated as `"Lib"."Fn"(arg, …)`; malformed arguments never reach the CQL
 - Artifact testing against FHIR patient data with result visualization
 - One-click deployment as CDS Hooks service
 - Save artifact as reusable CQL library
@@ -55,9 +56,11 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - Episode-based measures: population basis selection (Patient/Encounter/Procedure/MedicationRequest/Observation)
 - Continuous Variable observation functions with configurable aggregate methods (Count, Sum, Average, Median, Max, Min, Percentile)
 - Multi-group support with automatic define name suffixes to prevent collisions
-- Supplemental Data Elements: standard CDC SDEs (Ethnicity, Race, Sex, Payer) with checkbox toggle + custom SDE expression trees
-- Stratifier expression trees per population group (auto-disabled for ratio dual-IP per CMS rules)
-- One-click publish to MeasureDefinition for evaluation pipeline integration
+- Supplemental Data Elements: standard CDC SDEs (Ethnicity, Race, Sex, Payer) with checkbox toggle + custom SDEs; each SDE can be marked as a risk adjustment factor (QM IG `risk-adjustment-factor` usage) and defined as a condition tree or a value (sex, age bands)
+- Stratifiers in three modes: boolean criteria, value stratifiers (the value is the stratum — e.g. sex, configurable age bands), and multi-component stratifiers (e.g. sex × age band → one cross-tab); auto-disabled for ratio dual-IP per CMS rules
+- Standard FHIR Measure metadata: measure type, definition terms, clinical recommendation statement, effective / approval / last-review dates, experimental flag
+- Publish to a MeasureDefinition **as a draft** — it must go through review before it can be evaluated; changing the logic of an approved measure publishes a new draft version that replaces the approved one only when approved
+- Two-way link with the measure page: the measure shows which builder artifact it came from and whether either side changed since the last publish; re-publishing over edits made on the measure page asks first
 - CQL preview with ELM translation and validation
 - Expression tree validation: XSS filtering, template/modifier ID verification, required population checks
 - Debounced auto-save with optimistic UI updates
@@ -121,20 +124,22 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 
 ### Quality Measures (eCQM)
 - Two-panel layout: measure library browser + tabbed measure editor (Details, CQL, Population Criteria, Evaluate, Test Cases, Reports)
-- Population-based evaluation with stratification and risk adjustment support
+- Population-based evaluation with stratification (criteria, value and multi-component strata, per-stratum scores by scoring type) and supplemental data / risk adjustment factor distributions persisted with each report
 - Composite measures (opportunity and linear scoring)
 - Data requirements analysis for measures
 - Measure versioning with history, sharing, ownership transfer, and access control
-- Workflow lifecycle: draft → submit for review → approve/reject → retire
+- Review workflow enforced end to end: draft → submit for review → approve/reject → retire; only `active` (approved) measures run against patient data, and the logic (CQL, population mapping, scoring) of non-draft measures is immutable — changes go into a new version, and approving it retires the previous one and moves its schedules
 - Measure locking to prevent concurrent edits
 - Measure validation (full and quick) with care setting classification and QI-Core profile suggestions
-- Report persistence with export (FHIR MeasureReport, CSV, Excel, HQMF)
+- Report persistence with export (FHIR MeasureReport incl. `stratum.component`, CSV, Excel, HQMF, human-readable HTML)
+- Exchange packages per HL7 Quality Measure IG 5.0.0 / CRMI 2.0.0: Measure + primary Library (CQL + ELM) + dependent libraries + value sets as a FHIR Bundle (JSON/XML), a conformance report of the profiles actually satisfied, and bundle import that carries the logic so the receiver can evaluate
 - Scheduled/batch evaluation with cron expressions
 - Period-over-period comparison, trend analysis, and dashboard view
 - Audit trail per measure
 
 ### Test Cases
-- Test case CRUD with expected vs actual population comparison
+- Test case CRUD with structured expected values: per-group population counts, observation values and stratum placement, compared against the same aggregation the real evaluation uses
+- Clause-level coverage (Bonnie / MADiE style): debug runs highlight which CQL clauses evaluated true/false, with a measure-level union across test cases
 - Visual Bundle Builder: form-based FHIR resource construction with 15+ resource types
 - FHIR structure definition introspection for auto-generating input forms
 - Bidirectional sync between visual builder and raw JSON editor
@@ -151,6 +156,16 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - FHIR structure definition introspection for resource metadata
 - ValueSet caching with per-cache TTL and admin eviction
 - Circuit breakers and retry with exponential backoff on all FHIR calls
+
+### Terminology & Value Sets
+- Platform-owned value sets per tenant: draft → active (codes frozen) → retired, new versions for code changes, CQL `version '…'` pinning
+- Resolution order: platform value sets → bundled TW Core IG → VSAC → remote terminology server
+- FHIR ValueSet import/export; value sets travel inside measure exchange packages
+
+### Multi-Tenancy
+- Clinics are tenants: self-service clinic applications reviewed by a platform operator; tenant admins manage their own users
+- Tenant isolation in every query plus PostgreSQL row-level security on report and EHR tables (app role, enforced); cross-tenant access answers 404, not 403
+- Per-tenant rate limiting on top of per-IP and per-user limits
 
 ### Internationalization (i18n)
 - Multi-language support: English (en) and Traditional Chinese (zh-TW)
@@ -189,13 +204,13 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 - AES-256-GCM encryption at rest, TLS in transit, hardened HTTP headers (HSTS, CSP)
 - Audit logging of all API access with full context, request ID correlation, and configurable retention
 - CSV injection prevention in all export endpoints (audit logs, measure reports)
-- Rate limiting (`RateLimitProperties`), XSS sanitization (DOMPurify), FHIR resource type whitelisting
+- Rate limiting in three layers (per IP, per user, per tenant), XSS sanitization (DOMPurify), FHIR resource type whitelisting
 - Prometheus + Grafana monitoring with custom CQL/CDS/measure metrics; Alertmanager rules
 - Resilience4j circuit breakers, connection pooling, execution thread pool with queuing
 - Sentry-compatible error tracking via `ErrorTrackingConfig`
 - Kubernetes manifests, network policies, sealed secrets, and GitHub Actions CI/CD
 - TFDA / IEC 62304 / ISO 14971 regulatory document generation pipeline (see `regulatory_docs/`)
-- Local integration smoke test harness (`scripts/smoke/run.sh`) covering all four scoring families end-to-end
+- Integration smoke test harness (`scripts/smoke/run.sh`, 39 scenarios) against a real Docker stack — locally and in CI
 
 ## Project Structure
 
@@ -206,7 +221,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       ├── config/             # Spring config: SecurityConfig, AsyncConfig, CqlConfig, MetricsConfig,
 │       │                       # AiProperties, OktaProperties, OllamaProperties, RateLimitProperties,
 │       │                       # ErrorTrackingConfig, DataInitializer, EmailHashMigration
-│       ├── controller/         # 19 REST controllers
+│       ├── controller/         # 26 REST controllers
 │       │   ├── AuthController              # Login, register, password reset, refresh tokens
 │       │   ├── CqlController               # CQL translate, validate, execute, libraries
 │       │   ├── CdsHooksController          # CDS service discovery and invocation
@@ -216,6 +231,11 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── MeasureController           # Measures, test cases, reports, schedules, dashboard
 │       │   ├── FhirController              # FHIR resources, terminology, structure defs
 │       │   ├── EhrIntegrationController    # SMART backend services, patient import, batch jobs
+│       │   ├── ValueSetController          # Platform-owned value sets (versions, activate, FHIR import/export)
+│       │   ├── TenantAdminController       # Platform operator: tenants and their users
+│       │   ├── TenantUserController        # Tenant admin: users of their own clinic
+│       │   ├── ClinicApplication(Admin)Controller # Clinic self-application + operator review
+│       │   ├── StatusController            # Public operational status
 │       │   ├── DepartmentController        # Department CRUD for measure/dashboard scoping
 │       │   ├── IndicatorCatalogController  # Indicator catalog browsing
 │       │   ├── NotificationController      # In-app notifications
@@ -227,20 +247,22 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   ├── SmartConfigController       # SMART on FHIR configuration
 │       │   ├── UserApiKeyController        # Personal API key management
 │       │   └── UserLibraryPrefsController  # Library favorites and recent history
-│       ├── entity/             # 37 JPA entities (incl. EhrConnection, BatchImportJob, FhirSubscription,
-│       │                       # MeasureThreshold, IndicatorCatalog, Notification, RefreshToken)
-│       ├── repository/         # 36 Spring Data repositories
-│       ├── security/           # JWT auth, API key auth, TokenVersionService (immediate revocation)
+│       ├── entity/             # 41 JPA entities (incl. EhrConnection, BatchImportJob, FhirSubscription,
+│       │                       # MeasureThreshold, IndicatorCatalog, Notification, RefreshToken, Tenant, ValueSet)
+│       ├── repository/         # 40 Spring Data repositories (tenant-scoped query methods)
+│       ├── security/           # JWT auth, API key auth, TokenVersionService (immediate revocation),
+│       │                       # TenantContext, rate-limit filters
 │       ├── service/
 │       │   ├── cql/            # CQL translation, execution, library management, dependency analysis
 │       │   ├── fhir/           # FHIR data provider, validation, bulk export, VSAC, EHR connection,
 │       │   │                   # SMART backend tokens, TLS context, patient import/match, subscriptions
 │       │   ├── cds/            # CDS Hooks: CRUD, invocation, card strategies, analytics, feedback, sandbox
-│       │   ├── measure/        # 27 services — eCQM evaluation, reports, scheduling, comparison,
-│       │   │                   # composite measures, batch evaluation, dashboard, indicator catalog,
-│       │   │                   # date shift, HQMF/QRDA export, human-readable rendering
+│       │   ├── measure/        # 35 services — eCQM evaluation, stratifiers, supplemental data, reports,
+│       │   │                   # scheduling, comparison, composite measures, batch evaluation, dashboard,
+│       │   │                   # CQFM exchange package export/import, HQMF/QRDA, human-readable rendering
+│       │   ├── terminology/    # Platform value sets + tenant-bound terminology provider for the engine
 │       │   ├── authoring/      # CDS authoring: artifact CRUD, CQL generation, testing, import, validation
-│       │   ├── ecqm/           # eCQM authoring: artifact CRUD, CQL builder, publish, validation
+│       │   ├── ecqm/           # eCQM authoring: artifact CRUD, CQL builder, publish (draft / versioning), validation
 │       │   └── ai/             # CloudAiService, OllamaService, CqlFixService, CqlKnowledgeBase
 │       ├── model/              # DTOs and request/response models
 │       │   ├── auth/           # Auth and admin DTOs
@@ -286,24 +308,23 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │       │   └── auth/           # ProtectedRoute, login/forgot-password forms
 │       ├── contexts/           # NotificationContext, PreferencesContext, LibraryHistoryContext,
 │       │                       # BundleBuilderContext, ResourceTypeContext, EhrOutageContext,
-│       │                       # TerminologyDrawerContext
-│       ├── hooks/              # 36 custom hooks (useCql, useMeasures, useAuthoring, useEcqm,
+│       │                       # TerminologyDrawerContext, ArtifactScopeContext
+│       ├── hooks/              # 37 custom hooks (useCql, useMeasures, useAuthoring, useEcqm,
 │       │                       # usePatientGenerator, useEhrConnection, useDashboard, useLibraryPrefs, …)
-│       ├── pages/              # 17 pages — EditorPage, CdsPage, AuthoringPage, EcqmPage, MeasuresPage,
-│       │                       # MeasureDashboardPage, FhirPage, TerminologyPage, CqlLibrariesPage,
-│       │                       # PatientGeneratorPage, LearnPage, LandingPage, AdminUsersPage,
-│       │                       # AuditDashboardPage, LoginPage, ForgotPasswordPage, ResetPasswordPage,
-│       │                       # OktaCallbackPage
+│       ├── pages/              # 26 pages (all lazy-loaded) — EditorPage, CdsPage, AuthoringPage, EcqmPage,
+│       │                       # MeasuresPage, MeasureDashboardPage, FhirPage, TerminologyPage,
+│       │                       # CqlLibrariesPage, PatientGeneratorPage, LearnPage, LandingPage,
+│       │                       # AdminUsersPage, AuditDashboardPage, ClinicApplyPage, …
 │       ├── locales/            # i18n translation files (14 namespaces × 2 languages)
 │       │   ├── en/             # common, validation, editor, builder, authoring, ecqm, cds, fhir,
 │       │   │                   # terminology, measures, admin, cqlLibraries, landing, patientGenerator
 │       │   └── zh-TW/          # (same 14 namespaces, Traditional Chinese)
-│       ├── api/                # 19 Axios API client modules
+│       ├── api/                # 24 Axios API client modules
 │       ├── config/             # twcore/ — TW Core synthetic patient generator JSON config
 │       ├── store/              # Redux slices (auth, editor, execution, artifact)
-│       ├── utils/              # 24 modules — cqlSyntax, dashboardFormat, fhirPatientGenerator,
-│       │                       # twDemographics, scoringFamily, safeStorage, random, …
-│       ├── constants/          # 17 modules — timing, layout, queryConstants, eCQM scoring/population
+│       ├── utils/              # 33 modules — cqlSyntax, dashboardFormat, fhirPatientGenerator,
+│       │                       # twDemographics, clauseCoverage, libraryFunctions, safeStorage, …
+│       ├── constants/          # 22 modules — timing, layout, queryConstants, eCQM scoring/population
 │       ├── theme.ts            # MUI theme with light/dark mode and locale support
 │       └── types/              # TypeScript interfaces
 │
@@ -324,7 +345,7 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 ├── k8s/                        # Kubernetes manifests (incl. sealed secrets, network policies, staging)
 ├── load-tests/                 # k6 load testing scripts
 ├── scripts/
-│   ├── smoke/                  # Integration smoke test harness (one canonical scenario per scoring family)
+│   ├── smoke/                  # Integration smoke test harness (39 scenarios, real Docker stack)
 │   ├── changelog/              # CHANGE_LOG hash backfill helpers
 │   ├── apply-staging.sh        # Staging deploy helper
 │   └── seal-secrets.sh         # Sealed-secrets utility
@@ -418,6 +439,7 @@ This starts all services with exposed ports:
 | `/api/cql/libraries/{id}/fhir` | GET | Export as FHIR Library |
 | `/api/cql/libraries/import/fhir` | POST | Import FHIR Library |
 | `/api/cql/libraries/{id}/dependency-analysis` | GET | Library dependency analysis with version conflict detection |
+| `/api/cql/libraries/{id}/expressions` | GET | Defines and functions (with operand signatures) of a stored library |
 
 ### CDS Hooks
 
@@ -466,7 +488,7 @@ This starts all services with exposed ports:
 | `/api/ecqm/artifacts/{id}/cql` | POST | Generate CQL from eCQM artifact |
 | `/api/ecqm/artifacts/{id}/elm` | POST | Generate CQL and translate to ELM |
 | `/api/ecqm/artifacts/{id}/validate` | POST | Validate eCQM CQL |
-| `/api/ecqm/artifacts/{id}/publish` | POST | Publish to MeasureDefinition |
+| `/api/ecqm/artifacts/{id}/publish` | POST | Publish to MeasureDefinition as a draft (a new draft version when an approved measure's logic changes); 409 if the measure was edited on the measure page since the last publish, unless `?force=true` |
 | `/api/ecqm/templates` | GET | Element templates (delegated) |
 | `/api/ecqm/modifiers` | GET | Available modifiers (delegated) |
 | `/api/ecqm/scoring-types` | GET | Scoring type configurations with required populations |
@@ -479,6 +501,11 @@ This starts all services with exposed ports:
 | `/api/measures/{id}/$evaluate-measure` | POST | Evaluate quality measure |
 | `/api/measures/{id}/cql-expressions` | GET | List CQL expressions for a measure |
 | `/api/measures/{id}/data-requirements` | GET | Data requirements analysis |
+| `/api/measures/{id}/builder-source` | GET | eCQM builder artifact the measure was published from, and drift since publish (204 if none) |
+| `/api/measures/{id}/export/bundle` | GET | HL7 Quality Measure IG exchange package (`?format=json\|xml`) |
+| `/api/measures/{id}/export/conformance` | GET | Which QM IG / CRMI profiles the exported Measure satisfies, and why not |
+| `/api/measures/import/bundle` | POST | Import an exchange package (lands as draft, carries the CQL) |
+| `/api/measures/{id}/test-cases/coverage` | POST | Clause-level coverage across all test cases |
 | `/api/measures/{id}/test-cases` | GET/POST | Test case CRUD |
 | `/api/measures/{id}/test-cases/{id}/run` | POST | Run single test case |
 | `/api/measures/{id}/test-cases/run` | POST | Run all test cases |
@@ -526,6 +553,31 @@ This starts all services with exposed ports:
 | `/api/fhir/ig/packages` | GET | Implementation Guide packages |
 | `/api/fhir/ig/profiles` | GET | IG profiles |
 | `/api/fhir/cache/stats` | GET | Cache statistics |
+
+### Value Sets
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/value-sets` | GET/POST | List / create platform value sets (tenant-scoped) |
+| `/api/value-sets/{id}` | GET/PUT/DELETE | Single value set |
+| `/api/value-sets/{id}/versions` | GET/POST | Version history / new version |
+| `/api/value-sets/{id}/activate` | POST | Activate (codes frozen) |
+| `/api/value-sets/{id}/retire` | POST | Retire |
+| `/api/value-sets/{id}/fhir` | GET | Export as FHIR ValueSet |
+| `/api/value-sets/import/fhir` | POST | Import a FHIR ValueSet |
+
+### Tenants & Clinic Applications
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/clinic-applications` | POST | Clinic self-application (public) |
+| `/api/admin/clinic-applications` | GET | Pending applications (platform operator) |
+| `/api/admin/clinic-applications/{id}/approve` · `/reject` | POST | Review an application |
+| `/api/admin/tenants` | GET/POST | Tenants (platform operator) |
+| `/api/admin/tenants/{id}/active` | PUT | Activate / deactivate a tenant |
+| `/api/admin/tenants/{id}/users` | GET | Users of a tenant |
+| `/api/tenant/users` | GET/POST | Tenant admin: users of their own clinic |
+| `/api/tenant/users/{userId}/role` · `/enabled` · `/reset-password` | PUT/POST | Manage a clinic user |
 
 ### User Preferences
 
@@ -598,6 +650,7 @@ This starts all services with exposed ports:
 | `/api/settings` | GET | System settings (read) |
 | `/api/settings` | PUT | Update settings (admin) |
 | `/api/version` | GET | Build metadata (commit, version, build time) |
+| `/api/status` | GET | Operational status (API + database) |
 
 ### Other
 
@@ -666,34 +719,34 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 
 ### Backend
 - Spring Boot 4.1.0 (Java 25, Tomcat 10.1.60)
-- CQL Framework (cql-to-elm, engine) 4.5.0
-- HAPI FHIR 8.8.1
+- CQL Framework (cql-to-elm, engine-fhir-jvm) 5.3.0
+- HAPI FHIR 8.12.0
 - CQF Clinical Reasoning
 - Resilience4j 2.4.0 (`resilience4j-spring-boot4`)
-- Jackson 3.1.1 (Spring Boot 4 default; deserialization `fail-on-null-for-primitives` restored to false)
+- Jackson 3.1.7 (Spring Boot 4 default; deserialization `fail-on-null-for-primitives` restored to false) + Jackson 2.21.7 for HAPI / legacy trees
 - PostgreSQL 16 (prod & dev) / H2 (test only)
-- Flyway 55+ forward migrations under `db/migration/` (manual rollback scripts under `db/rollback/`)
+- Flyway forward migrations V1–V76 under `db/migration/` (a manual rollback script per migration under `db/rollback/`)
 - Spring WebSocket (real-time notification push; replaces SSE since PAT-167 — see `Notifications & WebSocket` below)
 - Caffeine in-process cache (token version, ValueSet)
 - Apache POI (Excel export)
-- FreeMarker (CQL template engine)
+- FreeMarker 2.3.35 (CQL template engine)
 - Spring Security 6.5.9 with JWT
 
 ### Frontend
-- React 18 + TypeScript 5.3
-- Vite 5
-- Monaco Editor (@monaco-editor/react 4.6)
-- Material-UI 7.3
-- Redux Toolkit 2.0
+- React 19.2 + TypeScript 5.9
+- Vite 7.3
+- Monaco Editor 0.55 (@monaco-editor/react 4.7)
+- Material-UI 9.1
+- Redux Toolkit 2.11
 - TanStack Query (React Query) 5.x
 - i18next 25 + react-i18next 16 + i18next-browser-languagedetector
-- Axios 1.15
-- React Router 6.20
-- Recharts 3.7 (dashboard charts)
+- Axios 1.18
+- React Router 6.30
+- Recharts 3.10 (dashboard charts)
 - DOMPurify 3.3 (XSS sanitization)
 - react-window 2.x (virtualized lists; new List API)
 - react-helmet-async (head management)
-- Vitest 4.1 + React Testing Library (unit tests). SUTs use sub-path icon imports (`@mui/icons-material/Save` etc.) per PAT-161/PR #501 to avoid loading the icon barrel during vitest collection.
+- Vitest 5 + React Testing Library (unit tests). SUTs use sub-path icon imports (`@mui/icons-material/Save` etc.) per PAT-161/PR #501 to avoid loading the icon barrel during vitest collection.
 - ESLint 9 (flat config) + typescript-eslint 8
 - Playwright (e2e)
 
@@ -720,11 +773,11 @@ define "Has Diabetes":
 ### Running Tests
 
 ```bash
-# Backend (300+ tests)
+# Backend (~2,000 tests in 183 test classes)
 cd backend
 mvn test
 
-# Frontend (Vitest + React Testing Library)
+# Frontend (Vitest + React Testing Library, 140+ test files)
 cd frontend
 npm test
 
@@ -735,10 +788,11 @@ npx playwright test
 
 ### Integration Smoke Test
 
-Before pushing changes that touch the CQL pipeline, run the local Docker smoke harness — it covers all four scoring families (proportion / ratio / continuous-variable / cohort) end-to-end (save → publish → evaluate):
+Before pushing changes that touch the CQL pipeline, run the local Docker smoke harness. Its 39 scenarios cover every scoring family (proportion / ratio / continuous-variable / cohort) end to end (save → publish → review/approve → evaluate), plus CDS hooks, CQL execute contracts, the measure lifecycle guard, exchange-package round trips, platform value sets, clause coverage, stratifiers, supplemental data and library function calls. CI runs it on every backend / docker / smoke PR:
 
 ```bash
 scripts/smoke/run.sh           # Run all scenarios (~60–120s)
+scripts/smoke/run.sh 31-*      # Single scenario (glob)
 scripts/smoke/run.sh --keep    # Keep stack running for debugging
 ```
 
