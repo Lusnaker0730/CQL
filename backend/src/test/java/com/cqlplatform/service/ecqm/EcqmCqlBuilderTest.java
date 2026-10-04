@@ -593,4 +593,27 @@ class EcqmCqlBuilderTest {
                 "\"HospitalCommon\".\"Most Recent Below\"(\"HbA1c Results\", \"Measurement Period\", 7.0)");
         assertThat(result.warnings()).isEmpty();
     }
+
+    // ===== PAT-242 — the artifact's Measurement Period is the parameter default =====
+
+    @Test
+    void buildEcqmCql_withMeasurementPeriod_bakesItIntoTheParameterDefault() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "MP", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4",
+                java.time.LocalDate.of(2024, 1, 1), java.time.LocalDate.of(2024, 12, 31));
+
+        assertThat(result.cql()).contains("parameter \"Measurement Period\" Interval<DateTime>");
+        assertThat(result.cql()).contains("default Interval[@2024-01-01T00:00:00.0, @2024-12-31T23:59:59.999]");
+        assertThat(result.cql()).doesNotContain("2025-01-01");
+    }
+
+    @Test
+    void buildEcqmCql_withoutMeasurementPeriod_keepsTheTemplateDefault() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "MP", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("default Interval[@2025-01-01T00:00:00.0, @2025-12-31T23:59:59.999]");
+    }
 }

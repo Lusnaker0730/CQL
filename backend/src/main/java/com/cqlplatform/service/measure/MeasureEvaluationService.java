@@ -232,14 +232,20 @@ public class MeasureEvaluationService {
     private MeasureEvaluationContext buildContext(MeasureEvaluationRequest request,
                                                   Long measureDefinitionId,
                                                   MeasureDefinition measureDefinition) {
+        // PAT-242 precedence: the caller's explicit period, then the measure's own Measurement
+        // Period, then the configured default, then the current calendar year.
         int currentYear = LocalDate.now().getYear();
+        LocalDate measureStart = measureDefinition != null ? measureDefinition.getMeasurementPeriodStart() : null;
+        LocalDate measureEnd = measureDefinition != null ? measureDefinition.getMeasurementPeriodEnd() : null;
         LocalDate periodStart = request.getPeriodStart() != null
                 ? request.getPeriodStart()
+                : measureStart != null ? measureStart
                 : (defaultPeriodStart != null && !defaultPeriodStart.isBlank()
                         ? LocalDate.parse(defaultPeriodStart)
                         : LocalDate.of(currentYear, 1, 1));
         LocalDate periodEnd = request.getPeriodEnd() != null
                 ? request.getPeriodEnd()
+                : measureEnd != null ? measureEnd
                 : (defaultPeriodEnd != null && !defaultPeriodEnd.isBlank()
                         ? LocalDate.parse(defaultPeriodEnd)
                         : LocalDate.of(currentYear, 12, 31));

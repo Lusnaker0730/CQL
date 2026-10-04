@@ -62,3 +62,24 @@ describe('EcqmSummaryTab — standard metadata', () => {
     expect(onChange).toHaveBeenLastCalledWith({ experimental: true })
   })
 })
+
+// PAT-242 — the summary tab carries the Measurement Period with the same partial-update dialect.
+describe('EcqmSummaryTab — measurement period', () => {
+  it('shows the artifact period and sends "" for a cleared date, the date for a set one', () => {
+    const onChange = vi.fn()
+    render(
+      <EcqmSummaryTab
+        artifact={{ ...artifact, measurementPeriodStart: '2024-01-01', measurementPeriodEnd: '2024-12-31' }}
+        onChange={onChange}
+      />,
+    )
+
+    expect(screen.getByTestId('measurement-period-measurementPeriodStart')).toHaveValue('2024-01-01')
+
+    fireEvent.change(screen.getByTestId('measurement-period-measurementPeriodEnd'), { target: { value: '' } })
+    expect(onChange).toHaveBeenLastCalledWith({ measurementPeriodEnd: '' })
+
+    fireEvent.change(screen.getByTestId('measurement-period-measurementPeriodStart'), { target: { value: '2024-02-01' } })
+    expect(onChange).toHaveBeenLastCalledWith({ measurementPeriodStart: '2024-02-01' })
+  })
+})

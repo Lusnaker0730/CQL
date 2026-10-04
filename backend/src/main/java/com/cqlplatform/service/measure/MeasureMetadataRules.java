@@ -19,4 +19,11 @@ public final class MeasureMetadataRules {
             throw new ValidationException("Effective period ends (" + end + ") before it starts (" + start + ")");
         }
     }
+
+    /** PAT-242: the Measurement Period is an interval; when both ends are given the end must not precede the start. */
+    public static void requireOrderedMeasurementPeriod(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new ValidationException("Measurement period ends (" + end + ") before it starts (" + start + ")");
+        }
+    }
 }

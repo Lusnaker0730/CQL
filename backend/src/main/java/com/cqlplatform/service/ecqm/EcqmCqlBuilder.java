@@ -45,7 +45,6 @@ public class EcqmCqlBuilder {
     /**
      * Build eCQM CQL from population groups and related data.
      */
-    @SuppressWarnings("unchecked")
     public CqlBuildResult buildEcqmCql(
             String name, String version, String scoringType,
             String populationBasis,
@@ -55,6 +54,33 @@ public class EcqmCqlBuilder {
             List<Map<String, Object>> supplementalData,
             List<Map<String, Object>> stratifiers,
             String fhirVersion) {
+        return buildEcqmCql(name, version, scoringType, populationBasis, populationGroups, baseElements,
+                parameters, supplementalData, stratifiers, fhirVersion, null, null);
+    }
+
+    /** The default of the {@code "Measurement Period"} parameter when the artifact has no period of its own (unchanged since the template was written). */
+    static final java.time.LocalDate DEFAULT_PERIOD_START = java.time.LocalDate.of(2025, 1, 1);
+    static final java.time.LocalDate DEFAULT_PERIOD_END = java.time.LocalDate.of(2025, 12, 31);
+
+    /**
+     * Build eCQM CQL from population groups and related data.
+     *
+     * @param measurementPeriodStart PAT-242: the artifact's Measurement Period; it becomes the
+     *        default of the {@code "Measurement Period"} parameter so the library is
+     *        self-describing when exchanged. Null keeps the long-standing template default.
+     */
+    @SuppressWarnings("unchecked")
+    public CqlBuildResult buildEcqmCql(
+            String name, String version, String scoringType,
+            String populationBasis,
+            List<Map<String, Object>> populationGroups,
+            List<Map<String, Object>> baseElements,
+            List<Map<String, Object>> parameters,
+            List<Map<String, Object>> supplementalData,
+            List<Map<String, Object>> stratifiers,
+            String fhirVersion,
+            java.time.LocalDate measurementPeriodStart,
+            java.time.LocalDate measurementPeriodEnd) {
 
         BuildContext ctx = new BuildContext(baseElements, parameters);
         // eCQM artifacts always declare a "Measurement Period" parameter (emitted by the
@@ -91,6 +117,11 @@ public class EcqmCqlBuilder {
         dataModel.put("safeName", safeName);
         dataModel.put("version", engine.escapeCqlString(version != null ? version : AuthoringConstants.DEFAULT_VERSION));
         dataModel.put("fhirVersion", resolvedFhirVersion);
+        // PAT-242: ISO dates are safe to splice (LocalDate.toString is yyyy-MM-dd); the template adds the time parts.
+        dataModel.put("measurementPeriodStart",
+                (measurementPeriodStart != null ? measurementPeriodStart : DEFAULT_PERIOD_START).toString());
+        dataModel.put("measurementPeriodEnd",
+                (measurementPeriodEnd != null ? measurementPeriodEnd : DEFAULT_PERIOD_END).toString());
         dataModel.put("includes", includes);
 
         // Escape value set names for use in quoted identifiers and string literals in template

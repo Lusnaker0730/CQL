@@ -329,4 +329,26 @@ class EcqmControllerTest {
 
         verify(modifierService).getAllModifiers();
     }
+
+    // PAT-242 — the Measurement Period dates speak the same partial-update dialect as the
+    // standard metadata dates through the real HTTP converter.
+    @Test
+    @WithMockUser(username = "testuser")
+    void updateArtifact_measurementPeriod_absentKeepsAndEmptyStringClears() throws Exception {
+        EcqmArtifactResponse response = createArtifactResponse();
+        response.setMeasurementPeriodStart(java.time.LocalDate.of(2024, 1, 1));
+        org.mockito.ArgumentCaptor<EcqmArtifactRequest> captor = org.mockito.ArgumentCaptor.forClass(EcqmArtifactRequest.class);
+        when(artifactService.update(eq(1L), captor.capture(), eq("testuser"))).thenReturn(response);
+
+        mockMvc.perform(put("/api/ecqm/artifacts/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\": \"Test eCQM\", \"measurementPeriodStart\": \"2024-01-01\", \"measurementPeriodEnd\": \"\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.measurementPeriodStart").value("2024-01-01"));
+
+        EcqmArtifactRequest sent = captor.getValue();
+        org.assertj.core.api.Assertions.assertThat(sent.getMeasurementPeriodStart()).isEqualTo("2024-01-01");
+        org.assertj.core.api.Assertions.assertThat(sent.getMeasurementPeriodEnd()).isEmpty();   // "" → clear
+        org.assertj.core.api.Assertions.assertThat(sent.getEffectiveStart()).isNull();          // absent → keep
+    }
 }

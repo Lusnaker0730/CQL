@@ -58,4 +58,13 @@ class HumanReadableServiceTest {
 
         assertThat(html).contains("<th>Effective Period</th><td>2026-01-01 – …</td>");
     }
+
+    // PAT-242
+    @Test
+    void measurementPeriod_isRenderedInTheMetadataTable() {
+        String html = service.generateHtml(base()
+                .measurementPeriodStart(LocalDate.of(2024, 1, 1)).measurementPeriodEnd(LocalDate.of(2024, 12, 31)).build());
+
+        assertThat(html).contains("<section id=\"standard-metadata\">", "<th>Measurement Period</th><td>2024-01-01 – 2024-12-31</td>");
+    }
 }

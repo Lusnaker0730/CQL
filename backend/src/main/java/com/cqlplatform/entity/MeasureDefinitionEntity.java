@@ -230,6 +230,13 @@ public class MeasureDefinitionEntity {
     @Column(name = "experimental")
     private Boolean experimental;
 
+    /** PAT-242 (V77): the measure's own Measurement Period; null = use the caller's / default period. */
+    @Column(name = "measurement_period_start")
+    private java.time.LocalDate measurementPeriodStart;
+
+    @Column(name = "measurement_period_end")
+    private java.time.LocalDate measurementPeriodEnd;
+
     @Column(name = "rate_aggregation", length = 2000)
     private String rateAggregation;
 

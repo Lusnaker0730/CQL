@@ -377,4 +377,43 @@ class TestCaseServiceTest {
         assertThat(comparisons).isNotNull();
         assertThat(comparisons.get(0).isMatch()).isFalse();
     }
+
+    // PAT-242 — a test case runs in the measure's own Measurement Period when it has one, and the
+    // run result says which period was used; a measure without one runs in the current calendar
+    // year, exactly as before.
+    @Test
+    void runTestCase_usesTheMeasuresMeasurementPeriod_andReportsIt() {
+        TestCaseEntity entity = createEntity(1L, 10L, "MP TC");
+        entity.setExpectedPopulationMap(Map.of("InPopulation", true));
+        MeasureDefinition measure = createMeasure(10L);
+        measure.setMeasurementPeriodStart(java.time.LocalDate.of(2024, 1, 1));
+        measure.setMeasurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31));
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(definitionService.getById(10L)).thenReturn(Optional.of(measure));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        org.mockito.ArgumentCaptor<CqlExecutionRequest> sent = org.mockito.ArgumentCaptor.forClass(CqlExecutionRequest.class);
+        when(cqlExecutionService.executeWithProvider(sent.capture(), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(CqlExecutionResponse.builder().success(true)
+                        .results(Map.of("InPopulation", CqlExecutionResponse.ExpressionResult.builder()
+                                .name("InPopulation").value(true).valueType("Boolean").displayValue("true").build()))
+                        .build());
+
+        TestCaseRunResult result = service.runTestCase(1L);
+
+        assertThat(result.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(result.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+        org.opencds.cqf.cql.engine.runtime.Interval period =
+                (org.opencds.cqf.cql.engine.runtime.Interval) sent.getValue().getParameters().get("Measurement Period");
+        assertThat(((org.opencds.cqf.cql.engine.runtime.DateTime) period.getStart()).getDateTime().getYear()).isEqualTo(2024);
+        assertThat(((org.opencds.cqf.cql.engine.runtime.DateTime) period.getEnd()).getDateTime().getMonthValue()).isEqualTo(12);
+    }
+
+    @Test
+    void measurementPeriod_fallsBackToTheCurrentCalendarYear() {
+        java.time.LocalDate[] period = TestCaseService.measurementPeriod(createMeasure(10L));
+
+        int year = java.time.Year.now().getValue();
+        assertThat(period[0]).isEqualTo(java.time.LocalDate.of(year, 1, 1));
+        assertThat(period[1]).isEqualTo(java.time.LocalDate.of(year, 12, 31));
+    }
 }

@@ -51,6 +51,10 @@ public class TestCaseRunResult {
     /** Execution time in milliseconds */
     private Long executionTimeMs;
 
+    /** PAT-242: the Measurement Period this run used (the measure's own, or the current calendar year). */
+    private java.time.LocalDate measurementPeriodStart;
+    private java.time.LocalDate measurementPeriodEnd;
+
     /** CQL execution trace (expressions + retrieves + ELM). Populated only when debugMode=true. */
     private CqlExecutionResponse.DebugTrace debugTrace;
 

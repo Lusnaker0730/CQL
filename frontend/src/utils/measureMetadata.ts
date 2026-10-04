@@ -1,6 +1,10 @@
-import type { MeasureStandardMetadata } from '../types'
+import type { MeasureStandardMetadata, MeasurementPeriodFields } from '../types'
 
-export const METADATA_DATE_KEYS = ['effectiveStart', 'effectiveEnd', 'approvalDate', 'lastReviewDate'] as const
+/** Every date the artifact API clears with `''` — the PAT-236 standard metadata dates and the PAT-242 Measurement Period. */
+export const METADATA_DATE_KEYS = [
+  'effectiveStart', 'effectiveEnd', 'approvalDate', 'lastReviewDate',
+  'measurementPeriodStart', 'measurementPeriodEnd',
+] as const
 
 // PAT-236 — rules for the standard FHIR Measure metadata, shared by the measure details page
 // and the eCQM summary tab (kept out of the component file so fast refresh stays intact).
@@ -10,7 +14,7 @@ export const METADATA_DATE_KEYS = ['effectiveStart', 'effectiveEnd', 'approvalDa
  * a date (a JSON null is indistinguishable from "not sent" there). Turns the fields' explicit
  * `null` into `''` for the date keys that are present in the update.
  */
-export function clearedDatesAsEmpty<T extends Partial<MeasureStandardMetadata>>(updates: T): T {
+export function clearedDatesAsEmpty<T extends Partial<MeasureStandardMetadata & MeasurementPeriodFields>>(updates: T): T {
   const next = { ...updates }
   for (const key of METADATA_DATE_KEYS) {
     if (key in updates && updates[key] == null) next[key] = ''
@@ -18,10 +22,15 @@ export function clearedDatesAsEmpty<T extends Partial<MeasureStandardMetadata>>(
   return next
 }
 
-/** True when the effective period is inverted; both ends are ISO dates, so string order is date order. */
-export function effectivePeriodInverted(start?: string | null, end?: string | null): boolean {
+/** True when a period is inverted; both ends are ISO dates, so string order is date order. */
+export function periodInverted(start?: string | null, end?: string | null): boolean {
   return !!start && !!end && end < start
 }
+
+export const effectivePeriodInverted = periodInverted
+
+/** PAT-242: the Measurement Period follows the same rule. */
+export const measurementPeriodInverted = periodInverted
 
 /** True when any standard metadata field carries a value (drives the "filled" tick on the accordion). */
 export function standardMetadataFilled(value: MeasureStandardMetadata): boolean {

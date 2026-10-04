@@ -521,4 +521,24 @@ class CqfmMeasureBuilderTest {
         assertThat(observation.getPopulationRef()).isEqualTo("measure-population");
         assertThat(group.getPopulationBasis()).isEqualTo("Encounter");
     }
+
+    // PAT-242 — without an effective period of its own, the Measurement Period stands in for
+    // Measure.effectivePeriod (MADiE's convention); an authored effective period still wins.
+    @Test
+    void effectivePeriod_fallsBackToTheMeasurementPeriod_whenNoneIsAuthored() {
+        ObjectNode measure = build(proportion()
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 1, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31))
+                .build(), new MeasureExportConformance());
+
+        assertThat(measure.path("effectivePeriod").path("start").asText()).isEqualTo("2024-01-01");
+        assertThat(measure.path("effectivePeriod").path("end").asText()).isEqualTo("2024-12-31");
+
+        ObjectNode authored = build(proportion()
+                .effectiveStart(java.time.LocalDate.of(2026, 1, 1))
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 1, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31))
+                .build(), new MeasureExportConformance());
+
+        assertThat(authored.path("effectivePeriod").path("start").asText()).isEqualTo("2026-01-01");
+        assertThat(authored.path("effectivePeriod").has("end")).isFalse();
+    }
 }

@@ -419,4 +419,30 @@ class MeasureEvaluationServiceTest {
         assertThat(result.getStatus()).isEqualTo("complete");
         assertThat(result.getGroups()).isNotEmpty();
     }
+
+    // PAT-242 — the stored measure's own Measurement Period is the default evaluation period; an
+    // explicit request period still wins.
+    @Test
+    void evaluateMeasure_defaultsToTheMeasuresMeasurementPeriod_unlessTheRequestNamesOne() {
+        MeasureDefinition def = MeasureDefinition.builder()
+                .id(5L).name("MP").status("active").cqlContent("library Test version '1.0'")
+                .measurementPeriodStart(LocalDate.of(2024, 1, 1)).measurementPeriodEnd(LocalDate.of(2024, 12, 31))
+                .build();
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("MP");
+        request.setPatientId("patient-1");
+        request.setFhirServerUrl("http://localhost/fhir");
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request, 5L, def);
+        assertThat(result.getStatus()).isEqualTo("complete");
+        assertThat(result.getPeriodStart()).isEqualTo(LocalDate.of(2024, 1, 1));
+        assertThat(result.getPeriodEnd()).isEqualTo(LocalDate.of(2024, 12, 31));
+
+        request.setPeriodStart(LocalDate.of(2025, 3, 1));
+        request.setPeriodEnd(LocalDate.of(2025, 3, 31));
+        result = measureService.evaluateMeasure(request, 5L, def);
+        assertThat(result.getPeriodStart()).isEqualTo(LocalDate.of(2025, 3, 1));
+        assertThat(result.getPeriodEnd()).isEqualTo(LocalDate.of(2025, 3, 31));
+    }
 }

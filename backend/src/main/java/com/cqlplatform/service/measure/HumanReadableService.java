@@ -114,6 +114,13 @@ public class HumanReadableService {
                         .append(esc(measure.getEffectiveEnd() != null ? measure.getEffectiveEnd().toString() : "…"))
                         .append("</td></tr>\n");
             }
+            if (measure.getMeasurementPeriodStart() != null || measure.getMeasurementPeriodEnd() != null) {
+                sb.append("      <tr><th>Measurement Period</th><td>")
+                        .append(esc(measure.getMeasurementPeriodStart() != null ? measure.getMeasurementPeriodStart().toString() : "…"))
+                        .append(" – ")
+                        .append(esc(measure.getMeasurementPeriodEnd() != null ? measure.getMeasurementPeriodEnd().toString() : "…"))
+                        .append("</td></tr>\n");
+            }
             if (measure.getApprovalDate() != null) sb.append("      <tr><th>Approval Date</th><td>").append(measure.getApprovalDate()).append("</td></tr>\n");
             if (measure.getLastReviewDate() != null) sb.append("      <tr><th>Last Review Date</th><td>").append(measure.getLastReviewDate()).append("</td></tr>\n");
             if (Boolean.TRUE.equals(measure.getExperimental())) sb.append("      <tr><th>Experimental</th><td>Yes — for testing, not for real-world use</td></tr>\n");
@@ -361,6 +368,7 @@ public class HumanReadableService {
     private static boolean hasStandardMetadataTable(MeasureDefinition measure) {
         return (measure.getMeasureTypes() != null && !measure.getMeasureTypes().isEmpty())
                 || measure.getEffectiveStart() != null || measure.getEffectiveEnd() != null
+                || measure.getMeasurementPeriodStart() != null || measure.getMeasurementPeriodEnd() != null
                 || measure.getApprovalDate() != null || measure.getLastReviewDate() != null
                 || Boolean.TRUE.equals(measure.getExperimental());
     }

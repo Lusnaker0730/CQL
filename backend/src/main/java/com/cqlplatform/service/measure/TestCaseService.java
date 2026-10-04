@@ -303,7 +303,8 @@ public class TestCaseService {
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
             execRequest.setPatientId(patientId);
-            execRequest.setParameters(buildMeasurementPeriodParams(measure));
+            LocalDate[] period = measurementPeriod(measure);
+            execRequest.setParameters(buildMeasurementPeriodParams(period));
             execRequest.setDebugMode(debugMode);
             execRequest.setClauseCoverage(clauseCoverage);
 
@@ -344,7 +345,9 @@ public class TestCaseService {
                     .testCaseTitle(entity.getTitle())
                     .expectedPopulations(expectedPopulations)
                     .actualPopulations(actualPopulations)
-                    .actualValues(actualValues);
+                    .actualValues(actualValues)
+                    .measurementPeriodStart(period[0])
+                    .measurementPeriodEnd(period[1]);
 
             if (expectedValues != null && !expectedValues.isEmpty()) {
                 // PAT-228: the structured expectation decides pass / fail; the flat boolean map
@@ -735,15 +738,26 @@ public class TestCaseService {
         return resources;
     }
 
-    private Map<String, Object> buildMeasurementPeriodParams(MeasureDefinition measure) {
-        // Use current year as default measurement period (Jan 1 – Dec 31)
+    /**
+     * PAT-242: the window a test case runs in — the measure's own Measurement Period when it has
+     * one, else the current calendar year (the pre-PAT-242 behaviour, kept so measures without a
+     * period run exactly as before). Reported on the run result so the author can see it.
+     */
+    static LocalDate[] measurementPeriod(MeasureDefinition measure) {
+        if (measure != null && measure.getMeasurementPeriodStart() != null && measure.getMeasurementPeriodEnd() != null) {
+            return new LocalDate[] {measure.getMeasurementPeriodStart(), measure.getMeasurementPeriodEnd()};
+        }
         int year = Year.now().getValue();
+        return new LocalDate[] {LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31)};
+    }
+
+    private Map<String, Object> buildMeasurementPeriodParams(LocalDate[] period) {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",
                 new Interval(
-                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 1, 1), LocalTime.MIN, ZoneOffset.UTC)),
+                        new DateTime(OffsetDateTime.of(period[0], LocalTime.MIN, ZoneOffset.UTC)),
                         true,
-                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 12, 31), LocalTime.MAX, ZoneOffset.UTC)),
+                        new DateTime(OffsetDateTime.of(period[1], LocalTime.MAX, ZoneOffset.UTC)),
                         true));
         return parameters;
     }

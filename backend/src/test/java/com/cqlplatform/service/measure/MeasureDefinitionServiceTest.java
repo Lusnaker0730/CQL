@@ -776,4 +776,38 @@ class MeasureDefinitionServiceTest {
         verify(scheduleRepository).save(schedule);
         verify(auditRepository).save(argThat(a -> "SUPERSEDE".equals(a.getAction()) && a.getMeasureId() == 1L));
     }
+
+    // PAT-242 — the Measurement Period round-trips through create, and an inverted one is refused
+    // on update before anything is saved.
+    @Test
+    void measurementPeriod_roundTrips_andAnInvertedOneIsRejected() {
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("MP").version("1.0.0")
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 1, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31))
+                .build();
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "MP", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("owner");
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition created = service.create(definition);
+
+        assertThat(created.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(created.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("M").version("1.0.0").status("draft")
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 6, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 1, 1))
+                .build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("Measurement period ends");
+    }
 }

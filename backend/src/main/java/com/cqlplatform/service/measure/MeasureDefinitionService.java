@@ -84,6 +84,8 @@ public class MeasureDefinitionService {
         }
         definition.setStatus(DRAFT);
         MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
         // Pre-compile CQL on create, same as update — surfaces translation errors at
@@ -129,6 +131,8 @@ public class MeasureDefinitionService {
         }
 
         MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
 
         // BUG-147: approved / in-review / retired logic is immutable. PAT-222 stopped a PUT from
         // flipping the status, but a PUT could still rewrite the CQL of an approved measure — the
@@ -183,6 +187,10 @@ public class MeasureDefinitionService {
         entity.setApprovalDate(definition.getApprovalDate());
         entity.setLastReviewDate(definition.getLastReviewDate());
         entity.setExperimental(definition.getExperimental());
+        entity.setMeasurementPeriodStart(definition.getMeasurementPeriodStart());
+        entity.setMeasurementPeriodEnd(definition.getMeasurementPeriodEnd());
+        entity.setMeasurementPeriodStart(definition.getMeasurementPeriodStart());
+        entity.setMeasurementPeriodEnd(definition.getMeasurementPeriodEnd());
 
         // Indicator code mapping
         entity.setMohIndicatorCode(definition.getMohIndicatorCode());
@@ -460,6 +468,10 @@ public class MeasureDefinitionService {
                 .approvalDate(entity.getApprovalDate())
                 .lastReviewDate(entity.getLastReviewDate())
                 .experimental(entity.getExperimental())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
                 // Indicator code mapping
                 .mohIndicatorCode(entity.getMohIndicatorCode())
                 .nhiaP4pCode(entity.getNhiaP4pCode())
@@ -805,6 +817,10 @@ public class MeasureDefinitionService {
                 .approvalDate(model.getApprovalDate())
                 .lastReviewDate(model.getLastReviewDate())
                 .experimental(model.getExperimental())
+                .measurementPeriodStart(model.getMeasurementPeriodStart())
+                .measurementPeriodEnd(model.getMeasurementPeriodEnd())
+                .measurementPeriodStart(model.getMeasurementPeriodStart())
+                .measurementPeriodEnd(model.getMeasurementPeriodEnd())
                 // Indicator code mapping
                 .mohIndicatorCode(model.getMohIndicatorCode())
                 .nhiaP4pCode(model.getNhiaP4pCode())

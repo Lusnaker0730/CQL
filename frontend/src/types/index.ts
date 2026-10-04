@@ -567,8 +567,19 @@ export interface MeasureStandardMetadata {
   experimental?: boolean
 }
 
+/**
+ * PAT-242 — the measure's own Measurement Period (ISO dates): the default of the CQL
+ * "Measurement Period" parameter, used by test case runs and by evaluations that do not pass
+ * a period. Shared by the MeasureDefinition and the eCQM artifact (publish copies it over).
+ * `null` is an explicit "cleared" (the artifact API turns it into `''`).
+ */
+export interface MeasurementPeriodFields {
+  measurementPeriodStart?: string | null
+  measurementPeriodEnd?: string | null
+}
+
 // Measure Definition types
-export interface MeasureDefinition extends MeasureStandardMetadata {
+export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementPeriodFields {
   id?: number
   name: string
   version: string
@@ -1091,6 +1102,9 @@ export interface TestCaseRunResult {
   valueComparisons?: ValueComparison[]
   errorMessage?: string
   executionTimeMs?: number
+  /** PAT-242: the Measurement Period this run used (the measure's own, or the current calendar year). */
+  measurementPeriodStart?: string
+  measurementPeriodEnd?: string
   // Debug mode additions (only populated when run with debugMode=true)
   debugTrace?: DebugTrace
   populationTrace?: PopulationMembershipTrace

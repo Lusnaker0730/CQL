@@ -40,8 +40,9 @@ export default function MeasureEvaluationTab({ measure }: MeasureEvaluationTabPr
   const { cqlContent } = useSelector((state: RootState) => state.editor)
   const [patientId, setPatientId] = useState('')
   const { periodStart: defaultStart, periodEnd: defaultEnd } = getDefaultMeasurePeriod()
-  const [periodStart, setPeriodStart] = useState(defaultStart)
-  const [periodEnd, setPeriodEnd] = useState(defaultEnd)
+  // PAT-242: a measure with its own Measurement Period starts there; otherwise the current year.
+  const [periodStart, setPeriodStart] = useState(measure.measurementPeriodStart || defaultStart)
+  const [periodEnd, setPeriodEnd] = useState(measure.measurementPeriodEnd || defaultEnd)
   const [fhirServer, setFhirServer] = useState(DEFAULT_FHIR_SERVER_URL)
   const [result, setResult] = useState<MeasureEvaluationResult | null>(null)
   const [showSchedules, setShowSchedules] = useState(false)

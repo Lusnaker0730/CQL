@@ -3,6 +3,7 @@ import { Box, TextField, MenuItem, Stack, Typography, Divider } from '@mui/mater
 import type { EcqmArtifact, EcqmArtifactRequest } from '../../types/ecqm'
 import { SCORING_TYPES, POPULATION_BASIS_OPTIONS, IMPROVEMENT_NOTATIONS } from '../../constants/ecqmConstants'
 import MeasureStandardMetadataFields from '../measure/MeasureStandardMetadataFields'
+import MeasurementPeriodFields from '../measure/MeasurementPeriodFields'
 import { clearedDatesAsEmpty } from '../../utils/measureMetadata'
 
 interface Props {
@@ -66,6 +67,12 @@ export default function EcqmSummaryTab({ artifact, onChange }: Props) {
             ))}
           </TextField>
         </Stack>
+        {/* PAT-242: becomes the generated CQL's "Measurement Period" default and the published measure's period */}
+        <MeasurementPeriodFields
+          value={artifact}
+          onChange={(updates) => onChange(clearedDatesAsEmpty(updates))}
+          size="medium"
+        />
         <TextField
           label={t('summary.description')} fullWidth multiline rows={3}
           value={artifact.description || ''}

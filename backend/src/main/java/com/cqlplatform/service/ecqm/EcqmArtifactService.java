@@ -52,6 +52,7 @@ public class EcqmArtifactService {
     public EcqmArtifactResponse create(EcqmArtifactRequest request, String ownerUsername) {
         EcqmArtifactEntity entity = requestToEntity(request);
         MeasureMetadataRules.requireOrderedEffectivePeriod(entity.getEffectiveStart(), entity.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(entity.getMeasurementPeriodStart(), entity.getMeasurementPeriodEnd());
         entity.setOwnerUsername(ownerUsername);
         entity.setTenantId(effectiveTenantId()); // server-assigned tenant
         entity = repository.save(entity);
@@ -97,7 +98,11 @@ public class EcqmArtifactService {
         if (request.getApprovalDate() != null) entity.setApprovalDate(date(request.getApprovalDate()));
         if (request.getLastReviewDate() != null) entity.setLastReviewDate(date(request.getLastReviewDate()));
         if (request.getExperimental() != null) entity.setExperimental(request.getExperimental());
+        // PAT-242 measurement period: same absent / "" / date contract
+        if (request.getMeasurementPeriodStart() != null) entity.setMeasurementPeriodStart(date(request.getMeasurementPeriodStart()));
+        if (request.getMeasurementPeriodEnd() != null) entity.setMeasurementPeriodEnd(date(request.getMeasurementPeriodEnd()));
         MeasureMetadataRules.requireOrderedEffectivePeriod(entity.getEffectiveStart(), entity.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(entity.getMeasurementPeriodStart(), entity.getMeasurementPeriodEnd());
 
         if (request.getPopulationGroups() != null) entity.setPopulationGroupsList(request.getPopulationGroups());
         if (request.getSupplementalData() != null) entity.setSupplementalDataList(request.getSupplementalData());
@@ -161,6 +166,8 @@ public class EcqmArtifactService {
                 .approvalDate(original.getApprovalDate())
                 .lastReviewDate(original.getLastReviewDate())
                 .experimental(original.getExperimental())
+                .measurementPeriodStart(original.getMeasurementPeriodStart())
+                .measurementPeriodEnd(original.getMeasurementPeriodEnd())
                 .populationGroupsList(new ArrayList<>(original.getPopulationGroupsList()))
                 .supplementalDataList(new ArrayList<>(original.getSupplementalDataList()))
                 .stratifiersList(new ArrayList<>(original.getStratifiersList()))
@@ -212,6 +219,8 @@ public class EcqmArtifactService {
                 .approvalDate(entity.getApprovalDate())
                 .lastReviewDate(entity.getLastReviewDate())
                 .experimental(entity.getExperimental())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
                 .populationGroups(entity.getPopulationGroupsList())
                 .supplementalData(entity.getSupplementalDataList())
                 .stratifiers(entity.getStratifiersList())
@@ -281,6 +290,8 @@ public class EcqmArtifactService {
                 .approvalDate(date(request.getApprovalDate()))
                 .lastReviewDate(date(request.getLastReviewDate()))
                 .experimental(request.getExperimental())
+                .measurementPeriodStart(date(request.getMeasurementPeriodStart()))
+                .measurementPeriodEnd(date(request.getMeasurementPeriodEnd()))
                 .populationGroupsList(request.getPopulationGroups() != null ? request.getPopulationGroups() : new ArrayList<>())
                 .supplementalDataList(request.getSupplementalData() != null ? request.getSupplementalData() : new ArrayList<>())
                 .stratifiersList(request.getStratifiers() != null ? request.getStratifiers() : new ArrayList<>())
