@@ -216,8 +216,10 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                     continue 2
                 fi
             done
-            period_start=$(jq -r '.periodStart' "$expected_file")
-            period_end=$(jq -r '.periodEnd' "$expected_file")
+            # PAT-242: a scenario may leave the period out — the evaluation then runs in the
+            # measure's own Measurement Period, which is exactly what such a scenario asserts.
+            period_start=$(jq -r '.periodStart // empty' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd // empty' "$expected_file" | tr -d '\r')
 
             if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
                 failed_scenarios+=("$name"); continue
@@ -256,7 +258,20 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             eval_end_ns=$(date +%s%N)
             EVAL_ELAPSED_MS=$(( (eval_end_ns - eval_start_ns) / 1000000 ))
             export EVAL_ELAPSED_MS
-            if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
+            scenario_ok=1
+            if ! echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
+                scenario_ok=0
+            fi
+            # Optional test case step (PAT-242 / PAT-243): expected.json `testCase` creates a test
+            # case against the published measure and asserts its run — status, the measurement
+            # period it reports, and per-population actuals (episode counts for an episode-based
+            # group). Runs after the evaluation so both views of the same logic are checked.
+            if [ "$(jq -r '.testCase // empty | type' "$expected_file" | tr -d '\r')" = "object" ]; then
+                if ! bash "$SCRIPT_DIR/lib/run-test-case.sh" "$measure_id" "$scenario_dir" "$expected_file"; then
+                    scenario_ok=0
+                fi
+            fi
+            if [ "$scenario_ok" = 1 ]; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")

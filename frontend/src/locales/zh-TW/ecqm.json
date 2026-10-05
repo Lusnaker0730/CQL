@@ -89,7 +89,8 @@
     "addObservation": "新增觀測",
     "rateMultiplier": "比率乘數",
     "scoringUnit": "計分單位",
-    "scoringUnitPlaceholder": "例如：每 1,000 人年"
+    "scoringUnitPlaceholder": "例如：每 1,000 人年",
+    "episodeBasedHint": "以 {{basis}} 為基準的群組：每個母群是它保留的 {{basis}} episode 清單。每個母群請把 {{basis}} 元素放在第一個，其餘元素成為它的條件；評估以 episode 計數，不以病人計數。沒有 {{basis}} 元素的母群是布林值，代表保留上層母群的全部或零個 episode。"
   },
   "observation": {
     "title": "品質指標觀測",

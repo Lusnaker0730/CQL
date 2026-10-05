@@ -47,6 +47,10 @@ public class EcqmArtifactResponse {
     private java.time.LocalDate lastReviewDate;
     private Boolean experimental;
 
+    // PAT-242 measurement period
+    private java.time.LocalDate measurementPeriodStart;
+    private java.time.LocalDate measurementPeriodEnd;
+
     private List<Map<String, Object>> populationGroups;
     private List<Map<String, Object>> supplementalData;
     private List<Map<String, Object>> stratifiers;

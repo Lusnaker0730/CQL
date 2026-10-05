@@ -19,6 +19,8 @@ import type { TestCaseRunResult, ValueComparison } from '../../types'
 
 interface TestCaseResultProps {
   result: TestCaseRunResult
+  /** PAT-243: groups whose counts are episodes (effective group id → basis); their populations read as numbers, not Yes / No. */
+  episodeBasisByGroup?: Record<string, string>
 }
 
 const STATUS_CONFIG = {
@@ -33,7 +35,7 @@ const STATUS_LABEL_KEYS: Record<string, string> = {
   error: 'testCaseResult.error',
 }
 
-export default function TestCaseResult({ result }: TestCaseResultProps) {
+export default function TestCaseResult({ result, episodeBasisByGroup = {} }: TestCaseResultProps) {
   const { t } = useTranslation('measures')
   const statusKey = (result.status as keyof typeof STATUS_CONFIG) || 'error'
   const config = STATUS_CONFIG[statusKey] || STATUS_CONFIG.error
@@ -48,11 +50,12 @@ export default function TestCaseResult({ result }: TestCaseResultProps) {
     return t(`testCaseEditor.populationTypes.${comp.key}`, comp.key)
   }
 
-  // Patient-based populations read as Yes / No; anything else (a future episode count, an
-  // observation list, a stratum) is shown as the backend rendered it.
+  // Patient-based populations read as Yes / No; an episode-based group's populations (PAT-243)
+  // are episode counts and anything else (an observation list, a stratum) is shown as the
+  // backend rendered it.
   const displayValue = (comp: ValueComparison, value: string | undefined): string => {
     if (value == null) return t('testCaseResult.na')
-    if (comp.kind === 'population' && (value === '0' || value === '1')) {
+    if (comp.kind === 'population' && (value === '0' || value === '1') && !episodeBasisByGroup[comp.groupId]) {
       return value === '1' ? t('testCaseResult.yes') : t('testCaseResult.no')
     }
     if (comp.kind === 'stratifier' && value === '') return t('testCaseResult.noStratum')

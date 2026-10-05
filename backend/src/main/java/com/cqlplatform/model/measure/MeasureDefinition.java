@@ -177,6 +177,17 @@ public class MeasureDefinition {
     /** {@code Measure.experimental}: for testing, not for real-world use. */
     private Boolean experimental;
 
+    /**
+     * PAT-242 — the measure's own Measurement Period, i.e. the default value of the CQL
+     * {@code "Measurement Period"} parameter: what test case runs and an evaluation without an
+     * explicit period use. Null = not set (the evaluation falls back to the configured default or
+     * the current calendar year, as before). Distinct from {@link #effectiveStart}: that is when
+     * the measure is in use, this is the window of data it looks at.
+     */
+    private java.time.LocalDate measurementPeriodStart;
+
+    private java.time.LocalDate measurementPeriodEnd;
+
     // Indicator code mapping
     @Size(max = 50)
     private String mohIndicatorCode;

@@ -25,7 +25,7 @@ ${codeDecl}
 
 </#if>
 parameter "Measurement Period" Interval<DateTime>
-  default Interval[@2025-01-01T00:00:00.0, @2025-12-31T23:59:59.999]
+  default Interval[@${measurementPeriodStart}T00:00:00.0, @${measurementPeriodEnd}T23:59:59.999]
 
 <#if params?has_content>
 <#list params as p>

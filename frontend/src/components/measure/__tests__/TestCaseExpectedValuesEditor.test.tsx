@@ -168,3 +168,22 @@ describe('TestCaseExpectedValuesEditor', () => {
     expect(screen.getByText('testCaseEditor.structured.noGroups')).toBeInTheDocument()
   })
 })
+
+// PAT-243 — each group says what its counts mean: the patient (0 / 1) or that basis's episodes.
+describe('TestCaseExpectedValuesEditor — population basis note', () => {
+  it('shows the episode note for an Encounter-based group and the patient note otherwise', () => {
+    const measure: MeasureDefinition = {
+      ...cvMeasure,
+      groupDefinitions: [
+        { ...cvMeasure.groupDefinitions![0], populationBasis: 'Encounter' },
+        { ...cvMeasure.groupDefinitions![1], populationBasis: 'boolean' },
+      ],
+    }
+    render(
+      <TestCaseExpectedValuesEditor measure={measure} value={alignExpectedValues(measure, null)} onChange={vi.fn()} />,
+    )
+
+    expect(screen.getByTestId('basis-note-group-1')).toHaveTextContent('testCaseEditor.structured.episodeBasedNote')
+    expect(screen.getByTestId('basis-note-group-2')).toHaveTextContent('testCaseEditor.structured.patientBasedNote')
+  })
+})

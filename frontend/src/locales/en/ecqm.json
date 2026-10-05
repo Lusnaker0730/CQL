@@ -89,7 +89,8 @@
     "addObservation": "Add Observation",
     "rateMultiplier": "Rate Multiplier",
     "scoringUnit": "Scoring Unit",
-    "scoringUnitPlaceholder": "e.g., per 1,000 person-years"
+    "scoringUnitPlaceholder": "e.g., per 1,000 person-years",
+    "episodeBasedHint": "Episode-based group ({{basis}}): every population is the list of {{basis}} episodes it keeps. Put a {{basis}} element first in each population — the other elements become its conditions — and the evaluation counts episodes, not patients. A population without a {{basis}} element is a Boolean that keeps all or none of the parent population's episodes."
   },
   "observation": {
     "title": "Measure Observation",

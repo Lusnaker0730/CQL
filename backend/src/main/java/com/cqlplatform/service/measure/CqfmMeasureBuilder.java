@@ -108,12 +108,17 @@ public class CqfmMeasureBuilder {
         if (notBlank(def.getDescription())) measure.put("description", def.getDescription());
         if (notBlank(def.getCopyright())) measure.put("copyright", def.getCopyright());
         // QM IG conformance requirement 3.4: a measure states the period it applies to.
-        // PAT-236: the author's effective period when set; the created-at fallback otherwise.
+        // PAT-236: the author's effective period when set; PAT-242: else the Measurement Period (what
+        // MADiE exports as effectivePeriod); the created-at fallback otherwise.
         ObjectNode effectivePeriod = measure.putObject("effectivePeriod");
-        effectivePeriod.put("start", def.getEffectiveStart() != null ? def.getEffectiveStart().toString()
+        java.time.LocalDate periodStart = def.getEffectiveStart() != null ? def.getEffectiveStart()
+                : def.getEffectiveEnd() == null ? def.getMeasurementPeriodStart() : null;
+        java.time.LocalDate periodEnd = def.getEffectiveEnd() != null ? def.getEffectiveEnd()
+                : def.getEffectiveStart() == null ? def.getMeasurementPeriodEnd() : null;
+        effectivePeriod.put("start", periodStart != null ? periodStart.toString()
                 : def.getCreatedAt() != null ? def.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE)
                 : java.time.LocalDate.now().withDayOfYear(1).toString());
-        if (def.getEffectiveEnd() != null) effectivePeriod.put("end", def.getEffectiveEnd().toString());
+        if (periodEnd != null) effectivePeriod.put("end", periodEnd.toString());
         addStandardMetadata(measure, def);
         addAuthors(measure, def);
         addRelatedArtifacts(measure, def, report);

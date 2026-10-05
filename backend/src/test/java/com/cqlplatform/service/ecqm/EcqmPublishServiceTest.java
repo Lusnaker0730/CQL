@@ -95,7 +95,7 @@ class EcqmPublishServiceTest {
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity m = inv.getArgument(0);
@@ -137,7 +137,7 @@ class EcqmPublishServiceTest {
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity m = inv.getArgument(0);
@@ -180,7 +180,7 @@ class EcqmPublishServiceTest {
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity m = inv.getArgument(0);
@@ -217,7 +217,7 @@ class EcqmPublishServiceTest {
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> {
             MeasureDefinitionEntity m = inv.getArgument(0);
@@ -265,7 +265,7 @@ class EcqmPublishServiceTest {
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(existingMeasure));
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -298,7 +298,7 @@ class EcqmPublishServiceTest {
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(existingMeasure));
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -362,7 +362,7 @@ class EcqmPublishServiceTest {
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
         when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
         when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         return entity;
@@ -493,7 +493,7 @@ class EcqmPublishServiceTest {
         MeasureDefinitionEntity approved = approvedFromFirstPublish(entity);
         String approvedCql = approved.getCqlContent();
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenAnswer(inv -> new CqlBuildResult("library MyMeasure version '" + inv.getArgument(1) + "'\ndefine \"New\": true\n", List.of()));
         when(measureDefinitionService.nextFreeMinorVersion("MyMeasure", "1.0.0")).thenReturn("1.1.0");
         MeasureDefinitionEntity copy = MeasureDefinitionEntity.builder().id(101L).name("MyMeasure").version("1.1.0").status("draft").build();
@@ -525,7 +525,7 @@ class EcqmPublishServiceTest {
         MeasureDefinitionEntity measure = approvedFromFirstPublish(entity);
         measure.setStatus("in-review");
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
-                anyList(), anyList(), anyList(), anyList(), anyList(), anyString()))
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\ndefine \"New\": true\n", List.of()));
 
         assertThatThrownBy(() -> publishService.publish(1L, "testuser"))
@@ -534,5 +534,62 @@ class EcqmPublishServiceTest {
         verify(measureRepository, never()).save(any());
         verify(ecqmRepository, never()).save(any());
         verify(measureDefinitionService, never()).createVersionAs(anyLong(), anyString());
+    }
+
+    // PAT-242 — the artifact's Measurement Period reaches both the generated CQL (the builder bakes
+    // it in as the parameter default) and the published measure; an artifact without one leaves
+    // the measure's own period alone, like the other metadata.
+    @Test
+    void publish_handsTheMeasurementPeriodToTheCqlBuilder_andCopiesItOntoTheMeasure() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setMeasurementPeriodStart(java.time.LocalDate.of(2024, 1, 1));
+        entity.setMeasurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31));
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity m = inv.getArgument(0);
+            if (m.getId() == null) m.setId(60L);
+            return m;
+        });
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        verify(ecqmCqlBuilder).buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(),
+                eq(java.time.LocalDate.of(2024, 1, 1)), eq(java.time.LocalDate.of(2024, 12, 31)));
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        assertThat(saved.getValue().getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(saved.getValue().getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+    }
+
+    @Test
+    void publish_withoutAMeasurementPeriod_keepsTheMeasuresOwn() {
+        EcqmArtifactEntity entity = createEcqmEntity(1L, "MyMeasure", "testuser");
+        entity.setPublishedMeasureId(50L);
+        MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
+                .id(50L).name("MyMeasure").status("draft")
+                .measurementPeriodStart(java.time.LocalDate.of(2023, 1, 1))
+                .measurementPeriodEnd(java.time.LocalDate.of(2023, 12, 31))
+                .build();
+        when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(cqlGenerationService.validateCql(1L)).thenReturn(successfulValidation());
+        when(measureRepository.findByIdAndTenantId(50L, 7L)).thenReturn(Optional.of(existingMeasure));
+        when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
+                anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
+                .thenReturn(new CqlBuildResult("library MyMeasure version '1.0.0'\n", List.of()));
+        when(measureRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(ecqmRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        publishService.publish(1L, "testuser");
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(measureRepository).save(saved.capture());
+        assertThat(saved.getValue().getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2023, 1, 1));
+        assertThat(saved.getValue().getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2023, 12, 31));
     }
 }

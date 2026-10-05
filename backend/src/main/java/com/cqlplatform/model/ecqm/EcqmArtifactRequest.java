@@ -121,6 +121,12 @@ public class EcqmArtifactRequest {
     private String lastReviewDate;
     private Boolean experimental;
 
+    /** PAT-242 — same contract as the four dates above: absent keeps, {@code ""} clears, an ISO date sets. */
+    @Pattern(regexp = ISO_DATE_OR_EMPTY, message = "must be an ISO date (yyyy-MM-dd) or empty")
+    private String measurementPeriodStart;
+    @Pattern(regexp = ISO_DATE_OR_EMPTY, message = "must be an ISO date (yyyy-MM-dd) or empty")
+    private String measurementPeriodEnd;
+
     public static final String ISO_DATE_OR_EMPTY = "|\\d{4}-\\d{2}-\\d{2}";
 
     // Expression trees — exempt from XSS sanitization

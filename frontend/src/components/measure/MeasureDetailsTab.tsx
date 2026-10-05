@@ -41,6 +41,7 @@ import type { MeasureDefinition, MeasureReference } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
 import IndicatorMappingSection from './IndicatorMappingSection'
 import MeasureStandardMetadataFields from './MeasureStandardMetadataFields'
+import MeasurementPeriodFields from './MeasurementPeriodFields'
 import { effectivePeriodInverted, standardMetadataFilled } from '../../utils/measureMetadata'
 import { MEASURE } from '../../constants/fieldConstraints'
 
@@ -236,6 +237,15 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, 
                   }}
                 />
               </Stack>
+              {/* PAT-242: the window of data the measure looks at — test cases and default evaluations use it */}
+              <MeasurementPeriodFields
+                value={form}
+                readOnly={readOnly}
+                onChange={(updates) => {
+                  setForm((prev) => ({ ...prev, ...updates }))
+                  setIsDirty(true)
+                }}
+              />
               <Stack direction="row" spacing={2}>
                 <TextField
                   label={t('details.fields.nqfNumber')}

@@ -165,6 +165,10 @@ public class EcqmPublishService {
         if (ecqm.getApprovalDate() != null) measureDef.setApprovalDate(ecqm.getApprovalDate());
         if (ecqm.getLastReviewDate() != null) measureDef.setLastReviewDate(ecqm.getLastReviewDate());
         if (ecqm.getExperimental() != null) measureDef.setExperimental(ecqm.getExperimental());
+        // PAT-242: the artifact's Measurement Period (also the generated CQL's parameter default) becomes
+        // the measure's, so test case runs and default evaluations use the window the author built for.
+        if (ecqm.getMeasurementPeriodStart() != null) measureDef.setMeasurementPeriodStart(ecqm.getMeasurementPeriodStart());
+        if (ecqm.getMeasurementPeriodEnd() != null) measureDef.setMeasurementPeriodEnd(ecqm.getMeasurementPeriodEnd());
         // PAT-234: the workspace's SDE elements become the measure's declared supplemental
         // data / risk adjustment factors (by usage) — what the evaluation distributes and the
         // exchange package lists. Before, publish carried none of them.
@@ -242,7 +246,8 @@ public class EcqmPublishService {
                 ecqm.getName(), version, ecqm.getScoringType(),
                 ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
                 ecqm.getBaseElementsList(), ecqm.getParametersList(),
-                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4");
+                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4",
+                ecqm.getMeasurementPeriodStart(), ecqm.getMeasurementPeriodEnd());
     }
 
     private MeasureDefinitionEntity newMeasureDefinition(EcqmArtifactEntity ecqm, String currentUser) {

@@ -417,4 +417,42 @@ class EcqmArtifactServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("not found");
     }
+
+    // PAT-242 — the Measurement Period follows the standard-metadata date contract (absent keeps,
+    // "" clears, an ISO date sets), is carried by create and duplicate, and an inverted period is
+    // refused.
+    @Test
+    void measurementPeriod_followsTheDateContract_isCopied_andAnInvertedOneIsRejected() {
+        when(repository.save(any())).thenAnswer(inv -> {
+            EcqmArtifactEntity e = inv.getArgument(0);
+            if (e.getId() == null) e.setId(5L);
+            return e;
+        });
+        EcqmArtifactResponse created = service.create(EcqmArtifactRequest.builder()
+                .name("MP").scoringType("proportion")
+                .measurementPeriodStart("2024-01-01").measurementPeriodEnd("2024-12-31")
+                .build(), "alice");
+        assertThat(created.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(created.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+
+        EcqmArtifactEntity existing = entity(5L, "alice");
+        existing.setMeasurementPeriodStart(java.time.LocalDate.of(2024, 1, 1));
+        existing.setMeasurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31));
+        when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
+
+        EcqmArtifactResponse result = service.update(5L, EcqmArtifactRequest.builder().measurementPeriodEnd("").build(), "alice");
+        assertThat(result.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1)); // absent keeps
+        assertThat(result.getMeasurementPeriodEnd()).isNull();                                      // "" clears
+
+        result = service.update(5L, EcqmArtifactRequest.builder().measurementPeriodEnd("2024-06-30").build(), "alice");
+        assertThat(result.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 6, 30));
+
+        EcqmArtifactResponse copy = service.duplicate(5L, "alice");
+        assertThat(copy.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(copy.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 6, 30));
+
+        assertThatThrownBy(() -> service.update(5L, EcqmArtifactRequest.builder().measurementPeriodEnd("2023-12-31").build(), "alice"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("Measurement period ends");
+    }
 }

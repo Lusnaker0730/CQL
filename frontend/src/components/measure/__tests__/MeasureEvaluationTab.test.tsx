@@ -61,3 +61,26 @@ describe('MeasureEvaluationTab — PAT-219 lifecycle gate', () => {
     expect(evaluateButton()).toBeEnabled()
   })
 })
+
+// PAT-242 — a measure with its own Measurement Period starts the evaluation form there; one
+// without keeps the current-year default.
+describe('MeasureEvaluationTab — PAT-242 measurement period default', () => {
+  it('prefills the period inputs from the measure', () => {
+    render(
+      <MeasureEvaluationTab
+        measure={{ ...stored, status: 'active', measurementPeriodStart: '2024-01-01', measurementPeriodEnd: '2024-12-31' }}
+      />,
+    )
+
+    expect(screen.getByLabelText('evaluation.periodStart')).toHaveValue('2024-01-01')
+    expect(screen.getByLabelText('evaluation.periodEnd')).toHaveValue('2024-12-31')
+  })
+
+  it('falls back to the current calendar year without one', () => {
+    render(<MeasureEvaluationTab measure={{ ...stored, status: 'active' }} />)
+
+    const year = new Date().getFullYear()
+    expect(screen.getByLabelText('evaluation.periodStart')).toHaveValue(`${year}-01-01`)
+    expect(screen.getByLabelText('evaluation.periodEnd')).toHaveValue(`${year}-12-31`)
+  })
+})

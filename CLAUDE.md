@@ -81,11 +81,11 @@ backend/src/main/resources/
     modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V76；V56 為 Java migration)
+  db/migration/    — Flyway forward migrations (V1~V77；V56 為 Java migration)
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
-scripts/smoke/     — 本機 / CI 整合 smoke harness (39 scenarios)
+scripts/smoke/     — 本機 / CI 整合 smoke harness (40 scenarios)
 ```
 
 ## 開發指令
@@ -176,6 +176,8 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - **多元件分層（PAT-235）**：`StratifierDefinition.components[]`（每元件自己的 define `Stratifier <id> <code>`，stratifier 本身 `criteriaExpression` 為 null）。評估器把各元件值以 ASCII 分隔字元（`\u001E` code / `\u001F` 元件）編成自描述的內部 key 放進同一個累積 map，`buildStratifierResults` 解回 `StratifierResult.components` 並把 `strataValue` 顯示成 `female | 65+`；`ValueKeys.of` 會剝掉這兩個字元，值偽造不了元件邊界。任一元件無值 → 不屬任何層。報表 `measure_report_stratifier.component_values`（V74，JSON），FHIR MeasureReport `stratum.component[]`、CQFM `stratifier.component[]`（匯入會讀回）。測試案例期望值仍是字串（寫 `female | 65+`）；smoke `assert.sh` 也仍以 `strataValue` 比對，另可斷言 `components`
 - **標準 metadata（PAT-236）**：`MeasureDefinition` 與 `EcqmArtifact` 都帶 `measureTypes[]`（FHIR measure-type 代碼，最多 5）、`definitionTerms[] {term, definition}`、`clinicalRecommendationStatement`、`effectiveStart` / `effectiveEnd` / `approvalDate` / `lastReviewDate`、`experimental`（V75，兩張表各 8 欄）。CQFM 匯出寫成 R4 元素（`type[].coding`、`definition[]` markdown `**term**: definition`、`effectivePeriod`、`approvalDate`…，`CqfmMeasureBuilder.addStandardMetadata`），匯入 `FhirMeasureService.definitionTerm` 解回；作者填的值優先，匯入基底只補空缺（`passThrough`）。publish 只在 artifact **有值**時覆蓋指標（重新發布不清掉指標頁填的內容）。**eCQM artifact 的 PUT 是部分更新**（缺鍵 = 保留）：四個日期在 `EcqmArtifactRequest` 是字串，`""` = 清除、缺鍵 = 保留、ISO 日期 = 設定——前端 `utils/measureMetadata.clearedDatesAsEmpty` 把共用欄位元件的 `null` 換成 `""`；經 HTTP converter 的 `Optional` 缺鍵也會變 `Optional.empty()`，分不出來，別改回去。生效迄日早於起日兩個 service 都以 `MeasureMetadataRules` 擋成 400
 - **補充資料 / 風險校正因子（PAT-234）**：指標宣告的 `supplementalData` / `riskAdjustments` define 由 `SupplementalDataEvaluator` 逐病人以 `ValueKeys.of`（與分層同一條 key 規則）分桶成「值 → 病人數」分布（`MeasureEvaluationResult.supplementalDataResults`），持久化在 `measure_report_supplemental_data`（V73，一列一值、null 值列 = 無值病人數，RLS 經 `measure_report`），`NormalizedMeasureReportReader` 會重建；FHIR MeasureReport 匯出以平台 extension（`<canonical base>/StructureDefinition/measurereport-supplemental-data`）攜帶——summary 報表沒有標準元素放 SDE 分布。舊的 `supplementalData` 計數 map（`aggregateCustomExpressions`，字串會被丟掉）仍在，只是 UI 有分布時不再顯示它。eCQM workspace 的 SDE 元素在 publish 時依 `usage` 映進 `MeasureDefinition`（以前一個都沒映）；RAF define 名應以 `RAF` 開頭（QM IG 3.19，builder 只警告不擋）。**這不是風險模型**：IG 只帶變數，不算校正後的率
+- **Episode 計數（PAT-243）**：`GroupDefinition.populationBasis` 不是 `boolean` 的群組以 **episode** 計數——`PopulationEvaluator.contribute` 把母群階層做成集合代數：IP define 回的資源清單（序列化後是 `FHIR.Encounter/<id>` 字串，`EpisodeKeys`）是全集，子母群回清單就取交集、回布林就「全留 / 全不留」上層的 episode；CV 的觀測值依 Measure Population 清單的位置對齊，只留未被排除的 episode。IP 沒回可識別的 episode 清單（布林、無 id）→ 該病人退回病人計數並在 `MeasureEvaluationResult.warnings` 說明（`MeasureValidationService` 也會警告）。**分層自此累積有效貢獻**（以前分層重讀原始 define，被分母排除的病人仍算在分層分子）。`EcqmCqlBuilder` 對 episode-based 群組的**每個**母群都以 `EPISODE_LIST` 模式產生清單（以前只有 CV 的 Measure Population），observation wrapper 對清單用 `exists`；沒有 basis 元素的 IP 退回布林並警告。測試案例的 `evaluateSinglePatient` 走同一條 `contributeToGroup`，期望值是 episode 計數；trace 多 `memberCount`。**既有 episode-based proportion / ratio artifact 要重新 publish** 才會拿到清單式 CQL（內容指紋會顯示 builder 已變）
+- **指標層級 Measurement Period（PAT-242）**：`MeasureDefinition` / `EcqmArtifact` 的 `measurementPeriodStart / End`（V77）。評估期間優先序：請求明示 → 指標期間 → `measure.reporting.default-period-*` → 當年曆年；測試案例以指標期間執行（沒有則當年曆年）並在 `TestCaseRunResult` 回報；builder 把 artifact 期間寫進 `parameter "Measurement Period"` 的 default（沒設維持 2025 預設，CQL 不變）；artifact PUT 沿用 `""` 清除契約；CQFM 匯出沒有生效期間時以測量期間填 `effectivePeriod`
 - **逐子句覆蓋率（PAT-232）**：`service/cql/ClauseCoverageCollector` 實作 5.x 的 `BreakpointHandler`，掛在 `engine.getState().setBreakpointHandler(...)`，引擎每個運算式節點都會呼叫——**只在** `CqlExecutionRequest.clauseCoverage=true` 時建立（`TestCaseService` 除錯模式與 `measureClauseCoverage`），`$evaluate-measure` 與一般測試案例執行不碰。分母是 `BaseElmLibraryVisitor` 靜態走訪 ELM（有 `localId` + `locator` 的節點），分子是 handler 的動態記錄，兩者必須來自同一次翻譯的 `Library`。引擎**不**對 `and` 短路、query 的 `where` 逐次迭代各記一次——測試鎖住的是引擎事實，別在前端套語言假設。覆蓋率不持久化（`persistRunResult` 抹掉）
 
 ### CQL 執行錯誤/警告曝露（PAT-066）
@@ -220,7 +222,7 @@ scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build im
 scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-36 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+40 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層 + 程式庫函式呼叫 + episode 計數與指標層級測量期間，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 

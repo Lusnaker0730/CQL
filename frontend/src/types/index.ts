@@ -487,6 +487,8 @@ export interface MeasureEvaluationResult {
   /** PAT-234: declared supplemental data / risk adjustment factors as value distributions. */
   supplementalDataResults?: SupplementalDataResult[]
   errorMessage?: string
+  /** PAT-243: notes for the author, e.g. an episode-based group that was counted per patient. */
+  warnings?: string[]
 }
 
 export interface ObservationStatistics {
@@ -503,6 +505,8 @@ export interface ObservationStatistics {
 export interface MeasureGroupResult {
   groupId: string
   description?: string
+  /** PAT-243: "boolean" (counts are patients) or a resource type such as "Encounter" (counts are episodes). */
+  populationBasis?: string
   populations: PopulationResult[]
   measureScore?: number
   measureScoreUnit?: string
@@ -567,8 +571,19 @@ export interface MeasureStandardMetadata {
   experimental?: boolean
 }
 
+/**
+ * PAT-242 — the measure's own Measurement Period (ISO dates): the default of the CQL
+ * "Measurement Period" parameter, used by test case runs and by evaluations that do not pass
+ * a period. Shared by the MeasureDefinition and the eCQM artifact (publish copies it over).
+ * `null` is an explicit "cleared" (the artifact API turns it into `''`).
+ */
+export interface MeasurementPeriodFields {
+  measurementPeriodStart?: string | null
+  measurementPeriodEnd?: string | null
+}
+
 // Measure Definition types
-export interface MeasureDefinition extends MeasureStandardMetadata {
+export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementPeriodFields {
   id?: number
   name: string
   version: string
@@ -1091,6 +1106,9 @@ export interface TestCaseRunResult {
   valueComparisons?: ValueComparison[]
   errorMessage?: string
   executionTimeMs?: number
+  /** PAT-242: the Measurement Period this run used (the measure's own, or the current calendar year). */
+  measurementPeriodStart?: string
+  measurementPeriodEnd?: string
   // Debug mode additions (only populated when run with debugMode=true)
   debugTrace?: DebugTrace
   populationTrace?: PopulationMembershipTrace
@@ -1143,6 +1161,8 @@ export interface PopulationMembershipTrace {
 
 export interface GroupTrace {
   groupId?: string
+  /** PAT-243: the group's population basis; episode-based groups show member counts. */
+  populationBasis?: string
   description?: string
   scoringType?: string
   populations: PopulationTraceEntry[]
@@ -1156,6 +1176,8 @@ export interface PopulationTraceEntry {
   effectiveResult?: boolean | null
   reasonCode: string
   reasonInputs?: Record<string, boolean>
+  /** PAT-243: episode-based groups only — how many of the patient's episodes this population counts. */
+  memberCount?: number
 }
 
 export interface BatchTestCaseImportResult {

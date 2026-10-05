@@ -99,3 +99,24 @@ describe('EvaluationResultCard — component strata', () => {
     expect(screen.queryByText('female | 65+')).not.toBeInTheDocument()
   })
 })
+
+// PAT-243 — episode-based groups label their counts as episodes; evaluation warnings are shown.
+describe('EvaluationResultCard — episode-based groups and warnings', () => {
+  it('labels the count column with the basis and lists the warnings', () => {
+    render(<EvaluationResultCard result={{
+      ...base,
+      groups: [{ ...base.groups[0], populationBasis: 'Encounter' }],
+      warnings: ['Group group-1: population basis is Encounter but "Initial Population" did not return a list of Encounter resources — this group was counted per patient, not per episode.'],
+    }} />)
+
+    expect(screen.getByText('evaluationResult.tableHeaders.countEpisodes')).toBeInTheDocument()
+    expect(screen.getByTestId('evaluation-warnings')).toHaveTextContent('counted per patient')
+  })
+
+  it('keeps the plain count label for a patient-based group and shows no warning box', () => {
+    render(<EvaluationResultCard result={{ ...base, groups: [{ ...base.groups[0], populationBasis: 'boolean' }] }} />)
+
+    expect(screen.getByText('evaluationResult.tableHeaders.count')).toBeInTheDocument()
+    expect(screen.queryByTestId('evaluation-warnings')).not.toBeInTheDocument()
+  })
+})

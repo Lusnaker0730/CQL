@@ -257,14 +257,23 @@ public class MeasureValidationService {
                 } else {
                     // Return type check
                     String basis = group.getPopulationBasis();
-                    if ((basis == null || "Boolean".equalsIgnoreCase(basis)) && !cqlExpressionNames.isEmpty()) {
-                        String returnType = expressionReturnTypes.get(pop.getCriteriaExpression());
-                        if (returnType != null && !returnType.toLowerCase().contains("boolean")) {
-                            report.addWarning("POPULATIONS",
-                                    groupLabel + ": Expression '" + pop.getCriteriaExpression() + "' returns " + returnType + " but population basis expects Boolean",
-                                    "groupDefinitions",
-                                    "Change Population Basis or modify the CQL expression to return Boolean");
-                        }
+                    String returnType = cqlExpressionNames.isEmpty() ? null : expressionReturnTypes.get(pop.getCriteriaExpression());
+                    boolean booleanBasis = basis == null || "Boolean".equalsIgnoreCase(basis);
+                    if (returnType != null && booleanBasis && !returnType.toLowerCase().contains("boolean")) {
+                        report.addWarning("POPULATIONS",
+                                groupLabel + ": Expression '" + pop.getCriteriaExpression() + "' returns " + returnType + " but population basis expects Boolean",
+                                "groupDefinitions",
+                                "Change Population Basis or modify the CQL expression to return Boolean");
+                    } else if (returnType != null && !booleanBasis
+                            && INITIAL_POPULATION.equals(pop.getPopulationType())
+                            && returnType.toLowerCase().contains("boolean")) {
+                        // PAT-243: an episode-based group needs its Initial Population to return the
+                        // episodes; a Boolean makes the evaluation count patients instead.
+                        report.addWarning("POPULATIONS",
+                                groupLabel + ": population basis is " + basis + " but the Initial Population expression '"
+                                        + pop.getCriteriaExpression() + "' returns Boolean — the evaluation will count patients, not episodes",
+                                "groupDefinitions",
+                                "Make the Initial Population return the list of " + basis + " resources (the episodes), or change Population Basis to Boolean");
                     }
                 }
             }

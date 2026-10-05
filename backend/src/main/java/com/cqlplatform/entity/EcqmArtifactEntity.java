@@ -148,6 +148,13 @@ public class EcqmArtifactEntity {
     @Column(name = "experimental")
     private Boolean experimental;
 
+    /** PAT-242 (V77): the Measurement Period the generated CQL defaults to and publish copies onto the measure. */
+    @Column(name = "measurement_period_start")
+    private java.time.LocalDate measurementPeriodStart;
+
+    @Column(name = "measurement_period_end")
+    private java.time.LocalDate measurementPeriodEnd;
+
     @Column(name = "published_measure_id")
     private Long publishedMeasureId;
 
