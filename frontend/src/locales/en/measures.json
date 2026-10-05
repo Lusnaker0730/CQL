@@ -535,6 +535,21 @@
       "validateAllQueued": "Queued FHIR validation of {{count}} test case(s); the list updates as they finish.",
       "skipInvalid": "Skip invalid ({{count}})",
       "skipInvalidHint": "\"Run all\" leaves out test cases whose FHIR validation found errors. Pending and never-validated cases still run."
+    },
+    "copyDialog": {
+      "button": "Copy to…",
+      "title": "Copy test cases to another measure",
+      "hint": "Copies the selected test cases (patient bundle, expectations, validation) onto another measure, typically another version of this one. An expectation that does not fit the target's population groups is dropped on that copy and reported below.",
+      "target": "Target measure",
+      "sameMeasure": "same measure",
+      "noTargets": "There is no other measure to copy to.",
+      "selectAll": "{{selected}} of {{total}} selected",
+      "copy": "Copy",
+      "copying": "Copying…",
+      "copied": "Copied {{count}} test case(s) to {{target}}.",
+      "warningsTitle": "Expected values dropped on these copies:",
+      "done": "Done",
+      "cancel": "Cancel"
     }
   },
   "populationTrace": {

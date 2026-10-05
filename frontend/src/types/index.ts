@@ -1057,6 +1057,15 @@ export interface TestCase {
   validation?: TestCaseValidation
 }
 
+/** PAT-246 — outcome of copying test cases to another measure. */
+export interface TestCaseCopyResult {
+  sourceMeasureId: number
+  targetMeasureId: number
+  copied: TestCase[]
+  /** One line per copy whose expected values were dropped (did not fit the target's groups). */
+  warnings: string[]
+}
+
 /** PAT-245 — the FHIR validation outcome of a test case's patient bundle (error issues are capped). */
 export interface TestCaseValidation {
   status: string

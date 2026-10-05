@@ -475,4 +475,40 @@ class TestCaseServiceTest {
         assertThat(results).extracting(TestCaseRunResult::getTestCaseTitle).containsExactly("valid", "pending", "never");
         assertThat(service.runAllTestCases(10L, false, false)).hasSize(4);
     }
+
+    // ===== PAT-246 — copy to another measure =====
+
+    @Test
+    void copyTo_copiesTheChosenTestCases_andDropsAnExpectationThatDoesNotFitTheTarget() {
+        MeasureDefinition target = createMeasure(20L);
+        target.setGroupDefinitions(List.of(GroupDefinition.builder().groupId("group-1")
+                .populations(List.of(PopulationDefinition.builder().populationType("initial-population").criteriaExpression("IP").build()))
+                .build()));
+        when(definitionService.getById(20L)).thenReturn(Optional.of(target));
+        TestCaseEntity fits = createEntity(1L, 10L, "fits");
+        fits.setExpectedValues("{\"groups\":[{\"groupId\":\"group-1\",\"populations\":{\"initial-population\":1}}]}");
+        TestCaseEntity wrongGroup = createEntity(2L, 10L, "wrong group");
+        wrongGroup.setExpectedValues("{\"groups\":[{\"groupId\":\"group-9\",\"populations\":{\"initial-population\":1}}]}");
+        TestCaseEntity notChosen = createEntity(3L, 10L, "not chosen");
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(fits, wrongGroup, notChosen));
+        when(repository.save(any())).thenAnswer(inv -> { TestCaseEntity e = inv.getArgument(0); e.setId(100L + e.getTitle().length()); return e; });
+
+        TestCaseCopyResult result = service.copyTo(10L, 20L, List.of(1L, 2L));
+
+        assertThat(result.getCopied()).extracting(TestCase::getTitle).containsExactly("fits", "wrong group");
+        assertThat(result.getCopied()).allSatisfy(tc -> {
+            assertThat(tc.getMeasureDefinitionId()).isEqualTo(20L);
+            assertThat(tc.getStatus()).isEqualTo("pending");
+        });
+        assertThat(result.getCopied().get(0).getExpectedValues()).isNotNull();
+        assertThat(result.getCopied().get(1).getExpectedValues()).isNull();
+        assertThat(result.getWarnings()).hasSize(1);
+        assertThat(result.getWarnings().get(0)).contains("wrong group").contains("group-9");
+    }
+
+    @Test
+    void copyTo_sameMeasure_isRefused() {
+        assertThatThrownBy(() -> service.copyTo(10L, 10L, null))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+    }
 }

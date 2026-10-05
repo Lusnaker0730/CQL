@@ -31,6 +31,9 @@ import static org.mockito.Mockito.*;
 class MeasureDefinitionServiceTest {
 
     @Mock
+    private com.cqlplatform.repository.TestCaseRepository testCaseRepository;
+
+    @Mock
     private MeasureDefinitionRepository repository;
 
     @Mock
@@ -809,5 +812,41 @@ class MeasureDefinitionServiceTest {
         assertThatThrownBy(() -> service.update(1L, body, "owner"))
                 .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
                 .hasMessageContaining("Measurement period ends");
+    }
+
+    // PAT-246 — a new version starts with the previous version's test cases (run state reset).
+    @Test
+    void createVersionAs_copiesTheTestCases_withRunStateReset() {
+        MeasureDefinitionEntity existing = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(existing));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "M", "1.1.0")).thenReturn(false);
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(2L);
+            return e;
+        });
+        com.cqlplatform.entity.TestCaseEntity tc = com.cqlplatform.entity.TestCaseEntity.builder()
+                .id(11L).measureDefinitionId(1L).title("TC").series("s").sortOrder(3)
+                .patientBundleJson("{\"resourceType\":\"Bundle\"}").expectedValues("{\"groups\":[]}")
+                .validationStatus("valid").status("pass").lastRunResultJson("{}").build();
+        when(testCaseRepository.findByMeasureDefinitionIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(tc));
+
+        service.createVersionAs(1L, "1.1.0");
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<com.cqlplatform.entity.TestCaseEntity>> saved =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(testCaseRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        com.cqlplatform.entity.TestCaseEntity copy = saved.getValue().get(0);
+        assertThat(copy.getId()).isNull();
+        assertThat(copy.getMeasureDefinitionId()).isEqualTo(2L);
+        assertThat(copy.getTitle()).isEqualTo("TC");
+        assertThat(copy.getSeries()).isEqualTo("s");
+        assertThat(copy.getPatientBundleJson()).isEqualTo(tc.getPatientBundleJson());
+        assertThat(copy.getExpectedValues()).isEqualTo(tc.getExpectedValues());
+        assertThat(copy.getValidationStatus()).isEqualTo("valid");
+        assertThat(copy.getStatus()).isEqualTo("pending");
+        assertThat(copy.getLastRunResultJson()).isNull();
     }
 }

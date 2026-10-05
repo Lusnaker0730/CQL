@@ -535,6 +535,21 @@
       "validateAllQueued": "已排入 {{count}} 個測試案例的 FHIR 驗證；完成後清單會自動更新。",
       "skipInvalid": "略過無效（{{count}}）",
       "skipInvalidHint": "「全部執行」會略過 FHIR 驗證有錯誤的測試案例；驗證中與未驗證的仍會執行。"
+    },
+    "copyDialog": {
+      "button": "複製到…",
+      "title": "複製測試案例到其他指標",
+      "hint": "把選取的測試案例（病人 bundle、期望值、驗證結果）複製到另一支指標，通常是本指標的另一個版本。期望值對不上目標指標母群群組的，該份複製會拿掉期望值並在下方列出。",
+      "target": "目標指標",
+      "sameMeasure": "同一指標",
+      "noTargets": "沒有其他可複製的指標。",
+      "selectAll": "已選 {{selected}} / {{total}}",
+      "copy": "複製",
+      "copying": "複製中…",
+      "copied": "已複製 {{count}} 個測試案例到 {{target}}。",
+      "warningsTitle": "以下複製的期望值已拿掉：",
+      "done": "完成",
+      "cancel": "取消"
     }
   },
   "populationTrace": {

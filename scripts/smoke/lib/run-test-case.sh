@@ -85,7 +85,7 @@ done < <(jq -r '.testCase.expectActuals // {} | keys[]?' "$EXPECTED" | tr -d '\r
 
 # PAT-245: the real HAPI validator ran over the bundle and produced a verdict (valid or invalid —
 # which one depends on the profiles loaded in this stack; "error" / "pending" would be a bug).
-if [ "$(jq -r '.testCase.expectValidation // false' "$EXPECTED" | tr -d '')" = "true" ]; then
+if [ "$(jq -r '.testCase.expectValidation // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
     bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/validate" > "$tmp/validate.raw"
     check "validate (HTTP 200)" "$(status_of "$tmp/validate.raw")" "200"
     vstatus=$(body_of "$tmp/validate.raw" | jq -r '.validationStatus // empty')

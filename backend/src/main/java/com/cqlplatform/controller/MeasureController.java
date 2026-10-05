@@ -668,6 +668,18 @@ public class MeasureController {
         return ResponseEntity.ok(results);
     }
 
+    @PostMapping("/{measureId}/test-cases/copy-to/{targetMeasureId}")
+    @Operation(summary = "Copy Test Cases to another measure", description = "PAT-246: copies the given (or all) test cases of this measure onto another measure, e.g. another version; expectations that do not fit the target's groups are dropped with a warning")
+    public ResponseEntity<com.cqlplatform.model.measure.TestCaseCopyResult> copyTestCasesTo(
+            @PathVariable Long measureId,
+            @PathVariable Long targetMeasureId,
+            @RequestBody(required = false) com.cqlplatform.model.measure.TestCaseCopyResult.Request request) {
+        requireMeasure(measureId);
+        requireOwnedMeasure(targetMeasureId);
+        return ResponseEntity.ok(testCaseService.copyTo(measureId, targetMeasureId,
+                request != null ? request.getTestCaseIds() : null));
+    }
+
     @PostMapping("/{measureId}/test-cases/{testCaseId}/validate")
     @Operation(summary = "Validate Test Case", description = "PAT-245: validates the test case's patient bundle with the FHIR validator now and returns the test case with the outcome")
     public ResponseEntity<TestCase> validateTestCase(

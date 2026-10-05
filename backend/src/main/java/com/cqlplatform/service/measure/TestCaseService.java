@@ -129,6 +129,50 @@ public class TestCaseService {
         log.info("Deleted test case {}", id);
     }
 
+    // ===== Copy to another measure (PAT-246) =====
+
+    /**
+     * Copies test cases of {@code sourceMeasureId} onto {@code targetMeasureId} (null / empty ids =
+     * all). A structured expectation that does not fit the target's groups is dropped from that copy
+     * — the copy still lands, with the legacy boolean map and a warning naming the test case — so a
+     * suite can move to a measure whose groups were renamed and be re-targeted there.
+     */
+    @Transactional
+    public TestCaseCopyResult copyTo(Long sourceMeasureId, Long targetMeasureId, List<Long> testCaseIds) {
+        if (sourceMeasureId.equals(targetMeasureId)) {
+            throw new ValidationException("Source and target measure are the same");
+        }
+        MeasureDefinition target = definitionService.getById(targetMeasureId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + targetMeasureId));
+        List<TestCaseEntity> sources = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(sourceMeasureId);
+        if (testCaseIds != null && !testCaseIds.isEmpty()) {
+            Set<Long> wanted = new HashSet<>(testCaseIds);
+            sources = sources.stream().filter(e -> wanted.contains(e.getId())).toList();
+        }
+
+        List<TestCase> copied = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        for (TestCaseEntity source : sources) {
+            TestCaseEntity copy = TestCaseCopies.copyOf(source, targetMeasureId);
+            TestCaseExpectedValues expected = readExpectedValues(source.getExpectedValues());
+            if (expected != null && !expected.isEmpty()) {
+                try {
+                    validateExpectedValues(target, expected);
+                } catch (ValidationException e) {
+                    copy.setExpectedValues(null);
+                    warnings.add(String.format("'%s': expected values dropped — %s", source.getTitle(),
+                            e.getDetails() != null && !e.getDetails().isEmpty() ? String.join("; ", e.getDetails()) : e.getMessage()));
+                }
+            }
+            copied.add(entityToModel(repository.save(copy)));
+        }
+        log.info("Copied {} test cases from measure {} to measure {} ({} expectations dropped)",
+                copied.size(), sourceMeasureId, targetMeasureId, warnings.size());
+        return TestCaseCopyResult.builder()
+                .sourceMeasureId(sourceMeasureId).targetMeasureId(targetMeasureId)
+                .copied(copied).warnings(warnings).build();
+    }
+
     // ===== Batch Import =====
 
     @Transactional

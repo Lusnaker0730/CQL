@@ -19,6 +19,7 @@ import type {
   BatchEvaluationResult,
   DataRequirementInfo,
   BatchTestCaseImportResult,
+  TestCaseCopyResult,
   EnhancedDashboardData,
   TrendSeriesPoint,
   ThresholdAlert,
@@ -253,6 +254,15 @@ export const measureApi = {
   /** PAT-245: validates the patient bundle with the FHIR validator now; returns the test case with the outcome. */
   validateTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
     const response = await api.post<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}/validate`)
+    return response.data
+  },
+
+  /** PAT-246: copies the given (or all) test cases onto another measure, e.g. another version. */
+  copyTestCasesTo: async (measureId: number, targetMeasureId: number, testCaseIds: number[]): Promise<TestCaseCopyResult> => {
+    const response = await api.post<TestCaseCopyResult>(
+      `/measures/${measureId}/test-cases/copy-to/${targetMeasureId}`,
+      { testCaseIds },
+    )
     return response.data
   },
 

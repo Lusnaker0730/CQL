@@ -52,6 +52,7 @@ import TestCaseCoverage from './TestCaseCoverage'
 import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
 import TestCaseValidationBadge from './TestCaseValidationBadge'
+import TestCaseCopyDialog from './TestCaseCopyDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
@@ -77,6 +78,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  // PAT-246: copy test cases to another measure / version
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
   // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
   const [skipInvalid, setSkipInvalid] = useState(false)
@@ -517,6 +520,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           >
             {t('testCases.import')}
           </Button>
+          <Button
+            size="small"
+            onClick={() => setCopyDialogOpen(true)}
+            disabled={testCases.length === 0}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.copyDialog.button')}
+          </Button>
           <GradientButton
             startIcon={<AddIcon />}
             onClick={() => setEditing('new')}
@@ -619,6 +631,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         onClose={() => setImportDialogOpen(false)}
         measureId={measure.id!}
       />
+      {copyDialogOpen && (
+        <TestCaseCopyDialog open onClose={() => setCopyDialogOpen(false)} measure={measure} testCases={testCases} />
+      )}
     </Box>
   );
 }
