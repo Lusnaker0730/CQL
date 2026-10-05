@@ -289,6 +289,27 @@ export const measureApi = {
     return response.data
   },
 
+  /** PAT-247: MADiE-compatible zip — one collection Bundle per test case with a test-case-cqfm MeasureReport. */
+  exportTestCasesZip: async (measureId: number, testCaseIds?: number[]): Promise<Blob> => {
+    const response = await api.get(`/measures/${measureId}/test-cases/export`, {
+      params: testCaseIds && testCaseIds.length > 0 ? { ids: testCaseIds.join(',') } : undefined,
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /** PAT-247: a zip of test case bundles (ours or MADiE's), one bundle, or a JSON array of bundles. */
+  importTestCaseBundles: async (measureId: number, file: File): Promise<BatchTestCaseImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<BatchTestCaseImportResult>(
+      `/measures/${measureId}/test-cases/import-bundles`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    return response.data
+  },
+
   // Version Management
   createMeasureVersion: async (id: number, type: string = 'minor'): Promise<MeasureDefinition> => {
     const response = await api.post<MeasureDefinition>(`/measures/${id}/version?type=${type}`)

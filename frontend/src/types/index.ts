@@ -1218,6 +1218,8 @@ export interface BatchTestCaseImportResult {
   failureCount: number
   imported: TestCase[]
   errors: string[]
+  /** PAT-247: imported, but with something dropped or worth knowing — one line per test case. */
+  warnings?: string[]
 }
 
 // Implementation Guide types

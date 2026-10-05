@@ -30,7 +30,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -56,6 +58,7 @@ public class MeasureController {
     private final MeasureComparisonService comparisonService;
     private final CqlTranslationService translationService;
     private final TestCaseService testCaseService;
+    private final TestCaseBundleService testCaseBundleService;
     private final MeasureValidationService validationService;
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
@@ -678,6 +681,31 @@ public class MeasureController {
         requireOwnedMeasure(targetMeasureId);
         return ResponseEntity.ok(testCaseService.copyTo(measureId, targetMeasureId,
                 request != null ? request.getTestCaseIds() : null));
+    }
+
+    @GetMapping("/{measureId}/test-cases/export")
+    @Operation(summary = "Export Test Cases (MADiE-compatible zip)", description = "PAT-247: one FHIR collection Bundle per test case — the patient resources plus a test-case-cqfm MeasureReport carrying the expectation — zipped; ids limits the export to those test cases")
+    public ResponseEntity<byte[]> exportTestCases(
+            @PathVariable Long measureId,
+            @RequestParam(required = false) List<Long> ids) {
+        requireMeasure(measureId);
+        byte[] zip = testCaseBundleService.exportZip(measureId, ids);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=test-cases-" + measureId + ".zip")
+                .header("Content-Type", "application/zip")
+                .body(zip);
+    }
+
+    @PostMapping(value = "/{measureId}/test-cases/import-bundles", consumes = "multipart/form-data")
+    @Operation(summary = "Import Test Case Bundles", description = "PAT-247: imports a zip of test case bundles (ours or MADiE's), one bundle, or a JSON array of bundles; a test-case-cqfm MeasureReport in a bundle becomes the expectation. Expectations that do not fit the measure are dropped with a warning")
+    public ResponseEntity<BatchTestCaseImportResult> importTestCaseBundles(
+            @PathVariable Long measureId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        requireOwnedMeasure(measureId);
+        if (file == null || file.isEmpty()) {
+            throw new ValidationException("The upload is empty");
+        }
+        return ResponseEntity.ok(testCaseBundleService.importFile(measureId, file.getBytes(), file.getOriginalFilename()));
     }
 
     @PostMapping("/{measureId}/test-cases/{testCaseId}/validate")

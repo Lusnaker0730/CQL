@@ -11,7 +11,8 @@
 #     "expectMeasurementPeriodStart": "2024-01-01",   # optional: the period the run reports
 #     "expectMeasurementPeriodEnd": "2024-12-31",
 #     "expectActuals": { "numerator": "1" },     # optional: population → actual (first group)
-#     "expectValidation": true                   # optional (PAT-245): POST …/validate must answer valid | invalid
+#     "expectValidation": true,                  # optional (PAT-245): POST …/validate must answer valid | invalid
+#     "expectRoundTrip": true                    # optional (PAT-247): export zip → import-bundles must recreate the expectation
 #   }
 #
 # Usage: lib/run-test-case.sh <measureId> <scenarioDir> <expected.json>
@@ -21,6 +22,7 @@ MEASURE_ID="${1:?usage: run-test-case.sh <measureId> <scenarioDir> <expected.jso
 SCENARIO_DIR="${2:?scenarioDir missing}"
 EXPECTED="${3:?expected.json missing}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+API_BASE="${API_BASE:-http://localhost:8080/api}"
 
 status_of() { head -1 "$1" | tr -d '\r'; }
 body_of()   { sed '1,/^---HTTP_STATUS_BODY---$/d' "$1"; }
@@ -93,6 +95,37 @@ if [ "$(jq -r '.testCase.expectValidation // false' "$EXPECTED" | tr -d '\r')" =
         echo "    ✓ validation produced a verdict ($vstatus; $(body_of "$tmp/validate.raw" | jq -c '.validation | {totalResources, invalidResources, errorCount, warningCount}'))" >&2
     else
         echo "    ✗ validation verdict — expected valid|invalid, got '$vstatus'" >&2; fail=1
+    fi
+fi
+
+# PAT-247: the MADiE-compatible exchange round trip — export the test case as a zip of FHIR bundles
+# (patient resources + test-case-cqfm MeasureReport), import the zip back, and the copy must carry
+# the same structured expectation, be named after the Patient (MADiE's convention) and run to the
+# same verdict. Needs no unzip on the host: the server does both halves.
+if [ "$(jq -r '.testCase.expectRoundTrip // false' "$EXPECTED" | tr -d '')" = "true" ]; then
+    export_status=$(curl -s -o "$tmp/export.zip" -w '%{http_code}'         -H "Authorization: Bearer $TOKEN" "$API_BASE/measures/$MEASURE_ID/test-cases/export?ids=$tc_id")
+    check "export zip (HTTP 200)" "$export_status" "200"
+    check "export is a zip archive" "$(head -c 2 "$tmp/export.zip")" "PK"
+
+    import_resp=$(curl -s -X POST -H "Authorization: Bearer $TOKEN"         -F "file=@$tmp/export.zip;type=application/zip" -w "
+__HTTP_STATUS__%{http_code}"         "$API_BASE/measures/$MEASURE_ID/test-cases/import-bundles")
+    import_status=$(echo "$import_resp" | tail -1 | sed 's/__HTTP_STATUS__//')
+    import_body=$(echo "$import_resp" | sed '$d')
+    check "import-bundles (HTTP 200)" "$import_status" "200"
+    check "round trip imported 1 test case" "$(echo "$import_body" | jq -r '.successCount')" "1"
+    check "round trip import had no warnings" "$(echo "$import_body" | jq -r '.warnings | length')" "0"
+    check "round trip kept the structured expectation"         "$(echo "$import_body" | jq -c '.imported[0].expectedValues.groups[0].populations')"         "$(jq -c '.testCase.expectedValues.groups[0].populations' "$EXPECTED")"
+    patient_given=$(jq -r '[.entry[] | select(.resource.resourceType == "Patient")][0].resource.name[0].given // [] | join(" ")' "$bundle_file" | tr -d '')
+    if [ -n "$patient_given" ]; then
+        check "round trip titled the copy after the Patient's given name" "$(echo "$import_body" | jq -r '.imported[0].title')" "$patient_given"
+    fi
+    check "round trip left the MeasureReport out of the stored bundle"         "$(echo "$import_body" | jq -r '.imported[0].patientBundleJson | fromjson | [.entry[].resource.resourceType] | index("MeasureReport") // "none"')" "none"
+    copy_id=$(echo "$import_body" | jq -r '.imported[0].id // empty')
+    if [ -n "$copy_id" ]; then
+        bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$copy_id/run" > "$tmp/run-copy.raw"
+        check "round-tripped copy runs to the same status" "$(body_of "$tmp/run-copy.raw" | jq -r '.status')" "$expect_status"
+    else
+        echo "    ✗ round trip produced no test case id: $(echo "$import_body" | head -c 400)" >&2; fail=1
     fi
 fi
 

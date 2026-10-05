@@ -19,6 +19,9 @@ import {
   AccordionDetails,
   FormControlLabel,
   Switch,
+  Menu,
+  MenuItem,
+  ListItemText,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -80,6 +83,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   // PAT-246: copy test cases to another measure / version
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  // PAT-247: "Export" offers the platform JSON and the MADiE-compatible zip of FHIR bundles
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
   const [skipInvalid, setSkipInvalid] = useState(false)
@@ -205,6 +210,13 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     )
     downloadBlob(blob, `${measure.name || 'measure'}-test-cases.json`)
   }
+
+  // PAT-247: the server builds the MADiE-compatible zip (bundle + test-case MeasureReport per case).
+  const exportZipMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesZip(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.zip`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
 
   const { passCount, failCount, totalCount } = useMemo(() => {
     let pass = 0, fail = 0
@@ -504,13 +516,23 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           <Button
             size="small"
             startIcon={<ExportIcon />}
-            onClick={exportAllTestCases}
-            disabled={testCases.length === 0}
+            endIcon={<ExpandMoreIcon fontSize="small" />}
+            onClick={(e) => setExportAnchor(e.currentTarget)}
+            disabled={testCases.length === 0 || exportZipMutation.isPending}
             variant="outlined"
+            aria-haspopup="menu"
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.exportAll')}
           </Button>
+          <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}>
+            <MenuItem onClick={() => { setExportAnchor(null); exportAllTestCases() }}>
+              <ListItemText primary={t('testCases.exportMenu.json')} secondary={t('testCases.exportMenu.jsonHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportZipMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.madie')} secondary={t('testCases.exportMenu.madieHint')} />
+            </MenuItem>
+          </Menu>
           <Button
             size="small"
             startIcon={<ImportIcon />}

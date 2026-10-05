@@ -6,6 +6,7 @@
       "resource": {
         "resourceType": "Patient",
         "id": "smoke-40-tc",
+        "name": [{ "family": "Smoke", "given": ["Forty"] }],
         "gender": "female",
         "birthDate": "1980-01-01"
       }

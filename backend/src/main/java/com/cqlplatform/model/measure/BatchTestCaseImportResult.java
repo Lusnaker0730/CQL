@@ -17,4 +17,6 @@ public class BatchTestCaseImportResult {
     private int failureCount;
     private List<TestCase> imported;
     private List<String> errors;
+    /** Imported, but with something dropped or worth knowing (PAT-247): one line per test case. */
+    private List<String> warnings;
 }

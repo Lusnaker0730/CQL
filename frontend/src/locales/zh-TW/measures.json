@@ -465,6 +465,13 @@
     "running": "執行中...",
     "runAll": "全部執行",
     "exportAll": "全部匯出",
+    "exportMenu": {
+      "json": "平台 JSON",
+      "jsonHint": "全部測試案例一個檔案；可在此重新匯入並平移日期",
+      "madie": "MADiE 相容 zip",
+      "madieHint": "每個測試案例一個 FHIR Bundle 加測試案例 MeasureReport；可匯入 MADiE 或另一個 CQL Platform",
+      "zipFailed": "匯出失敗：{{error}}"
+    },
     "importing": "匯入中...",
     "import": "匯入",
     "addTestCase": "新增測試案例",
@@ -593,10 +600,11 @@
   },
   "importDialog": {
     "title": "匯入測試案例",
-    "dropHint": "點擊或拖曳 JSON 檔案至此處以匯入測試案例",
-    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、或原始 FHIR Bundle",
+    "dropHint": "點擊或拖曳 JSON / zip 檔案至此處以匯入測試案例",
+    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、原始 FHIR Bundle，或測試案例 bundle 的 zip（CQL Platform / MADiE 匯出）",
     "noValidCases": "檔案中未找到有效的測試案例。每個項目必須包含病人 Bundle。",
     "parseError": "檔案解析失敗：{{error}}",
+    "serverImport": "{{file}} 內是帶有測試案例 MeasureReport 的 bundle（CQL Platform 或 MADiE 匯出）。伺服器會把每份報告讀成期望值；對不上本指標的報告會被拿掉並列在下方。匯入後可從測試案例清單平移日期。",
     "preview": "在 {{file}} 中找到 {{count}} 個測試案例",
     "removeFromImport": "從匯入中移除",
     "enableDateShift": "啟用日期平移（調整病人 Bundle 中的所有日期）",
@@ -604,11 +612,14 @@
     "shiftDaysHelp": "正數 = 往後、負數 = 往前",
     "shiftExplanation": "病人 Bundle 中所有的日期、日期時間和期間欄位都將按指定天數平移。適用於將歷史資料對齊至評估期間。",
     "importing": "正在匯入 {{count}} 個測試案例...",
+    "importingFile": "正在伺服器端匯入 {{file}}...",
     "importError": "匯入失敗：{{error}}",
     "resultSummary": "成功匯入 {{success}}/{{total}} 個測試案例",
+    "warnings": "{{count}} 則提醒",
     "done": "完成",
     "cancel": "取消",
-    "importCount": "匯入 {{count}} 個測試案例"
+    "importCount": "匯入 {{count}} 個測試案例",
+    "importFile": "匯入檔案"
   },
   "testCaseEditor": {
     "newTitle": "新增測試案例",

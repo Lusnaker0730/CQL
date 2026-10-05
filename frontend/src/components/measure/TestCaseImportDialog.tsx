@@ -16,6 +16,7 @@ import { measureApi } from '../../api'
 import GradientButton from '../common/GradientButton'
 import type { TestCase, BatchTestCaseImportResult, TestCaseExpectedValues } from '../../types'
 import { extractApiError } from '../../utils/errorUtils'
+import { isTestCaseBundle, isZipFileName as isZip } from '../../utils/testCaseBundles'
 
 interface TestCaseImportDialogProps {
   open: boolean
@@ -50,9 +51,12 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
   const [dateShiftDays, setDateShiftDays] = useState(0)
   const [dateShiftEnabled, setDateShiftEnabled] = useState(false)
   const [result, setResult] = useState<BatchTestCaseImportResult | null>(null)
+  // PAT-247: a zip, or JSON whose bundles carry a test-case MeasureReport, is handed to the server as-is.
+  const [serverFile, setServerFile] = useState<File | null>(null)
 
   const importMutation = useMutation({
     mutationFn: async () => {
+      if (serverFile) return measureApi.importTestCaseBundles(measureId, serverFile)
       const testCases: TestCase[] = parsedCases.map((pc) => ({
         title: pc.title,
         description: pc.description,
@@ -77,12 +81,21 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
     setParseError(null)
     setParsedCases([])
     setResult(null)
+    setServerFile(null)
     setFileName(file.name)
+    if (isZip(file.name)) {
+      setServerFile(file)
+      return
+    }
 
     try {
       const text = await file.text()
       const parsed = JSON.parse(text)
       const rawItems: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
+      if (rawItems.some(isTestCaseBundle)) {
+        setServerFile(file)
+        return
+      }
       const cases: ParsedTestCase[] = []
 
       for (const raw of rawItems) {
@@ -137,7 +150,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     const file = e.dataTransfer.files[0]
-    if (file && (file.name.endsWith('.json') || file.name.endsWith('.ndjson'))) {
+    if (file && (file.name.endsWith('.json') || file.name.endsWith('.ndjson') || isZip(file.name))) {
       parseFile(file)
     }
   }, [parseFile])
@@ -151,6 +164,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
     setParseError(null)
     setFileName(null)
     setResult(null)
+    setServerFile(null)
     setDateShiftDays(0)
     setDateShiftEnabled(false)
     importMutation.reset()
@@ -198,7 +212,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".json,.ndjson"
+                accept=".json,.ndjson,.zip"
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
               />
@@ -207,6 +221,13 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
 
           {parseError && (
             <Alert severity="error">{parseError}</Alert>
+          )}
+
+          {/* PAT-247: zip / test-case bundles — the server reads each bundle's MeasureReport as the expectation */}
+          {serverFile && !result && (
+            <Alert severity="info" data-testid="server-import-hint">
+              {t('importDialog.serverImport', { file: serverFile.name })}
+            </Alert>
           )}
 
           {/* Step 2: Preview */}
@@ -313,7 +334,7 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
                   color: "text.secondary",
                   mt: 1
                 }}>
-                {t('importDialog.importing', { count: parsedCases.length })}
+                {serverFile ? t('importDialog.importingFile', { file: serverFile.name }) : t('importDialog.importing', { count: parsedCases.length })}
               </Typography>
             </Box>
           )}
@@ -355,6 +376,14 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
                   ))}
                 </Paper>
               )}
+              {(result.warnings?.length ?? 0) > 0 && (
+                <Alert severity="warning">
+                  <Typography variant="subtitle2">{t('importDialog.warnings', { count: result.warnings!.length })}</Typography>
+                  {result.warnings!.map((w, i) => (
+                    <Typography key={i} variant="caption" sx={{ display: 'block', fontFamily: 'monospace' }}>{w}</Typography>
+                  ))}
+                </Alert>
+              )}
             </Stack>
           )}
         </Stack>
@@ -363,13 +392,13 @@ export default function TestCaseImportDialog({ open, onClose, measureId }: TestC
         <Button onClick={handleClose}>
           {result ? t('importDialog.done') : t('importDialog.cancel')}
         </Button>
-        {!result && parsedCases.length > 0 && (
+        {!result && (parsedCases.length > 0 || serverFile) && (
           <GradientButton
             onClick={() => importMutation.mutate()}
-            disabled={importMutation.isPending || parsedCases.length === 0}
+            disabled={importMutation.isPending || (parsedCases.length === 0 && !serverFile)}
             startIcon={importMutation.isPending ? <CircularProgress size={16} /> : <UploadIcon />}
           >
-            {t('importDialog.importCount', { count: parsedCases.length })}
+            {serverFile ? t('importDialog.importFile') : t('importDialog.importCount', { count: parsedCases.length })}
           </GradientButton>
         )}
       </DialogActions>
