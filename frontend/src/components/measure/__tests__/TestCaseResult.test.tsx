@@ -81,3 +81,27 @@ describe('TestCaseResult — structured comparison', () => {
     expect(screen.getByText('testCaseResult.tableHeaders.population')).toBeInTheDocument()
   })
 })
+
+// PAT-243 — an episode-based group's populations are episode counts, never Yes / No.
+describe('TestCaseResult — episode-based groups', () => {
+  it('shows the counts as numbers for a group whose basis is a resource type', () => {
+    render(<TestCaseResult
+      result={{
+        ...base,
+        valueComparisons: [
+          { groupId: 'group-1', kind: 'population', key: 'initial-population', expected: '2', actual: '2', match: true },
+          { groupId: 'group-1', kind: 'population', key: 'numerator', expected: '1', actual: '0', match: false },
+        ],
+      }}
+      episodeBasisByGroup={{ 'group-1': 'Encounter' }}
+    />)
+
+    const table = screen.getByRole('table', { name: 'testCaseResult.structuredTable' })
+    const rows = within(table).getAllByRole('row').slice(1)
+    expect(within(rows[0]).getAllByText('2')).toHaveLength(2)
+    expect(within(rows[1]).getByText('1')).toBeInTheDocument()
+    expect(within(rows[1]).getByText('0')).toBeInTheDocument()
+    expect(screen.queryByText('testCaseResult.yes')).not.toBeInTheDocument()
+    expect(screen.queryByText('testCaseResult.no')).not.toBeInTheDocument()
+  })
+})

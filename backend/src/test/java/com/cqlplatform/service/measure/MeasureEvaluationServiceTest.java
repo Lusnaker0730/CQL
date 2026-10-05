@@ -1,9 +1,12 @@
 package com.cqlplatform.service.measure;
 
 import com.cqlplatform.exception.MeasureNotEvaluableException;
+import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.CqlExecutionResponse.ExpressionResult;
+import com.cqlplatform.model.measure.GroupDefinition;
 import com.cqlplatform.model.measure.MeasureDefinition;
+import com.cqlplatform.model.measure.PopulationDefinition;
 import com.cqlplatform.model.measure.MeasureEvaluationRequest;
 import com.cqlplatform.model.measure.MeasureEvaluationResult;
 import com.cqlplatform.service.cql.CqlExecutionService;
@@ -444,5 +447,70 @@ class MeasureEvaluationServiceTest {
         result = measureService.evaluateMeasure(request, 5L, def);
         assertThat(result.getPeriodStart()).isEqualTo(LocalDate.of(2025, 3, 1));
         assertThat(result.getPeriodEnd()).isEqualTo(LocalDate.of(2025, 3, 31));
+    }
+
+    // ===== PAT-243 — an episode-based group counts episodes across patients =====
+
+    private static GroupDefinition encounterGroup() {
+        return GroupDefinition.builder().groupId("group-1").populationBasis("Encounter")
+                .populations(List.of(
+                        PopulationDefinition.builder().populationType("initial-population").criteriaExpression("Initial Population").build(),
+                        PopulationDefinition.builder().populationType("denominator").criteriaExpression("Denominator").build(),
+                        PopulationDefinition.builder().populationType("numerator").criteriaExpression("Numerator").build()))
+                .build();
+    }
+
+    private static MeasureDefinition episodeMeasure() {
+        return MeasureDefinition.builder().id(9L).name("Episodes").status("active").scoringType("proportion")
+                .cqlContent("library Test version '1.0'").groupDefinitions(List.of(encounterGroup())).build();
+    }
+
+    @Test
+    void evaluateMeasure_episodeBasedGroup_countsEpisodesAndNamesTheBasis() {
+        when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2"));
+        when(cqlExecutionService.execute(any())).thenAnswer(inv -> {
+            CqlExecutionRequest req = inv.getArgument(0);
+            if ("p1".equals(req.getPatientId())) {
+                return buildExecResponse(Map.of(
+                        "Initial Population", List.of("FHIR.Encounter/a", "FHIR.Encounter/b"),
+                        "Denominator", List.of("FHIR.Encounter/a", "FHIR.Encounter/b"),
+                        "Numerator", List.of("FHIR.Encounter/a")));
+            }
+            return buildExecResponse(Map.of(
+                    "Initial Population", List.of("FHIR.Encounter/c"),
+                    "Denominator", List.of("FHIR.Encounter/c"),
+                    "Numerator", List.of()));
+        });
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("Episodes");
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request, 9L, episodeMeasure());
+
+        assertThat(result.getStatus()).isEqualTo("complete");
+        MeasureEvaluationResult.GroupResult group = result.getGroups().get(0);
+        assertThat(group.getPopulationBasis()).isEqualTo("Encounter");
+        assertThat(group.getPopulations()).extracting(p -> p.getPopulationType() + "=" + p.getCount())
+                .contains("initial-population=3", "denominator=3", "numerator=1");
+        assertThat(group.getMeasureScore()).isCloseTo(33.33, within(0.01));
+        assertThat(group.getTotalPatients()).isEqualTo(2);
+        assertThat(result.getWarnings()).isNull();
+    }
+
+    @Test
+    void evaluateMeasure_episodeBasedGroupWhoseInitialPopulationIsBoolean_countsPatientsAndWarnsOnce() {
+        when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2"));
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+                "Initial Population", true, "Denominator", true, "Numerator", false)));
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("Episodes");
+        request.setFhirServerUrl("http://localhost/fhir");
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request, 9L, episodeMeasure());
+
+        assertThat(result.getGroups().get(0).getPopulations()).extracting(p -> p.getPopulationType() + "=" + p.getCount())
+                .contains("initial-population=2", "denominator=2", "numerator=0");
+        assertThat(result.getWarnings()).hasSize(1);
+        assertThat(result.getWarnings().get(0)).contains("Encounter").contains("counted per patient");
     }
 }

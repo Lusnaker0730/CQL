@@ -70,6 +70,8 @@ export default function PopulationTracePanel({ trace }: Props) {
 function GroupContent({ group }: { group: GroupTrace }) {
   const { t } = useTranslation('measures')
   const { populations } = group
+  // PAT-243: an episode-based group's rows carry the episode count per population
+  const episodeBased = !!group.populationBasis && group.populationBasis.toLowerCase() !== 'boolean'
   return (
     <Box>
       {group.description && (
@@ -94,12 +96,17 @@ function GroupContent({ group }: { group: GroupTrace }) {
               <TableCell align="center" sx={{ width: 88 }}>
                 {t('populationTrace.columns.effective')}
               </TableCell>
+              {episodeBased && (
+                <TableCell align="right" sx={{ width: 96 }}>
+                  {t('populationTrace.columns.episodes')}
+                </TableCell>
+              )}
               <TableCell>{t('populationTrace.columns.reason')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {populations.map((entry) => (
-              <EntryRow key={entry.populationType} entry={entry} />
+              <EntryRow key={entry.populationType} entry={entry} episodeBased={episodeBased} />
             ))}
           </TableBody>
         </Table>
@@ -108,7 +115,7 @@ function GroupContent({ group }: { group: GroupTrace }) {
   );
 }
 
-function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
+function EntryRow({ entry, episodeBased }: { entry: PopulationTraceEntry; episodeBased: boolean }) {
   const { t } = useTranslation('measures')
   // Indent nested populations visually
   const indentLevel = getIndentLevel(entry.populationType)
@@ -142,6 +149,11 @@ function EntryRow({ entry }: { entry: PopulationTraceEntry }) {
       <TableCell align="center">
         <BooleanIcon value={entry.effectiveResult} emphasis />
       </TableCell>
+      {episodeBased && (
+        <TableCell align="right" data-testid={`episode-count-${entry.populationType}`}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{entry.memberCount ?? '–'}</Typography>
+        </TableCell>
+      )}
       <TableCell>
         <Typography variant="caption" sx={{
           color: "text.secondary"

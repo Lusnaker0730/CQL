@@ -77,18 +77,20 @@ public class ExpressionCqlEngine {
         /** Default — list-returning expressions are wrapped in {@code exists(...)}. */
         STANDARD,
         /**
-         * Continuous-variable measure's Measure Population — preserve the list shape so the
-         * Measure Observation wrapper can iterate, and skip modifiers that collapse a list
-         * to a single resource / extract a scalar (see {@link #classifyListBehavior}).
+         * An episode-based measure's population define (PAT-243: every population of an
+         * episode-based group, not only the continuous-variable Measure Population) — preserve
+         * the list shape so the evaluation can count and intersect episodes and the Measure
+         * Observation wrapper can iterate, and skip modifiers that collapse a list to a single
+         * resource / extract a scalar (see {@link #classifyListBehavior}).
          */
-        CV_MEASURE_POPULATION,
+        EPISODE_LIST,
         /**
          * Inside an episode-based conjunction's filter branch — a leaf expression here is
          * a boolean predicate over the already-identified episode, so STANDARD rendering
          * (exists-wrap for lists) applies to it independently. Kept as a named mode for
          * readability; behaviorally identical to STANDARD.
          */
-        CV_EPISODE_FILTER
+        EPISODE_FILTER
     }
 
     public static class BuildContext {
@@ -99,8 +101,19 @@ public class ExpressionCqlEngine {
 
         /** Current render mode — package-visible for read; mutate only via {@link #withRenderMode}. */
         RenderMode renderMode = RenderMode.STANDARD;
-        /** Resource type to preserve as a list when {@code renderMode = CV_MEASURE_POPULATION}. */
+        /** Resource type to preserve as a list when {@code renderMode = EPISODE_LIST}. */
         String episodeResourceType = null;
+        /**
+         * PAT-243: whether the last conjunction rendered in {@code EPISODE_LIST} mode came out as a
+         * list of episodes (an episode element was found) rather than a Boolean fallback. Read via
+         * {@link #lastEpisodeRenderIsList()} right after the render.
+         */
+        boolean episodeListRendered = false;
+
+        public boolean lastEpisodeRenderIsList() { return episodeListRendered; }
+
+        /** Clear the flag before an EPISODE_LIST render so a stale value cannot be read. */
+        public void resetEpisodeListFlag() { episodeListRendered = false; }
 
         /**
          * Whether the output library declares a {@code "Measurement Period"} parameter. eCQM
@@ -195,10 +208,16 @@ public class ExpressionCqlEngine {
         }
         log.debug("buildConjunctionExpression: processing {} children", children.size());
 
-        // Episode-based CV: separate the episode resource from filter conditions
-        if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && ctx.episodeResourceType != null
-                && "And".equals(getStr(group, "id", "And"))) {
-            return buildEpisodeConjunction(children, ctx);
+        // Episode-based population: separate the episode resource from filter conditions
+        if (ctx.getRenderMode() == RenderMode.EPISODE_LIST && ctx.episodeResourceType != null) {
+            if ("And".equals(getStr(group, "id", "And"))) {
+                return buildEpisodeConjunction(children, ctx);
+            }
+            // PAT-243: an Or / Union / Intersect at the root of an episode-based population has no
+            // single episode query to filter — render it as a Boolean condition (the evaluation
+            // then treats it as "all / none of the parent's episodes").
+            ctx.episodeListRendered = false;
+            return ctx.withRenderMode(RenderMode.STANDARD, () -> buildConjunctionExpression(group, ctx));
         }
 
         String conjId = getStr(group, "id", "And");
@@ -237,25 +256,27 @@ public class ExpressionCqlEngine {
         for (Map<String, Object> child : children) {
             Boolean conjunction = (Boolean) child.get("conjunction");
             if (Boolean.TRUE.equals(conjunction)) {
-                filterExprs.add("(" + ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                filterExprs.add("(" + ctx.withRenderMode(RenderMode.EPISODE_FILTER,
                         () -> buildConjunctionExpression(child, ctx)) + ")");
                 continue;
             }
 
             String childType = getStr(child, "type", "").toLowerCase();
             if (baseExpr == null && childType.contains(episodeType)) {
-                // This is the episode resource — build as list query (caller's CV_MEASURE_POPULATION mode)
+                // This is the episode resource — build as list query (caller's EPISODE_LIST mode)
                 baseExpr = buildExpression(child, ctx);
             } else {
-                filterExprs.add(ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                filterExprs.add(ctx.withRenderMode(RenderMode.EPISODE_FILTER,
                         () -> buildExpression(child, ctx)));
             }
         }
 
         if (baseExpr == null) {
             // No matching episode element found — fall back to normal boolean conjunction
+            ctx.episodeListRendered = false;
             return String.join(" and \n  ", filterExprs);
         }
+        ctx.episodeListRendered = true;
 
         if (filterExprs.isEmpty()) {
             return baseExpr;
@@ -396,18 +417,18 @@ public class ExpressionCqlEngine {
                 // Episode-based CV Measure Population: skip modifiers that collapse a list
                 // to a single item or extract non-resource values, so the population returns
                 // a resource list for the Measure Observation wrapper to iterate over.
-                if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && isListCollapsingOrValueExtractingModifier(mod)) {
+                if (ctx.getRenderMode() == RenderMode.EPISODE_LIST && isListCollapsingOrValueExtractingModifier(mod)) {
                     String modName = getStr(mod, "name", getStr(mod, "id", "?"));
                     String behavior = classifyListBehavior(mod);
                     // Surface the silent skip to the author: the UI's CQL preview warns panel
                     // picks up ctx.warnings so the user sees WHY their modifier chain was shortened.
                     ctx.warn(String.format(
-                            "Modifier '%s' (%s) skipped in Measure Population: "
-                                    + "continuous-variable measures require a resource list for the "
-                                    + "Measure Observation function to iterate over. This modifier is "
-                                    + "applied inside the observation function body, not at the "
-                                    + "population level.",
-                            modName, behavior));
+                            "Modifier '%s' (%s) skipped: an episode-based population must return the "
+                                    + "list of %s episodes so the evaluation can count them (and, for a "
+                                    + "continuous-variable measure, the Measure Observation function can "
+                                    + "iterate over them). Apply this modifier inside a filter condition "
+                                    + "or the observation function instead.",
+                            modName, behavior, ctx.episodeResourceType));
                     continue;
                 }
                 expr = applyModifier(expr, mod, ctx);
@@ -416,7 +437,7 @@ public class ExpressionCqlEngine {
 
         String finalReturnType = getFinalReturnType(element, modifiers);
         if (finalReturnType != null && finalReturnType.startsWith("list_of_")
-                && ctx.getRenderMode() != RenderMode.CV_MEASURE_POPULATION) {
+                && ctx.getRenderMode() != RenderMode.EPISODE_LIST) {
             expr = String.format("exists(%s)", expr);
         }
 
@@ -1598,7 +1619,7 @@ public class ExpressionCqlEngine {
 
     /**
      * Returns true if the modifier should be skipped in the CV Measure Population path
-     * (where renderMode = CV_MEASURE_POPULATION). Both {@code collapses-list} and {@code extracts-value}
+     * (where renderMode = EPISODE_LIST). Both {@code collapses-list} and {@code extracts-value}
      * strip the list shape the Measure Observation wrapper needs to iterate over.
      */
     private boolean isListCollapsingOrValueExtractingModifier(Map<String, Object> modifier) {

@@ -480,7 +480,7 @@ class ExpressionCqlEngineEdgeCaseTest {
                     Map.of("id", "encounter", "type", "encounter_vsac",
                             "valueSets", List.of(Map.of("name", "Inpatient")))));
 
-            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter",
+            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Encounter",
                     () -> engine.buildExpression(element, ctx));
             assertThat(result).doesNotStartWith("exists(");
         }
@@ -807,7 +807,7 @@ class ExpressionCqlEngineEdgeCaseTest {
             mostRecentMod.put("returnType", "observation");
             element.put("modifiers", List.of(mostRecentMod));
 
-            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+            String result = ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Observation",
                     () -> engine.buildExpression(element, ctx));
             // MostRecent should be skipped; result should NOT contain C3F.MostRecent
             assertThat(result).doesNotContain("C3F.MostRecent");

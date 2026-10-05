@@ -52,6 +52,9 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 
 10. **builder ↔ 指標雙向（PAT-238）** — header 的「已發布——開啟指標」chip 連到 `/measures?measure=<id>`；指標頁的 `BuilderSourceBanner` 連回 `/ecqm?artifact=<id>`（`EcqmPage` 讀這個參數後移除）。publish 回 409「Publish Conflict」代表指標在指標頁被改過：`PublishConflictDialog` 問作者，確認才 `publish({ id, force: true })`——workspace header 與 CQL 預覽分頁兩個入口都走這條
 
+12. **Episode-based 群組（PAT-243）** — `populationBasis` 不是 `boolean` 時 `EcqmPopulationGroupEditor` 頂端有提示：每個母群都是它保留的 episode 清單，把 basis 元素放第一個、其餘元素是條件；後端對每個母群都產生清單式 CQL，評估以 episode 計數。沒有 basis 元素的 IP 會退回布林、後端 publish / 驗證都會警告。指標頁：評估結果卡片的計數欄標成「計數（Encounter episode）」並顯示 `warnings`；測試案例結果對 episode-based 群組顯示數字不顯示是 / 否（`TestCaseResult` 的 `episodeBasisByGroup`）；期望值編輯器每個群組一行說明計數意義；追蹤面板多 Episode 欄
+13. **測量期間（PAT-242）** — 摘要分頁族群基準 / 改善方向之後是共用的 `measure/MeasurementPeriodFields`；artifact 的期間會寫進產生 CQL 的 `parameter "Measurement Period"` default，publish 帶到指標；清掉的日期一樣經 `clearedDatesAsEmpty` 送 `''`
+
 11. **發布不核准（BUG-147）** — publish 結果訊息由 `utils/publishOutcome.publishOutcomeMessage` 決定：第一次發布是 draft（要到指標頁送審核准才能評估）、已核准指標的邏輯變更成為新 draft 版本、只改 metadata 則就地更新；409 `Measure Logic Locked`（審核中）直接顯示後端訊息。指標頁非 draft 時 CQL / 母群分頁唯讀、details 的 scoring 停用，提示條提供「建立新版本」
 
 ## 狀態管理

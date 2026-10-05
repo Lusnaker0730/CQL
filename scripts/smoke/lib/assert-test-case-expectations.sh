@@ -10,6 +10,7 @@
 #
 # What this locks in end to end (real CQL engine, real published eCQM):
 #   * the structured expectation is stored, read back and decides pass / fail;
+#   * populations of an episode-based group are episode counts (PAT-243);
 #   * observation values come from the per-group wrapper define, one per episode;
 #   * a test cannot silently pass against a group that does not exist.
 set -euo pipefail
@@ -42,10 +43,11 @@ pass_body=$(body_of "$PASS_RAW")
 check "run (correct expectation) status" "$(echo "$pass_body" | jq -r '.status')" "pass"
 check "structured comparison is what decided it (no legacy table)" \
     "$(echo "$pass_body" | jq -r '(.valueComparisons | length > 0) and (.comparisons == null)')" "true"
-check "initial-population effective count" \
-    "$(echo "$pass_body" | jq -r '.valueComparisons[] | select(.kind=="population" and .key=="initial-population") | .actual')" "1"
-check "measure-population effective count (patient-based)" \
-    "$(echo "$pass_body" | jq -r '.valueComparisons[] | select(.kind=="population" and .key=="measure-population") | .actual')" "1"
+# PAT-243: the group is episode-based, so the counts are the patient's two inpatient stays.
+check "initial-population effective count (episodes)" \
+    "$(echo "$pass_body" | jq -r '.valueComparisons[] | select(.kind=="population" and .key=="initial-population") | .actual')" "2"
+check "measure-population effective count (episodes)" \
+    "$(echo "$pass_body" | jq -r '.valueComparisons[] | select(.kind=="population" and .key=="measure-population") | .actual')" "2"
 check "observation values (one per episode)" \
     "$(echo "$pass_body" | jq -r '.valueComparisons[] | select(.kind=="observation") | .actual')" "$expected_obs"
 check "every compared item matches" \

@@ -20,6 +20,7 @@ import {
   effectiveGroupId,
   formatObservationInput,
   groupHasObservations,
+  isEpisodeBasis,
   parseObservationInput,
 } from '../../utils/testCaseExpectedValues'
 
@@ -118,7 +119,7 @@ export default function TestCaseExpectedValuesEditor({
   return (
     <Stack spacing={1.5}>
       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-        {t('testCaseEditor.structured.populationsHint')} {t('testCaseEditor.structured.patientBasedNote')}
+        {t('testCaseEditor.structured.populationsHint')}
       </Typography>
       {groups.map((group, index) => {
         const groupId = effectiveGroupId(group, index)
@@ -133,6 +134,12 @@ export default function TestCaseExpectedValuesEditor({
               <Box>
                 <Typography variant="subtitle2">
                   {t('testCaseEditor.structured.group', { id: groupId })}
+                </Typography>
+                {/* PAT-243: what a count means in this group — the patient (0 / 1) or episodes */}
+                <Typography variant="caption" sx={{ color: 'text.secondary' }} data-testid={`basis-note-${groupId}`}>
+                  {isEpisodeBasis(group.populationBasis)
+                    ? t('testCaseEditor.structured.episodeBasedNote', { basis: group.populationBasis })
+                    : t('testCaseEditor.structured.patientBasedNote')}
                 </Typography>
                 {group.description && (
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>

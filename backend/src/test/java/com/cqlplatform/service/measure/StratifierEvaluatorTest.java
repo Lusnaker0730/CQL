@@ -225,4 +225,40 @@ class StratifierEvaluatorTest {
                 Map.of("Stratifier s", value(true), "Initial Population", value(true)), data);
         assertThat(evaluator.buildStratifierResults(data, null).get(0).getComponents()).isNull();
     }
+
+    // PAT-243 — a stratum receives the patient's effective contribution (episode counts for an
+    // episode-based group), so the strata add up to the group's own counts.
+    @Test
+    void contributionOverload_accumulatesEffectiveEpisodeCounts() {
+        StratifierDefinition byGender = stratifier("sex", "Stratifier sex", StratifierDefinition.KIND_VALUE);
+        Map<String, Map<String, Map<String, Integer>>> data = new HashMap<>();
+        PopulationEvaluator populations = new PopulationEvaluator();
+
+        // patient 1 (female): 3 encounters in the IP, 2 in the denominator, 1 in the numerator
+        Map<String, CqlExecutionResponse.ExpressionResult> p1 = new HashMap<>();
+        p1.put("Stratifier sex", value("female"));
+        p1.put("Initial Population", value(List.of("FHIR.Encounter/a", "FHIR.Encounter/b", "FHIR.Encounter/c")));
+        p1.put("Denominator", value(List.of("FHIR.Encounter/a", "FHIR.Encounter/b")));
+        p1.put("Numerator", value(List.of("FHIR.Encounter/a")));
+        evaluator.evaluatePatientStratifiers(List.of(byGender), p1,
+                populations.contribute(ScoringTypeConstants.PROPORTION, "Encounter", p1, p1, null), data);
+
+        // patient 2 (female): her one encounter is excluded from the denominator — the raw
+        // Numerator define is true, but the effective numerator is empty
+        Map<String, CqlExecutionResponse.ExpressionResult> p2 = new HashMap<>();
+        p2.put("Stratifier sex", value("female"));
+        p2.put("Initial Population", value(List.of("FHIR.Encounter/d")));
+        p2.put("Denominator", value(List.of("FHIR.Encounter/d")));
+        p2.put("Denominator Exclusions", value(List.of("FHIR.Encounter/d")));
+        p2.put("Numerator", value(List.of("FHIR.Encounter/d")));
+        evaluator.evaluatePatientStratifiers(List.of(byGender), p2,
+                populations.contribute(ScoringTypeConstants.PROPORTION, "Encounter", p2, p2, null), data);
+
+        List<StratifierResult> strata = evaluator.buildStratifierResults(data, ScoringTypeConstants.PROPORTION);
+
+        assertThat(strata).hasSize(1);
+        assertThat(strata.get(0).getPopulations()).extracting(p -> p.getPopulationType() + "=" + p.getCount())
+                .contains("initial-population=4", "denominator=3", "denominator-exclusion=1", "numerator=1");
+        assertThat(strata.get(0).getMeasureScore()).isEqualTo(50.0);
+    }
 }

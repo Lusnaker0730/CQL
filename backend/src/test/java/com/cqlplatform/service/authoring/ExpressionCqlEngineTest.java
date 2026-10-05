@@ -622,11 +622,11 @@ class ExpressionCqlEngineTest {
         mostRecentMod.put("cqlLibraryFunction", "C3F.MostRecent");
         element.put("modifiers", List.of(mostRecentMod));
 
-        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation",
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Observation",
                 () -> engine.buildExpression(element, ctx));
 
         assertThat(ctx.warnings).anyMatch(w ->
-                w.contains("Most Recent") && w.contains("Measure Population") && w.contains("collapses-list"));
+                w.contains("Most Recent") && w.contains("episode-based population") && w.contains("collapses-list"));
     }
 
     @Test
@@ -634,8 +634,8 @@ class ExpressionCqlEngineTest {
         BuildContext ctx = new BuildContext(null, null);
         assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.STANDARD);
 
-        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
-            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Observation", () -> {
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.EPISODE_LIST);
             assertThat(ctx.episodeResourceType).isEqualTo("Observation");
             return null;
         });
@@ -650,7 +650,7 @@ class ExpressionCqlEngineTest {
         BuildContext ctx = new BuildContext(null, null);
 
         assertThatThrownBy(() -> ctx.withRenderMode(
-                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Encounter", () -> {
+                ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Encounter", () -> {
                     throw new RuntimeException("boom");
                 })).hasMessage("boom");
 
@@ -664,14 +664,14 @@ class ExpressionCqlEngineTest {
     void withRenderMode_shouldNestAndRestoreInnerModeOnly() {
         BuildContext ctx = new BuildContext(null, null);
 
-        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION, "Observation", () -> {
-            ctx.withRenderMode(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER, () -> {
-                assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_EPISODE_FILTER);
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, "Observation", () -> {
+            ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_FILTER, () -> {
+                assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.EPISODE_FILTER);
                 assertThat(ctx.episodeResourceType).isEqualTo("Observation"); // inherited via overload
                 return null;
             });
-            // Inner restored to outer's CV_MEASURE_POPULATION
-            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION);
+            // Inner restored to outer's EPISODE_LIST
+            assertThat(ctx.getRenderMode()).isEqualTo(ExpressionCqlEngine.RenderMode.EPISODE_LIST);
             assertThat(ctx.episodeResourceType).isEqualTo("Observation");
             return null;
         });

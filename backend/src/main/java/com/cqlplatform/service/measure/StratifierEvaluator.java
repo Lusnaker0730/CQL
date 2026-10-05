@@ -193,6 +193,34 @@ public class StratifierEvaluator {
     }
 
     /**
+     * PAT-243 — accumulates one patient's <em>effective</em> contribution into their stratum:
+     * the counts the group itself adds for this patient (after the population hierarchy, and
+     * episode counts for an episode-based group), so a stratifier's strata add up to the group.
+     * The older overloads above re-read the raw define results — a patient excluded from the
+     * denominator still counted in the stratum's numerator there — and are kept for callers
+     * without a scoring type.
+     *
+     * @param rawResults   full CQL results map; resolves the stratifier expression itself
+     * @param contribution what {@link PopulationEvaluator#contributeToGroup} computed for this patient and group
+     */
+    public void evaluatePatientStratifiers(List<StratifierDefinition> stratifiers,
+                                           Map<String, CqlExecutionResponse.ExpressionResult> rawResults,
+                                           PopulationEvaluator.PatientContribution contribution,
+                                           Map<String, Map<String, Map<String, Integer>>> stratificationData) {
+        for (StratifierDefinition stratifier : stratifiers) {
+            String strataValue = resolveStratumKey(stratifier, rawResults);
+            if (strataValue == null) continue;
+
+            Map<String, Integer> popCounts = stratificationData
+                    .computeIfAbsent(stratifier.getStratifierId(), k -> new LinkedHashMap<>())
+                    .computeIfAbsent(strataValue, k -> new LinkedHashMap<>());
+            for (Map.Entry<String, Integer> entry : contribution.counts().entrySet()) {
+                popCounts.merge(entry.getKey(), entry.getValue() != null ? entry.getValue() : 0, Integer::sum);
+            }
+        }
+    }
+
+    /**
      * Builds the final list of stratifier results from accumulated data.
      *
      * @param stratificationData accumulated data: stratifierId → strataValue → populationType → count

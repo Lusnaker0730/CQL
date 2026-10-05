@@ -42,6 +42,7 @@ import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
 import type { MeasureDefinition, TestCase, TestCaseRunResult, MeasureClauseCoverage } from '../../types'
+import { episodeBasisByGroup } from '../../utils/testCaseExpectedValues'
 import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
@@ -74,6 +75,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
+  // PAT-243: episode-based groups report episode counts; the result rows must not read them as Yes / No.
+  const episodeGroups = useMemo(() => episodeBasisByGroup(measure), [measure])
   // PAT-242: test cases run in the measure's Measurement Period when it has one, else the current year.
   const measurePeriod = measure.measurementPeriodStart && measure.measurementPeriodEnd
     ? { start: measure.measurementPeriodStart, end: measure.measurementPeriodEnd }
@@ -290,7 +293,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                   </Stack>
                 </Alert>
               )}
-              <TestCaseResultComponent result={result} />
+              <TestCaseResultComponent result={result} episodeBasisByGroup={episodeGroups} />
 
               {result.populationTrace && (
                 <Accordion defaultExpanded sx={{ mt: 1 }}>

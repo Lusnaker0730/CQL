@@ -57,6 +57,40 @@ class EcqmCqlBuilderTest {
         return tree;
     }
 
+    /** An episode element: the generic Encounter retrieve, optionally with an AgeRange condition beside it. */
+    private Map<String, Object> encounterTree(boolean withAgeCondition) {
+        Map<String, Object> enc = new LinkedHashMap<>();
+        enc.put("id", "GenericEncounter_vsac");
+        enc.put("name", "All Encounters");
+        enc.put("type", "GenericEncounter_vsac");
+        enc.put("returnType", "list_of_encounters");
+        enc.put("fields", List.of(Map.of("id", "element_name", "type", "string", "value", "All Encounters")));
+        enc.put("modifiers", new ArrayList<>());
+        Map<String, Object> tree = emptyTree();
+        ((List<Object>) tree.get("childInstances")).add(enc);
+        if (withAgeCondition) {
+            ((List<Object>) tree.get("childInstances")).addAll((List<Object>) populationTree().get("childInstances"));
+        }
+        return tree;
+    }
+
+    private Map<String, Object> episodeProportionGroup() {
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("groupId", "group-1");
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", encounterTree(false));
+        pops.put("denominator", encounterTree(true));
+        pops.put("numerator", encounterTree(false));
+        group.put("populations", pops);
+        Map<String, Object> obs = new LinkedHashMap<>();
+        obs.put("observationId", "obs-1");
+        obs.put("criteria", populationTree());
+        obs.put("aggregateMethod", "Count");
+        obs.put("populationRef", "denominator");
+        group.put("observations", List.of(obs));
+        return group;
+    }
+
     private Map<String, Object> proportionGroup() {
         Map<String, Object> group = new LinkedHashMap<>();
         group.put("groupId", "group-1");
@@ -204,11 +238,34 @@ class EcqmCqlBuilderTest {
 
     @Test
     void buildEcqmCql_continuousVariable_episodeBased_shouldUseResourceParam() {
+        Map<String, Object> group = cvGroup();
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", encounterTree(false));
+        pops.put("measure-population", encounterTree(true));
+        group.put("populations", pops);
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "CVEpisode", "1.0.0", "continuous-variable", "Encounter",
+                List.of(group), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("define function \"Measure Observation\"(Encounter \"Encounter\"):");
+        assertThat(result.cql()).contains("(\"Measure Population\") MP return \"Measure Observation\"(MP)");
+        assertThat(result.cql()).contains("[Encounter] _ep where");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    // PAT-243: a continuous-variable Measure Population with no Encounter element cannot be iterated
+    // as episodes — the function takes the Patient and the wrapper tests the Boolean, instead of the
+    // untranslatable `(Boolean) MP return …` this used to emit.
+    @Test
+    void buildEcqmCql_continuousVariable_episodeBasedWithoutAnEncounterElement_fallsBackToThePatientForm_andWarns() {
         CqlBuildResult result = builder.buildEcqmCql(
                 "CVEpisode", "1.0.0", "continuous-variable", "Encounter",
                 List.of(cvGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
 
-        assertThat(result.cql()).contains("define function \"Measure Observation\"(Encounter \"Encounter\"):");
+        assertThat(result.cql()).contains("define function \"Measure Observation\"(Patient \"Patient\"):");
+        assertThat(result.cql()).contains("if \"Measure Population\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).anyMatch(w -> w.contains("Initial Population") && w.contains("returns a Boolean"));
     }
 
     // ===== Cohort tests =====
@@ -615,5 +672,45 @@ class EcqmCqlBuilderTest {
                 List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
 
         assertThat(result.cql()).contains("default Interval[@2025-01-01T00:00:00.0, @2025-12-31T23:59:59.999]");
+    }
+
+    // ===== PAT-243 — every population of an episode-based group is an episode list =====
+
+    @Test
+    void episodeBasedProportion_everyPopulationIsAnEpisodeList_andTheObservationWrapperUsesExists() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Episodes", "1.0.0", "proportion", "Encounter",
+                List.of(episodeProportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        String cql = result.cql();
+        assertThat(cql).contains("define \"Initial Population\":");
+        assertThat(cql).contains("[Encounter] _ep where");           // the denominator keeps its AgeRange as a filter
+        assertThat(cql).doesNotContain("exists([Encounter");          // no population collapses the list to a Boolean
+        assertThat(cql).contains("if exists \"Denominator\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void episodeBasedProportion_initialPopulationWithoutAnEncounterElement_staysBoolean_andWarns() {
+        Map<String, Object> group = episodeProportionGroup();
+        ((Map<String, Object>) group.get("populations")).put("initial-population", populationTree());
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Episodes", "1.0.0", "proportion", "Encounter",
+                List.of(group), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("AgeInYearsAt");
+        assertThat(result.warnings()).anyMatch(w -> w.contains("\"Initial Population\"") && w.contains("count patients, not Encounter episodes"));
+    }
+
+    @Test
+    void patientBasedProportion_isUnchanged_populationsStayBoolean() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Patients", "1.0.0", "proportion", "boolean",
+                List.of(episodeProportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("exists([Encounter])");
+        assertThat(result.cql()).contains("if \"Denominator\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).isEmpty();
     }
 }

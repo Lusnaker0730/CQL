@@ -182,6 +182,9 @@ public class EcqmCqlBuilder {
                 }
 
                 StringBuilder block = new StringBuilder();
+                // PAT-243: which population defines of this group came out as episode lists (vs a
+                // Boolean) — decides the observation wrapper's shape and the Initial Population warning.
+                Map<String, Boolean> listDefines = new HashMap<>();
 
                 // Dual IP (ratio only)
                 Map<String, Object> ipDenom = (Map<String, Object>) group.get("initialPopulationDenom");
@@ -190,12 +193,15 @@ public class EcqmCqlBuilder {
                         && ipDenom != null && ipNumer != null;
 
                 if (dualIp) {
-                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_1 + suffix, ipDenom, ctx);
-                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_2 + suffix, ipNumer, ctx);
+                    for (var ip : List.of(Map.entry(EcqmConstants.INITIAL_POPULATION_1 + suffix, ipDenom),
+                                          Map.entry(EcqmConstants.INITIAL_POPULATION_2 + suffix, ipNumer))) {
+                        boolean isList = appendPopulationDefine(block, ip.getKey(), ip.getValue(), ctx, isEpisodeBased, populationBasis);
+                        listDefines.put(ip.getKey(), isList);
+                        if (isEpisodeBased && !isList) ctx.warn(episodeWarning(ip.getKey(), populationBasis));
+                    }
                 }
 
                 // Population defines in canonical order
-                boolean isCvEpisode = EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType) && isEpisodeBased;
                 List<String> requiredPops = EcqmConstants.REQUIRED_POPULATIONS.getOrDefault(scoringType, List.of());
                 for (String popKey : EcqmConstants.ALL_POPULATION_KEYS) {
                     if (dualIp && "initial-population".equals(popKey)) continue;
@@ -211,36 +217,39 @@ public class EcqmCqlBuilder {
                         if (parentDefine != null && requiredPops.contains(defineName)) {
                             block.append(String.format("define \"%s%s\":\n  \"%s%s\"\n\n",
                                     defineName, suffix, parentDefine, suffix));
+                            listDefines.put(defineName + suffix, listDefines.getOrDefault(parentDefine + suffix, false));
                         }
                         continue;
                     }
 
-                    // Episode-based CV: Measure Population should return resource list, not boolean
-                    if (isCvEpisode && "measure-population".equals(popKey)) {
-                        ctx.withRenderMode(
-                                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION,
-                                populationBasis,
-                                () -> {
-                                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
-                                    return null;
-                                });
-                    } else {
-                        appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                    // PAT-243: every population of an episode-based group returns the episode list
+                    // (before, only the continuous-variable Measure Population did and the rest were
+                    // Booleans, so proportion / ratio counts were patient counts). A population with no
+                    // episode element falls back to a Boolean, which the evaluation reads as "all / none
+                    // of the parent's episodes" — fine for a child, a problem for the Initial Population.
+                    boolean isList = appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx,
+                            isEpisodeBased, populationBasis);
+                    listDefines.put(defineName + suffix, isList);
+                    if (isEpisodeBased && !isList && EcqmConstants.INITIAL_POPULATION.equals(defineName)) {
+                        ctx.warn(episodeWarning(defineName + suffix, populationBasis));
                     }
                 }
 
                 // Observations
                 List<Map<String, Object>> observations = (List<Map<String, Object>>) group.get("observations");
                 if (observations != null) {
-                    // Ratio observations are always patient-based (calculating per-patient time)
+                    // Only a continuous-variable Measure Population that really is an episode list gets
+                    // an episode-typed observation function; ratio observations stay patient-based
+                    // (calculating per-patient time).
                     boolean obsEpisodeBased = isEpisodeBased
-                            && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType);
+                            && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)
+                            && listDefines.getOrDefault(EcqmConstants.MEASURE_POPULATION + suffix, false);
                     String obsBasis = obsEpisodeBased ? populationBasis : "boolean";
                     for (Map<String, Object> obs : observations) {
                         appendObservationFunction(block, obs, suffix, ctx, obsEpisodeBased, obsBasis);
                     }
                     if (!observations.isEmpty()) {
-                        appendObservationWrapper(block, suffix, isEpisodeBased, scoringType, observations);
+                        appendObservationWrapper(block, suffix, obsEpisodeBased, scoringType, observations, listDefines);
                     }
                 }
 
@@ -324,6 +333,32 @@ public class EcqmCqlBuilder {
         return children == null || children.isEmpty();
     }
 
+    /**
+     * PAT-243 — renders one population define; in an episode-based group it is rendered in
+     * {@code EPISODE_LIST} mode and the return value says whether it came out as a list of
+     * episodes (true) or fell back to a Boolean (false, e.g. no element of the basis type).
+     */
+    private boolean appendPopulationDefine(StringBuilder block, String defineName,
+            Map<String, Object> tree, BuildContext ctx, boolean episodeBased, String populationBasis) {
+        if (!episodeBased) {
+            appendPopulationDefine(block, defineName, tree, ctx);
+            return false;
+        }
+        ctx.resetEpisodeListFlag();
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, populationBasis, () -> {
+            appendPopulationDefine(block, defineName, tree, ctx);
+            return null;
+        });
+        return ctx.lastEpisodeRenderIsList();
+    }
+
+    private static String episodeWarning(String defineName, String populationBasis) {
+        return String.format("Population basis is %s but \"%s\" has no %s element and returns a Boolean: "
+                        + "the evaluation will count patients, not %s episodes. Put a %s element first in the "
+                        + "Initial Population to identify the episodes.",
+                populationBasis, defineName, populationBasis, populationBasis, populationBasis);
+    }
+
     private void appendPopulationDefine(StringBuilder block, String defineName,
             Map<String, Object> tree, BuildContext ctx) {
         String expr = engine.buildConjunctionExpression(tree, ctx);
@@ -402,9 +437,16 @@ public class EcqmCqlBuilder {
         }
     }
 
+    /**
+     * @param obsEpisodeBased the observation function takes an episode (continuous-variable, and
+     *        the Measure Population really is an episode list); otherwise it takes the Patient
+     * @param listDefines     PAT-243: which population defines are episode lists — a list is tested
+     *        with {@code exists}, a Boolean directly
+     */
     @SuppressWarnings("unchecked")
     private void appendObservationWrapper(StringBuilder block, String suffix,
-            boolean isEpisodeBased, String scoringType, List<Map<String, Object>> observations) {
+            boolean obsEpisodeBased, String scoringType, List<Map<String, Object>> observations,
+            Map<String, Boolean> listDefines) {
         String funcName = EcqmConstants.MEASURE_OBSERVATION + suffix;
 
         // Determine the population to reference based on scoring type and observation config
@@ -422,12 +464,15 @@ public class EcqmCqlBuilder {
             refPopulation = (defineName != null ? defineName : EcqmConstants.DENOMINATOR) + suffix;
         }
 
-        if (isEpisodeBased && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)) {
+        if (obsEpisodeBased) {
             block.append(String.format("define \"%s%s\":\n  (\"%s\") MP return \"%s\"(MP)\n\n",
                     "Measure Observation Values", suffix, refPopulation, funcName));
         } else {
-            block.append(String.format("define \"%s%s\":\n  if \"%s\" then \"%s\"(Patient) else null\n\n",
-                    "Measure Observation Value", suffix, refPopulation, funcName));
+            // A population that is an episode list (PAT-243) is tested with `exists`; a Boolean directly.
+            String condition = listDefines.getOrDefault(refPopulation, false)
+                    ? String.format("exists \"%s\"", refPopulation) : String.format("\"%s\"", refPopulation);
+            block.append(String.format("define \"%s%s\":\n  if %s then \"%s\"(Patient) else null\n\n",
+                    "Measure Observation Value", suffix, condition, funcName));
         }
     }
 

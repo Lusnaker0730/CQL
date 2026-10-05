@@ -487,6 +487,8 @@ export interface MeasureEvaluationResult {
   /** PAT-234: declared supplemental data / risk adjustment factors as value distributions. */
   supplementalDataResults?: SupplementalDataResult[]
   errorMessage?: string
+  /** PAT-243: notes for the author, e.g. an episode-based group that was counted per patient. */
+  warnings?: string[]
 }
 
 export interface ObservationStatistics {
@@ -503,6 +505,8 @@ export interface ObservationStatistics {
 export interface MeasureGroupResult {
   groupId: string
   description?: string
+  /** PAT-243: "boolean" (counts are patients) or a resource type such as "Encounter" (counts are episodes). */
+  populationBasis?: string
   populations: PopulationResult[]
   measureScore?: number
   measureScoreUnit?: string
@@ -1157,6 +1161,8 @@ export interface PopulationMembershipTrace {
 
 export interface GroupTrace {
   groupId?: string
+  /** PAT-243: the group's population basis; episode-based groups show member counts. */
+  populationBasis?: string
   description?: string
   scoringType?: string
   populations: PopulationTraceEntry[]
@@ -1170,6 +1176,8 @@ export interface PopulationTraceEntry {
   effectiveResult?: boolean | null
   reasonCode: string
   reasonInputs?: Record<string, boolean>
+  /** PAT-243: episode-based groups only — how many of the patient's episodes this population counts. */
+  memberCount?: number
 }
 
 export interface BatchTestCaseImportResult {

@@ -34,6 +34,8 @@ public class PopulationMembershipTrace {
         private String description;
         /** "proportion" | "ratio" | "continuous-variable" | "cohort" */
         private String scoringType;
+        /** PAT-243: the group's population basis ("boolean", "Encounter", …); null when the measure has no group definitions. */
+        private String populationBasis;
         private List<PopulationTraceEntry> populations;
     }
 
@@ -57,5 +59,7 @@ public class PopulationMembershipTrace {
         private String reasonCode;
         /** Template variables for the reason message (e.g. {ip: true}). */
         private Map<String, Boolean> reasonInputs;
+        /** PAT-243: episode-based groups only — how many of this patient's episodes the population counts. */
+        private Integer memberCount;
     }
 }

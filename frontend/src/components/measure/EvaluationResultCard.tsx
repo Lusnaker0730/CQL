@@ -82,6 +82,14 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
             {result.errorMessage}
           </Alert>
         )}
+        {/* PAT-243: e.g. an episode-based group whose Initial Population returned a Boolean */}
+        {result.warnings && result.warnings.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }} data-testid="evaluation-warnings">
+            {result.warnings.map((warning) => (
+              <Typography key={warning} variant="body2">{warning}</Typography>
+            ))}
+          </Alert>
+        )}
 
         {result.groups?.map((group) => (
           <Box key={group.groupId} sx={{
@@ -205,7 +213,11 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                 <TableHead>
                   <TableRow>
                     <TableCell scope="col">{t('evaluationResult.tableHeaders.population')}</TableCell>
-                    <TableCell scope="col" align="right">{t('evaluationResult.tableHeaders.count')}</TableCell>
+                    <TableCell scope="col" align="right">
+                      {group.populationBasis && group.populationBasis.toLowerCase() !== 'boolean'
+                        ? t('evaluationResult.tableHeaders.countEpisodes', { basis: group.populationBasis })
+                        : t('evaluationResult.tableHeaders.count')}
+                    </TableCell>
                     <TableCell scope="col">{t('evaluationResult.tableHeaders.subjects')}</TableCell>
                   </TableRow>
                 </TableHead>

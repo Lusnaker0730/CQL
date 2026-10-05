@@ -14,6 +14,20 @@ import type {
 const OBSERVATION_SCORING_TYPES = new Set(['continuous-variable', 'ratio'])
 
 /** Same numbering the backend uses for a group without an id (`TestCaseService.effectiveGroupId`). */
+/** PAT-243: true for a resource-type population basis (Encounter, Procedure, …) — counts are episodes, not patients. */
+export function isEpisodeBasis(populationBasis: string | null | undefined): boolean {
+  return !!populationBasis && populationBasis.toLowerCase() !== 'boolean'
+}
+
+/** PAT-243: the groups of a measure whose counts are episodes, by effective group id. */
+export function episodeBasisByGroup(measure: MeasureDefinition): Record<string, string> {
+  const out: Record<string, string> = {}
+  ;(measure.groupDefinitions ?? []).forEach((group, index) => {
+    if (isEpisodeBasis(group.populationBasis)) out[effectiveGroupId(group, index)] = group.populationBasis as string
+  })
+  return out
+}
+
 export function effectiveGroupId(group: GroupDefinition, index: number): string {
   return group.groupId && group.groupId.trim() ? group.groupId : `group-${index + 1}`
 }
