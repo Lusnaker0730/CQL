@@ -465,6 +465,15 @@
     "running": "執行中...",
     "runAll": "全部執行",
     "exportAll": "全部匯出",
+    "exportMenu": {
+      "json": "平台 JSON",
+      "jsonHint": "全部測試案例一個檔案；可在此重新匯入並平移日期",
+      "madie": "MADiE 相容 zip",
+      "madieHint": "每個測試案例一個 FHIR Bundle 加測試案例 MeasureReport；可匯入 MADiE 或另一個 CQL Platform",
+      "excel": "Excel（期望 vs 實際）",
+      "excelHint": "KEY 工作表 + 每個母群群組一張；一列一個測試案例，不符處標色",
+      "zipFailed": "匯出失敗：{{error}}"
+    },
     "importing": "匯入中...",
     "import": "匯入",
     "addTestCase": "新增測試案例",
@@ -499,18 +508,73 @@
       "runTestCaseDebug": "執行並顯示除錯追蹤（族群歸屬、執行細節、覆蓋率）",
       "exportJson": "匯出 JSON",
       "edit": "編輯",
-      "delete": "刪除"
+      "delete": "刪除",
+      "shiftDates": "以整年平移日期"
     },
     "ariaLabels": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行測試案例",
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
-      "delete": "刪除測試案例"
+      "delete": "刪除測試案例",
+      "shiftDates": "平移測試案例日期"
     },
     "measurementPeriod": {
       "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
       "currentYear": "測試案例以當年曆年（{{year}}）為測量期間執行——到「詳細資料」設定測量期間即可固定時間窗。"
+    },
+    "validation": {
+      "status": {
+        "valid": "有效",
+        "invalid": "無效",
+        "pending": "驗證中…",
+        "error": "驗證錯誤",
+        "none": "未驗證"
+      },
+      "hint": {
+        "pending": "病人 bundle 的 FHIR 驗證正在背景執行。",
+        "none": "此測試案例建立於驗證功能之前。按「全部驗證」或重新儲存即可驗證。",
+        "valid": "病人 bundle 的每個資源都通過 FHIR 驗證。",
+        "invalid": "至少一個資源有驗證錯誤——點一下查看。",
+        "error": "驗證器無法處理這個 bundle——點一下查看原因。"
+      },
+      "summary": "{{resources}} 個資源，{{invalid}} 個無效——{{errors}} 個錯誤、{{warnings}} 個警告",
+      "revalidate": "重新驗證",
+      "validating": "驗證中…",
+      "moreIssues": "…還有 {{count}} 個錯誤",
+      "validateAll": "全部驗證",
+      "validateAllQueued": "已排入 {{count}} 個測試案例的 FHIR 驗證；完成後清單會自動更新。",
+      "skipInvalid": "略過無效（{{count}}）",
+      "skipInvalidHint": "「全部執行」會略過 FHIR 驗證有錯誤的測試案例；驗證中與未驗證的仍會執行。"
+    },
+    "copyDialog": {
+      "button": "複製到…",
+      "title": "複製測試案例到其他指標",
+      "hint": "把選取的測試案例（病人 bundle、期望值、驗證結果）複製到另一支指標，通常是本指標的另一個版本。期望值對不上目標指標母群群組的，該份複製會拿掉期望值並在下方列出。",
+      "target": "目標指標",
+      "sameMeasure": "同一指標",
+      "noTargets": "沒有其他可複製的指標。",
+      "selectAll": "已選 {{selected}} / {{total}}",
+      "copy": "複製",
+      "copying": "複製中…",
+      "copied": "已複製 {{count}} 個測試案例到 {{target}}。",
+      "warningsTitle": "以下複製的期望值已拿掉：",
+      "done": "完成",
+      "cancel": "取消"
+    },
+    "shiftDates": {
+      "button": "平移日期…",
+      "titleOne": "平移「{{title}}」的日期",
+      "titleAll": "平移全部 {{count}} 個測試案例的日期",
+      "hint": "把病人 bundle 內所有 date / dateTime / instant 以整年平移、保留月日（與 MADiE 的 shift test case dates 相同），讓為某個測量期間寫的測試案例可以沿用到下一個期間。期望值維持不變。",
+      "period": "本指標的測試案例以其測量期間 {{start}} – {{end}} 執行。",
+      "years": "年數",
+      "yearsHelp": "正數 = 往後、負數 = 往前，最多 ±{{max}}",
+      "resetsRuns": "被平移的測試案例會忘掉上次執行結果（那是在舊日期上跑的），bundle 會重新驗證。",
+      "confirm": "平移 {{years}} 年",
+      "cancel": "取消",
+      "done": "已平移 {{count}} 個測試案例 {{years}} 年。",
+      "failed": "平移失敗：{{error}}"
     }
   },
   "populationTrace": {
@@ -554,10 +618,11 @@
   },
   "importDialog": {
     "title": "匯入測試案例",
-    "dropHint": "點擊或拖曳 JSON 檔案至此處以匯入測試案例",
-    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、或原始 FHIR Bundle",
+    "dropHint": "點擊或拖曳 JSON / zip 檔案至此處以匯入測試案例",
+    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、原始 FHIR Bundle，或測試案例 bundle 的 zip（CQL Platform / MADiE 匯出）",
     "noValidCases": "檔案中未找到有效的測試案例。每個項目必須包含病人 Bundle。",
     "parseError": "檔案解析失敗：{{error}}",
+    "serverImport": "{{file}} 內是帶有測試案例 MeasureReport 的 bundle（CQL Platform 或 MADiE 匯出）。伺服器會把每份報告讀成期望值；對不上本指標的報告會被拿掉並列在下方。匯入後可從測試案例清單平移日期。",
     "preview": "在 {{file}} 中找到 {{count}} 個測試案例",
     "removeFromImport": "從匯入中移除",
     "enableDateShift": "啟用日期平移（調整病人 Bundle 中的所有日期）",
@@ -565,11 +630,14 @@
     "shiftDaysHelp": "正數 = 往後、負數 = 往前",
     "shiftExplanation": "病人 Bundle 中所有的日期、日期時間和期間欄位都將按指定天數平移。適用於將歷史資料對齊至評估期間。",
     "importing": "正在匯入 {{count}} 個測試案例...",
+    "importingFile": "正在伺服器端匯入 {{file}}...",
     "importError": "匯入失敗：{{error}}",
     "resultSummary": "成功匯入 {{success}}/{{total}} 個測試案例",
+    "warnings": "{{count}} 則提醒",
     "done": "完成",
     "cancel": "取消",
-    "importCount": "匯入 {{count}} 個測試案例"
+    "importCount": "匯入 {{count}} 個測試案例",
+    "importFile": "匯入檔案"
   },
   "testCaseEditor": {
     "newTitle": "新增測試案例",

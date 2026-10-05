@@ -1052,6 +1052,38 @@ export interface TestCase {
   updatedAt?: string
   series?: string
   sortOrder?: number
+  /** PAT-245: FHIR validation of the patient bundle — pending | valid | invalid | error; absent = never validated. */
+  validationStatus?: 'pending' | 'valid' | 'invalid' | 'error'
+  validation?: TestCaseValidation
+}
+
+/** PAT-246 — outcome of copying test cases to another measure. */
+export interface TestCaseCopyResult {
+  sourceMeasureId: number
+  targetMeasureId: number
+  copied: TestCase[]
+  /** One line per copy whose expected values were dropped (did not fit the target's groups). */
+  warnings: string[]
+}
+
+/** PAT-245 — the FHIR validation outcome of a test case's patient bundle (error issues are capped). */
+export interface TestCaseValidation {
+  status: string
+  validatedAt?: string
+  totalResources?: number
+  invalidResources?: number
+  errorCount?: number
+  warningCount?: number
+  message?: string
+  issues?: TestCaseValidationIssue[]
+}
+
+export interface TestCaseValidationIssue {
+  resourceType?: string
+  resourceId?: string
+  severity?: string
+  location?: string
+  message: string
 }
 
 /** PAT-232 — one clause (ELM expression node with a source position) of a CQL library. */
@@ -1186,6 +1218,16 @@ export interface BatchTestCaseImportResult {
   failureCount: number
   imported: TestCase[]
   errors: string[]
+  /** PAT-247: imported, but with something dropped or worth knowing — one line per test case. */
+  warnings?: string[]
+}
+
+/** PAT-248: outcome of shifting every test case of a measure by whole years. */
+export interface TestCaseDateShiftResult {
+  measureDefinitionId: number
+  years: number
+  shifted: number
+  testCaseIds: number[]
 }
 
 // Implementation Guide types

@@ -37,6 +37,8 @@ public class MeasureDefinitionService {
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
     private final com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
+    /** PAT-246: a new version starts with the previous version's test cases. */
+    private final com.cqlplatform.repository.TestCaseRepository testCaseRepository;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -316,8 +318,26 @@ public class MeasureDefinitionService {
         newEntity.setTenantId(existing.getTenantId()); // version chain stays in the source tenant
         newEntity = repository.save(newEntity);
 
-        log.info("Created version {} for measure {}", newVersion, existing.getName());
+        // PAT-246: the test cases come along (MADiE's "create draft" does the same) — the new
+        // version's logic starts identical, so every existing test still applies; run results are
+        // reset because they belong to the old version's runs.
+        int copiedTestCases = copyTestCases(existing.getId(), newEntity.getId());
+
+        log.info("Created version {} for measure {} ({} test cases copied)", newVersion, existing.getName(), copiedTestCases);
         return entityToModel(newEntity);
+    }
+
+    /** PAT-246: copies every test case of {@code fromMeasureId} onto {@code toMeasureId}; returns how many. */
+    private int copyTestCases(Long fromMeasureId, Long toMeasureId) {
+        List<com.cqlplatform.entity.TestCaseEntity> sources =
+                testCaseRepository.findByMeasureDefinitionIdOrderByCreatedAtAsc(fromMeasureId);
+        if (sources.isEmpty()) return 0;
+        List<com.cqlplatform.entity.TestCaseEntity> copies = new ArrayList<>();
+        for (com.cqlplatform.entity.TestCaseEntity source : sources) {
+            copies.add(TestCaseCopies.copyOf(source, toMeasureId));
+        }
+        testCaseRepository.saveAll(copies);
+        return copies.size();
     }
 
     @Transactional(readOnly = true)

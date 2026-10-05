@@ -58,7 +58,8 @@ class TestCaseClauseCoverageTest {
         PopulationEvaluator populationEvaluator = new PopulationEvaluator();
         service = new TestCaseService(repository, definitionService, cqlExecutionService, dateShiftService,
                 FhirContext.forR4Cached(), populationEvaluator,
-                new StratifierEvaluator(populationEvaluator, new MeasureScoreCalculator()));
+                new StratifierEvaluator(populationEvaluator, new MeasureScoreCalculator()),
+                org.mockito.Mockito.mock(TestCaseValidationService.class));
         lenient().when(repository.save(any(TestCaseEntity.class))).thenAnswer(inv -> inv.getArgument(0));
         lenient().when(definitionService.getById(10L)).thenReturn(Optional.of(MeasureDefinition.builder()
                 .id(10L).name("M").scoringType("cohort").cqlContent(CQL).ownerUsername("user")

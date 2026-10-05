@@ -30,7 +30,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.Collections;
@@ -56,6 +58,8 @@ public class MeasureController {
     private final MeasureComparisonService comparisonService;
     private final CqlTranslationService translationService;
     private final TestCaseService testCaseService;
+    private final TestCaseBundleService testCaseBundleService;
+    private final TestCaseExcelExportService testCaseExcelExportService;
     private final MeasureValidationService validationService;
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
@@ -658,13 +662,99 @@ public class MeasureController {
     }
 
     @PostMapping("/{measureId}/test-cases/run")
-    @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure")
+    @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure; skipInvalid leaves out cases whose FHIR validation found errors (PAT-245)")
     public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(
             @PathVariable Long measureId,
-            @RequestParam(defaultValue = "false") boolean debugMode) {
+            @RequestParam(defaultValue = "false") boolean debugMode,
+            @RequestParam(defaultValue = "false") boolean skipInvalid) {
         requireOwnedMeasure(measureId);
-        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId, debugMode);
+        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId, debugMode, skipInvalid);
         return ResponseEntity.ok(results);
+    }
+
+    @PostMapping("/{measureId}/test-cases/copy-to/{targetMeasureId}")
+    @Operation(summary = "Copy Test Cases to another measure", description = "PAT-246: copies the given (or all) test cases of this measure onto another measure, e.g. another version; expectations that do not fit the target's groups are dropped with a warning")
+    public ResponseEntity<com.cqlplatform.model.measure.TestCaseCopyResult> copyTestCasesTo(
+            @PathVariable Long measureId,
+            @PathVariable Long targetMeasureId,
+            @RequestBody(required = false) com.cqlplatform.model.measure.TestCaseCopyResult.Request request) {
+        requireMeasure(measureId);
+        requireOwnedMeasure(targetMeasureId);
+        return ResponseEntity.ok(testCaseService.copyTo(measureId, targetMeasureId,
+                request != null ? request.getTestCaseIds() : null));
+    }
+
+    @GetMapping("/{measureId}/test-cases/export")
+    @Operation(summary = "Export Test Cases (MADiE-compatible zip)", description = "PAT-247: one FHIR collection Bundle per test case — the patient resources plus a test-case-cqfm MeasureReport carrying the expectation — zipped; ids limits the export to those test cases")
+    public ResponseEntity<byte[]> exportTestCases(
+            @PathVariable Long measureId,
+            @RequestParam(required = false) List<Long> ids) {
+        requireMeasure(measureId);
+        byte[] zip = testCaseBundleService.exportZip(measureId, ids);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=test-cases-" + measureId + ".zip")
+                .header("Content-Type", "application/zip")
+                .body(zip);
+    }
+
+    @GetMapping("/{measureId}/test-cases/export/excel")
+    @Operation(summary = "Export Test Cases (Excel)", description = "PAT-248: a workbook with a KEY sheet and one sheet per population group — a row per test case, expected next to actual for every population, observations and strata, mismatches highlighted")
+    public ResponseEntity<byte[]> exportTestCasesExcel(@PathVariable Long measureId) {
+        requireMeasure(measureId);
+        byte[] workbook = testCaseExcelExportService.export(measureId);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=test-cases-" + measureId + ".xlsx")
+                .header("Content-Type", TestCaseExcelExportService.CONTENT_TYPE)
+                .body(workbook);
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/shift-dates")
+    @Operation(summary = "Shift Test Case Dates", description = "PAT-248: moves every date in the test case's patient bundle by whole years (positive = forward); the last run is forgotten and the bundle is validated again")
+    public ResponseEntity<TestCase> shiftTestCaseDates(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId,
+            @RequestParam int years) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.shiftDates(testCaseId, years));
+    }
+
+    @PostMapping("/{measureId}/test-cases/shift-dates")
+    @Operation(summary = "Shift All Test Case Dates", description = "PAT-248: shifts every test case of the measure by whole years")
+    public ResponseEntity<TestCaseDateShiftResult> shiftAllTestCaseDates(
+            @PathVariable Long measureId,
+            @RequestParam int years) {
+        requireOwnedMeasure(measureId);
+        return ResponseEntity.ok(testCaseService.shiftAllDates(measureId, years));
+    }
+
+    @PostMapping(value = "/{measureId}/test-cases/import-bundles", consumes = "multipart/form-data")
+    @Operation(summary = "Import Test Case Bundles", description = "PAT-247: imports a zip of test case bundles (ours or MADiE's), one bundle, or a JSON array of bundles; a test-case-cqfm MeasureReport in a bundle becomes the expectation. Expectations that do not fit the measure are dropped with a warning")
+    public ResponseEntity<BatchTestCaseImportResult> importTestCaseBundles(
+            @PathVariable Long measureId,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        requireOwnedMeasure(measureId);
+        if (file == null || file.isEmpty()) {
+            throw new ValidationException("The upload is empty");
+        }
+        return ResponseEntity.ok(testCaseBundleService.importFile(measureId, file.getBytes(), file.getOriginalFilename()));
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/validate")
+    @Operation(summary = "Validate Test Case", description = "PAT-245: validates the test case's patient bundle with the FHIR validator now and returns the test case with the outcome")
+    public ResponseEntity<TestCase> validateTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.validateNow(testCaseId));
+    }
+
+    @PostMapping("/{measureId}/test-cases/validate-all")
+    @Operation(summary = "Validate All Test Cases", description = "PAT-245: queues a background FHIR validation of every test case of the measure")
+    public ResponseEntity<Map<String, Integer>> validateAllTestCases(@PathVariable Long measureId) {
+        requireOwnedMeasure(measureId);
+        return ResponseEntity.ok(Map.of("scheduled", testCaseService.validateAll(measureId)));
     }
 
     @PostMapping("/{measureId}/test-cases/coverage")

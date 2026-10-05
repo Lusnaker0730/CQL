@@ -70,4 +70,10 @@ public class TestCase {
     /** Sort order within series */
     @Builder.Default
     private Integer sortOrder = 0;
+
+    /** PAT-245: pending | valid | invalid | error; null = never validated. Read-only (set by the validator). */
+    private String validationStatus;
+
+    /** PAT-245: counts and error issues of the last validation; null when none yet. Read-only. */
+    private TestCaseValidation validation;
 }

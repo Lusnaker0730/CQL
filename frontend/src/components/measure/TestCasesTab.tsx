@@ -17,6 +17,11 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
+  Switch,
+  Menu,
+  MenuItem,
+  ListItemText,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -32,6 +37,7 @@ import {
   Calculate as CalcIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
+  EventRepeat as ShiftDatesIcon,
 } from '@mui/icons-material'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -49,6 +55,9 @@ import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
 import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
+import TestCaseValidationBadge from './TestCaseValidationBadge'
+import TestCaseCopyDialog from './TestCaseCopyDialog'
+import TestCaseShiftDatesDialog from './TestCaseShiftDatesDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
@@ -74,7 +83,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  // PAT-246: copy test cases to another measure / version
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  // PAT-247: "Export" offers the platform JSON and the MADiE-compatible zip of FHIR bundles
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  // PAT-248: shift the dates of one test case or of all of them by whole years
+  const [shiftTarget, setShiftTarget] = useState<TestCase | 'all' | null>(null)
   const [debugMode, setDebugMode] = useState(false)
+  // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
+  const [skipInvalid, setSkipInvalid] = useState(false)
   // PAT-243: episode-based groups report episode counts; the result rows must not read them as Yes / No.
   const episodeGroups = useMemo(() => episodeBasisByGroup(measure), [measure])
   // PAT-242: test cases run in the measure's Measurement Period when it has one, else the current year.
@@ -87,6 +104,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     queryKey: ['test-cases', measure.id],
     queryFn: () => measureApi.getTestCases(measure.id!),
     enabled: !!measure.id,
+    // PAT-245: validation runs in the background after a save — poll while any case is pending.
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((tc) => tc.validationStatus === 'pending') ? 3000 : false,
   })
 
   // Wrap setEditing to persist to sessionStorage
@@ -146,8 +166,24 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     },
   })
 
+  // PAT-245: FHIR validation of the patient bundles
+  const validateAllMutation = useMutation({
+    mutationFn: () => measureApi.validateAllTestCases(measure.id!),
+    onSuccess: (data) => {
+      showNotification(t('testCases.validation.validateAllQueued', { count: data.scheduled }), 'info')
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const revalidateMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.validateTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const invalidCount = useMemo(() => testCases.filter((tc) => tc.validationStatus === 'invalid').length, [testCases])
+
   const runAllMutation = useMutation({
-    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode),
+    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode, skipInvalid),
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
@@ -178,6 +214,20 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     )
     downloadBlob(blob, `${measure.name || 'measure'}-test-cases.json`)
   }
+
+  // PAT-247: the server builds the MADiE-compatible zip (bundle + test-case MeasureReport per case).
+  const exportZipMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesZip(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.zip`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
+
+  // PAT-248: the suite as a workbook (expected next to actual, mismatches highlighted).
+  const exportExcelMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesExcel(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.xlsx`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
 
   const { passCount, failCount, totalCount } = useMemo(() => {
     let pass = 0, fail = 0
@@ -237,6 +287,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               fontWeight: 500
             }}>{tc.title}</Typography>
             {tc.series && <Chip label={tc.series} size="small" sx={{ height: 18, fontSize: '0.6rem' }} />}
+            <TestCaseValidationBadge testCase={tc} compact />
             {tc.description && (
               <Typography
                 variant="caption"
@@ -265,6 +316,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             <Tooltip title={t('testCases.tooltips.exportJson')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
+            <Tooltip title={t('testCases.tooltips.shiftDates')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.shiftDates')} onClick={() => setShiftTarget(tc)} disabled={readOnly}><ShiftDatesIcon fontSize="small" /></IconButton>
+            </Tooltip>
             <Tooltip title={t('testCases.tooltips.edit')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
@@ -273,6 +327,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </Tooltip>
           </Stack>
         </Stack>
+        {(tc.validationStatus === 'invalid' || tc.validationStatus === 'error') && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <TestCaseValidationBadge
+              testCase={tc}
+              onRevalidate={() => revalidateMutation.mutate(tc.id!)}
+              revalidating={revalidateMutation.isPending && revalidateMutation.variables === tc.id}
+            />
+          </Box>
+        )}
         {result && (
           <>
             <Divider />
@@ -413,6 +476,22 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           alignItems: "center"
         }}>
           <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('testCases.debugMode')} />
+          <Tooltip title={t('testCases.validation.skipInvalidHint')}>
+            <FormControlLabel
+              sx={{ mr: 0 }}
+              control={<Switch size="small" checked={skipInvalid} onChange={(e) => setSkipInvalid(e.target.checked)} />}
+              label={<Typography variant="body2" color="text.secondary">{t('testCases.validation.skipInvalid', { count: invalidCount })}</Typography>}
+            />
+          </Tooltip>
+          <Button
+            size="small"
+            onClick={() => validateAllMutation.mutate()}
+            disabled={testCases.length === 0 || validateAllMutation.isPending || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.validation.validateAll')}
+          </Button>
           <Button
             size="small"
             startIcon={<CalcIcon />}
@@ -421,6 +500,16 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.dateCalculator')}
+          </Button>
+          <Button
+            size="small"
+            startIcon={<ShiftDatesIcon />}
+            onClick={() => setShiftTarget('all')}
+            disabled={testCases.length === 0 || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
+          >
+            {t('testCases.shiftDates.button')}
           </Button>
           <Button
             size="small"
@@ -451,13 +540,26 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           <Button
             size="small"
             startIcon={<ExportIcon />}
-            onClick={exportAllTestCases}
-            disabled={testCases.length === 0}
+            endIcon={<ExpandMoreIcon fontSize="small" />}
+            onClick={(e) => setExportAnchor(e.currentTarget)}
+            disabled={testCases.length === 0 || exportZipMutation.isPending || exportExcelMutation.isPending}
             variant="outlined"
+            aria-haspopup="menu"
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.exportAll')}
           </Button>
+          <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}>
+            <MenuItem onClick={() => { setExportAnchor(null); exportAllTestCases() }}>
+              <ListItemText primary={t('testCases.exportMenu.json')} secondary={t('testCases.exportMenu.jsonHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportZipMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.madie')} secondary={t('testCases.exportMenu.madieHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportExcelMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.excel')} secondary={t('testCases.exportMenu.excelHint')} />
+            </MenuItem>
+          </Menu>
           <Button
             size="small"
             startIcon={<ImportIcon />}
@@ -466,6 +568,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
           >
             {t('testCases.import')}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setCopyDialogOpen(true)}
+            disabled={testCases.length === 0}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.copyDialog.button')}
           </Button>
           <GradientButton
             startIcon={<AddIcon />}
@@ -564,11 +675,21 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         </Stack>
       )}
       <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
+      <TestCaseShiftDatesDialog
+        open={shiftTarget !== null}
+        onClose={() => setShiftTarget(null)}
+        measure={measure}
+        target={shiftTarget}
+        count={testCases.length}
+      />
       <TestCaseImportDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         measureId={measure.id!}
       />
+      {copyDialogOpen && (
+        <TestCaseCopyDialog open onClose={() => setCopyDialogOpen(false)} measure={measure} testCases={testCases} />
+      )}
     </Box>
   );
 }

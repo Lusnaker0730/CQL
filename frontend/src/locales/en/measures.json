@@ -465,6 +465,15 @@
     "running": "Running...",
     "runAll": "Run All",
     "exportAll": "Export All",
+    "exportMenu": {
+      "json": "Platform JSON",
+      "jsonHint": "All test cases in one file; re-imports here with date shifting",
+      "madie": "MADiE-compatible zip",
+      "madieHint": "One FHIR Bundle per test case with a test-case MeasureReport; imports into MADiE or another CQL Platform",
+      "excel": "Excel (expected vs actual)",
+      "excelHint": "KEY sheet + one sheet per population group; a row per test case, mismatches highlighted",
+      "zipFailed": "Export failed: {{error}}"
+    },
     "importing": "Importing...",
     "import": "Import",
     "addTestCase": "Add Test Case",
@@ -499,18 +508,73 @@
       "runTestCaseDebug": "Run with debug trace (population membership, execution, coverage)",
       "exportJson": "Export JSON",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "shiftDates": "Shift dates by whole years"
     },
     "ariaLabels": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run test case",
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
-      "delete": "Delete test case"
+      "delete": "Delete test case",
+      "shiftDates": "Shift test case dates"
     },
     "measurementPeriod": {
       "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
       "currentYear": "Test cases run in the current calendar year ({{year}}) — set a Measurement Period in Details to pin the window."
+    },
+    "validation": {
+      "status": {
+        "valid": "Valid",
+        "invalid": "Invalid",
+        "pending": "Validating…",
+        "error": "Validation error",
+        "none": "Not validated"
+      },
+      "hint": {
+        "pending": "The FHIR validation of the patient bundle is running in the background.",
+        "none": "This test case was saved before validation existed. Use \"Validate all\" or re-save it.",
+        "valid": "Every resource of the patient bundle passed the FHIR validation.",
+        "invalid": "At least one resource has validation errors — click to see them.",
+        "error": "The validator could not run on this bundle — click to see why."
+      },
+      "summary": "{{resources}} resources, {{invalid}} invalid — {{errors}} errors, {{warnings}} warnings",
+      "revalidate": "Re-validate",
+      "validating": "Validating…",
+      "moreIssues": "… and {{count}} more error(s)",
+      "validateAll": "Validate all",
+      "validateAllQueued": "Queued FHIR validation of {{count}} test case(s); the list updates as they finish.",
+      "skipInvalid": "Skip invalid ({{count}})",
+      "skipInvalidHint": "\"Run all\" leaves out test cases whose FHIR validation found errors. Pending and never-validated cases still run."
+    },
+    "copyDialog": {
+      "button": "Copy to…",
+      "title": "Copy test cases to another measure",
+      "hint": "Copies the selected test cases (patient bundle, expectations, validation) onto another measure, typically another version of this one. An expectation that does not fit the target's population groups is dropped on that copy and reported below.",
+      "target": "Target measure",
+      "sameMeasure": "same measure",
+      "noTargets": "There is no other measure to copy to.",
+      "selectAll": "{{selected}} of {{total}} selected",
+      "copy": "Copy",
+      "copying": "Copying…",
+      "copied": "Copied {{count}} test case(s) to {{target}}.",
+      "warningsTitle": "Expected values dropped on these copies:",
+      "done": "Done",
+      "cancel": "Cancel"
+    },
+    "shiftDates": {
+      "button": "Shift dates…",
+      "titleOne": "Shift the dates of \"{{title}}\"",
+      "titleAll": "Shift the dates of all {{count}} test case(s)",
+      "hint": "Moves every date, dateTime and instant in the patient bundle(s) by whole years, keeping month and day — the way MADiE shifts test case dates — so a suite written for one Measurement Period can be reused for the next. Expectations stay as they are.",
+      "period": "This measure runs test cases in its Measurement Period {{start}} – {{end}}.",
+      "years": "Years",
+      "yearsHelp": "Positive = forward, negative = backward, at most ±{{max}}",
+      "resetsRuns": "The last run of each shifted test case is forgotten (it ran on the old dates) and the bundle is validated again.",
+      "confirm": "Shift by {{years}} year(s)",
+      "cancel": "Cancel",
+      "done": "Shifted {{count}} test case(s) by {{years}} year(s).",
+      "failed": "Shift failed: {{error}}"
     }
   },
   "populationTrace": {
@@ -554,10 +618,11 @@
   },
   "importDialog": {
     "title": "Import Test Cases",
-    "dropHint": "Click or drag a JSON file here to import test cases",
-    "formatHint": "Supports: JSON array, single test case, MADiE format, or bare FHIR Bundle",
+    "dropHint": "Click or drag a JSON or zip file here to import test cases",
+    "formatHint": "Supports: JSON array, single test case, MADiE format, bare FHIR Bundle, or a zip of test case bundles (CQL Platform / MADiE export)",
     "noValidCases": "No valid test cases found in the file. Each item must contain a patient Bundle.",
     "parseError": "Failed to parse file: {{error}}",
+    "serverImport": "{{file}} holds test case bundles with a test-case MeasureReport (CQL Platform or MADiE export). The server reads each report as the expectation; a report that does not fit this measure is dropped and listed below. Dates can be shifted afterwards from the test case list.",
     "preview": "{{count}} test case(s) found in {{file}}",
     "removeFromImport": "Remove from import",
     "enableDateShift": "Enable date shifting (adjust all dates in patient bundles)",
@@ -565,11 +630,14 @@
     "shiftDaysHelp": "Positive = forward, negative = backward",
     "shiftExplanation": "All date, dateTime, and period fields in patient bundles will be shifted by the specified number of days. Useful for aligning historical data with the measurement period.",
     "importing": "Importing {{count}} test case(s)...",
+    "importingFile": "Importing {{file}} on the server...",
     "importError": "Import failed: {{error}}",
     "resultSummary": "{{success}} of {{total}} test case(s) imported successfully",
+    "warnings": "{{count}} note(s)",
     "done": "Done",
     "cancel": "Cancel",
-    "importCount": "Import {{count}} test case(s)"
+    "importCount": "Import {{count}} test case(s)",
+    "importFile": "Import file"
   },
   "testCaseEditor": {
     "newTitle": "New Test Case",

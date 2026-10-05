@@ -81,6 +81,17 @@ public class TestCaseEntity {
     @Builder.Default
     private Integer sortOrder = 0;
 
+    /** PAT-245 (V78): pending | valid | invalid | error; null = never validated. */
+    @Column(name = "validation_status", length = 20)
+    private String validationStatus;
+
+    /** PAT-245 (V78): JSON {@code TestCaseValidation} — counts and the (capped) error issues. */
+    @Column(name = "validation_summary", columnDefinition = "TEXT")
+    private String validationSummary;
+
+    @Column(name = "validated_at")
+    private LocalDateTime validatedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

@@ -37,6 +37,8 @@ public class TestCaseService {
     private final FhirContext fhirContext;
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
+    /** PAT-245 */
+    private final TestCaseValidationService validationService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -68,7 +70,10 @@ public class TestCaseService {
 
         TestCaseEntity entity = modelToEntity(testCase);
         entity.setMeasureDefinitionId(measureDefinitionId);
+        // PAT-245: every new bundle is validated in the background
+        validationService.markPending(entity);
         entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
         log.info("Created test case '{}' for measure {}", entity.getTitle(), measureDefinitionId);
         return entityToModel(entity);
     }
@@ -85,6 +90,9 @@ public class TestCaseService {
             validateExpectedValues(measure, testCase.getExpectedValues());
         }
 
+        // PAT-245: a changed bundle (or one never validated) is validated again in the background
+        boolean bundleChanged = !Objects.equals(entity.getPatientBundleJson(), testCase.getPatientBundleJson())
+                || entity.getValidationStatus() == null;
         entity.setTitle(testCase.getTitle());
         entity.setDescription(testCase.getDescription());
         entity.setPatientBundleJson(testCase.getPatientBundleJson());
@@ -93,16 +101,137 @@ public class TestCaseService {
         entity.setExpectedValues(writeExpectedValues(testCase.getExpectedValues()));
         entity.setSeries(testCase.getSeries());
         entity.setSortOrder(testCase.getSortOrder() != null ? testCase.getSortOrder() : 0);
+        if (bundleChanged) validationService.markPending(entity);
 
         entity = repository.save(entity);
+        if (bundleChanged) validationService.scheduleValidation(entity.getId());
         log.info("Updated test case '{}'", entity.getTitle());
         return entityToModel(entity);
+    }
+
+    /** PAT-248: the largest year shift accepted — anything bigger is a typo, not a plan. */
+    static final int MAX_SHIFT_YEARS = 100;
+
+    /**
+     * PAT-248: shifts every date in the test case's patient bundle by whole years (MADiE's
+     * "shift test case dates"), so a suite written for one Measurement Period can be reused
+     * for the next. The expectation stays (it describes the clinical story, not the dates);
+     * the last run is forgotten (it ran on the old dates) and the bundle is validated again.
+     */
+    @Transactional
+    public TestCase shiftDates(Long id, int years) {
+        requireShiftYears(years);
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        shiftEntity(entity, years);
+        entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
+        log.info("Shifted test case '{}' by {} year(s)", entity.getTitle(), years);
+        return entityToModel(entity);
+    }
+
+    /** PAT-248: {@link #shiftDates} for every test case of the measure; returns how many were shifted. */
+    @Transactional
+    public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years) {
+        requireShiftYears(years);
+        List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        List<Long> shifted = new ArrayList<>();
+        for (TestCaseEntity entity : entities) {
+            if (entity.getPatientBundleJson() == null || entity.getPatientBundleJson().isBlank()) continue;
+            shiftEntity(entity, years);
+            shifted.add(entity.getId());
+        }
+        repository.saveAll(entities);
+        for (Long id : shifted) validationService.scheduleValidation(id);
+        log.info("Shifted {} test case(s) of measure {} by {} year(s)", shifted.size(), measureDefinitionId, years);
+        return TestCaseDateShiftResult.builder()
+                .measureDefinitionId(measureDefinitionId)
+                .years(years)
+                .shifted(shifted.size())
+                .testCaseIds(shifted)
+                .build();
+    }
+
+    private void shiftEntity(TestCaseEntity entity, int years) {
+        try {
+            entity.setPatientBundleJson(dateShiftService.shiftYears(entity.getPatientBundleJson(), years));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Test case '" + entity.getTitle() + "': " + e.getMessage());
+        }
+        entity.setStatus("pending");
+        entity.setLastRunResultJson(null);
+        entity.setLastRunActualPopulationMap(new LinkedHashMap<>());
+        entity.setLastRunAt(null);
+        validationService.markPending(entity);
+    }
+
+    private static void requireShiftYears(int years) {
+        if (years == 0) throw new ValidationException("Shift by at least one year (positive = forward, negative = backward)");
+        if (Math.abs(years) > MAX_SHIFT_YEARS) throw new ValidationException("Shift at most " + MAX_SHIFT_YEARS + " years");
+    }
+
+    /** PAT-245: validates the test case now and returns it with the outcome. */
+    @Transactional
+    public TestCase validateNow(Long id) {
+        validationService.validateNow(id);
+        return repository.findById(id).map(this::entityToModel)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+    }
+
+    /** PAT-245: queues a validation of every test case of the measure; returns how many. */
+    @Transactional
+    public int validateAll(Long measureDefinitionId) {
+        return validationService.scheduleAll(measureDefinitionId);
     }
 
     @Transactional
     public void delete(Long id) {
         repository.deleteById(id);
         log.info("Deleted test case {}", id);
+    }
+
+    // ===== Copy to another measure (PAT-246) =====
+
+    /**
+     * Copies test cases of {@code sourceMeasureId} onto {@code targetMeasureId} (null / empty ids =
+     * all). A structured expectation that does not fit the target's groups is dropped from that copy
+     * — the copy still lands, with the legacy boolean map and a warning naming the test case — so a
+     * suite can move to a measure whose groups were renamed and be re-targeted there.
+     */
+    @Transactional
+    public TestCaseCopyResult copyTo(Long sourceMeasureId, Long targetMeasureId, List<Long> testCaseIds) {
+        if (sourceMeasureId.equals(targetMeasureId)) {
+            throw new ValidationException("Source and target measure are the same");
+        }
+        MeasureDefinition target = definitionService.getById(targetMeasureId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + targetMeasureId));
+        List<TestCaseEntity> sources = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(sourceMeasureId);
+        if (testCaseIds != null && !testCaseIds.isEmpty()) {
+            Set<Long> wanted = new HashSet<>(testCaseIds);
+            sources = sources.stream().filter(e -> wanted.contains(e.getId())).toList();
+        }
+
+        List<TestCase> copied = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        for (TestCaseEntity source : sources) {
+            TestCaseEntity copy = TestCaseCopies.copyOf(source, targetMeasureId);
+            TestCaseExpectedValues expected = readExpectedValues(source.getExpectedValues());
+            if (expected != null && !expected.isEmpty()) {
+                try {
+                    validateExpectedValues(target, expected);
+                } catch (ValidationException e) {
+                    copy.setExpectedValues(null);
+                    warnings.add(String.format("'%s': expected values dropped — %s", source.getTitle(),
+                            e.getDetails() != null && !e.getDetails().isEmpty() ? String.join("; ", e.getDetails()) : e.getMessage()));
+                }
+            }
+            copied.add(entityToModel(repository.save(copy)));
+        }
+        log.info("Copied {} test cases from measure {} to measure {} ({} expectations dropped)",
+                copied.size(), sourceMeasureId, targetMeasureId, warnings.size());
+        return TestCaseCopyResult.builder()
+                .sourceMeasureId(sourceMeasureId).targetMeasureId(targetMeasureId)
+                .copied(copied).warnings(warnings).build();
     }
 
     // ===== Batch Import =====
@@ -173,11 +302,24 @@ public class TestCaseService {
 
     @Transactional
     public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode) {
+        return runAllTestCases(measureDefinitionId, debugMode, false);
+    }
+
+    /**
+     * @param skipInvalid PAT-245: leave out test cases whose last FHIR validation found errors
+     *        (pending / never-validated ones still run). An invalid bundle usually still
+     *        executes, so this is the author's choice, not a gate.
+     */
+    @Transactional
+    public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode, boolean skipInvalid) {
         MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
 
         List<TestCaseEntity> entities = repository
                 .findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        if (skipInvalid) {
+            entities = entities.stream().filter(e -> !TestCaseValidationService.isInvalid(e)).toList();
+        }
 
         // Cap debug mode for large suites to avoid per-expression evaluation overhead
         boolean effectiveDebug = debugMode;
@@ -801,6 +943,8 @@ public class TestCaseService {
                 .updatedAt(entity.getUpdatedAt())
                 .series(entity.getSeries())
                 .sortOrder(entity.getSortOrder())
+                .validationStatus(entity.getValidationStatus())
+                .validation(TestCaseValidationService.summaryFor(entity))
                 .build();
     }
 
