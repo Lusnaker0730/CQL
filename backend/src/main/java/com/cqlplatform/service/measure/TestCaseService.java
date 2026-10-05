@@ -109,6 +109,67 @@ public class TestCaseService {
         return entityToModel(entity);
     }
 
+    /** PAT-248: the largest year shift accepted — anything bigger is a typo, not a plan. */
+    static final int MAX_SHIFT_YEARS = 100;
+
+    /**
+     * PAT-248: shifts every date in the test case's patient bundle by whole years (MADiE's
+     * "shift test case dates"), so a suite written for one Measurement Period can be reused
+     * for the next. The expectation stays (it describes the clinical story, not the dates);
+     * the last run is forgotten (it ran on the old dates) and the bundle is validated again.
+     */
+    @Transactional
+    public TestCase shiftDates(Long id, int years) {
+        requireShiftYears(years);
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        shiftEntity(entity, years);
+        entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
+        log.info("Shifted test case '{}' by {} year(s)", entity.getTitle(), years);
+        return entityToModel(entity);
+    }
+
+    /** PAT-248: {@link #shiftDates} for every test case of the measure; returns how many were shifted. */
+    @Transactional
+    public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years) {
+        requireShiftYears(years);
+        List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        List<Long> shifted = new ArrayList<>();
+        for (TestCaseEntity entity : entities) {
+            if (entity.getPatientBundleJson() == null || entity.getPatientBundleJson().isBlank()) continue;
+            shiftEntity(entity, years);
+            shifted.add(entity.getId());
+        }
+        repository.saveAll(entities);
+        for (Long id : shifted) validationService.scheduleValidation(id);
+        log.info("Shifted {} test case(s) of measure {} by {} year(s)", shifted.size(), measureDefinitionId, years);
+        return TestCaseDateShiftResult.builder()
+                .measureDefinitionId(measureDefinitionId)
+                .years(years)
+                .shifted(shifted.size())
+                .testCaseIds(shifted)
+                .build();
+    }
+
+    private void shiftEntity(TestCaseEntity entity, int years) {
+        try {
+            entity.setPatientBundleJson(dateShiftService.shiftYears(entity.getPatientBundleJson(), years));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Test case '" + entity.getTitle() + "': " + e.getMessage());
+        }
+        entity.setStatus("pending");
+        entity.setLastRunResultJson(null);
+        entity.setLastRunActualPopulationMap(new LinkedHashMap<>());
+        entity.setLastRunAt(null);
+        validationService.markPending(entity);
+    }
+
+    private static void requireShiftYears(int years) {
+        if (years == 0) throw new ValidationException("Shift by at least one year (positive = forward, negative = backward)");
+        if (Math.abs(years) > MAX_SHIFT_YEARS) throw new ValidationException("Shift at most " + MAX_SHIFT_YEARS + " years");
+    }
+
     /** PAT-245: validates the test case now and returns it with the outcome. */
     @Transactional
     public TestCase validateNow(Long id) {

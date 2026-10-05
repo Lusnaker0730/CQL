@@ -511,4 +511,55 @@ class TestCaseServiceTest {
         assertThatThrownBy(() -> service.copyTo(10L, 10L, null))
                 .isInstanceOf(com.cqlplatform.exception.ValidationException.class);
     }
+
+    // ===== PAT-248: shift dates =====
+
+    @Test
+    void shiftDates_shiftsTheBundle_forgetsTheLastRun_andRevalidates() {
+        TestCaseEntity entity = createEntity(1L, 10L, "shift me");
+        entity.setStatus("pass");
+        entity.setLastRunAt(LocalDateTime.now());
+        entity.setLastRunResultJson("{\"status\":\"pass\"}");
+        entity.setLastRunActualPopulationMap(new LinkedHashMap<>(Map.of("initial-population", true)));
+        entity.setValidationStatus("valid");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(dateShiftService.shiftYears(entity.getPatientBundleJson(), 1)).thenReturn("{\"resourceType\":\"Bundle\",\"shifted\":true}");
+
+        TestCase result = service.shiftDates(1L, 1);
+
+        assertThat(result.getPatientBundleJson()).contains("\"shifted\":true");
+        assertThat(result.getStatus()).isEqualTo("pending");
+        assertThat(result.getLastRunAt()).isNull();
+        assertThat(result.getLastRunResultJson()).isNull();
+        assertThat(result.getLastRunActualPopulations()).isEmpty();
+        assertThat(result.getExpectedPopulations()).as("the expectation describes the story, not the dates").containsEntry("initial-population", true);
+        verify(validationService).markPending(entity);
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void shiftAllDates_shiftsEveryTestCaseOfTheMeasure_andRefusesZeroOrAbsurdYears() {
+        TestCaseEntity a = createEntity(1L, 10L, "a");
+        TestCaseEntity b = createEntity(2L, 10L, "b");
+        TestCaseEntity empty = createEntity(3L, 10L, "no bundle");
+        empty.setPatientBundleJson(null);
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(a, b, empty));
+        when(dateShiftService.shiftYears(anyString(), eq(-2))).thenAnswer(inv -> inv.getArgument(0) + "/*-2y*/");
+
+        TestCaseDateShiftResult result = service.shiftAllDates(10L, -2);
+
+        assertThat(result.getShifted()).isEqualTo(2);
+        assertThat(result.getTestCaseIds()).containsExactly(1L, 2L);
+        assertThat(result.getYears()).isEqualTo(-2);
+        assertThat(a.getPatientBundleJson()).endsWith("/*-2y*/");
+        assertThat(b.getStatus()).isEqualTo("pending");
+        verify(repository).saveAll(List.of(a, b, empty));
+        verify(validationService).scheduleValidation(1L);
+        verify(validationService).scheduleValidation(2L);
+        verify(validationService, never()).scheduleValidation(3L);
+
+        assertThatThrownBy(() -> service.shiftAllDates(10L, 0)).isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+        assertThatThrownBy(() -> service.shiftDates(1L, 101)).isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+    }
 }

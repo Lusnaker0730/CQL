@@ -1222,6 +1222,14 @@ export interface BatchTestCaseImportResult {
   warnings?: string[]
 }
 
+/** PAT-248: outcome of shifting every test case of a measure by whole years. */
+export interface TestCaseDateShiftResult {
+  measureDefinitionId: number
+  years: number
+  shifted: number
+  testCaseIds: number[]
+}
+
 // Implementation Guide types
 export interface IgPackageMetadata {
   name: string

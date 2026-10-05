@@ -37,6 +37,7 @@ import {
   Calculate as CalcIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
+  EventRepeat as ShiftDatesIcon,
 } from '@mui/icons-material'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -56,6 +57,7 @@ import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
 import TestCaseValidationBadge from './TestCaseValidationBadge'
 import TestCaseCopyDialog from './TestCaseCopyDialog'
+import TestCaseShiftDatesDialog from './TestCaseShiftDatesDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
@@ -85,6 +87,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   // PAT-247: "Export" offers the platform JSON and the MADiE-compatible zip of FHIR bundles
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  // PAT-248: shift the dates of one test case or of all of them by whole years
+  const [shiftTarget, setShiftTarget] = useState<TestCase | 'all' | null>(null)
   const [debugMode, setDebugMode] = useState(false)
   // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
   const [skipInvalid, setSkipInvalid] = useState(false)
@@ -218,6 +222,13 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
   })
 
+  // PAT-248: the suite as a workbook (expected next to actual, mismatches highlighted).
+  const exportExcelMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesExcel(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.xlsx`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
+
   const { passCount, failCount, totalCount } = useMemo(() => {
     let pass = 0, fail = 0
     for (const tc of testCases) {
@@ -304,6 +315,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.exportJson')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
+            </Tooltip>
+            <Tooltip title={t('testCases.tooltips.shiftDates')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.shiftDates')} onClick={() => setShiftTarget(tc)} disabled={readOnly}><ShiftDatesIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.edit')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
@@ -489,6 +503,16 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           </Button>
           <Button
             size="small"
+            startIcon={<ShiftDatesIcon />}
+            onClick={() => setShiftTarget('all')}
+            disabled={testCases.length === 0 || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
+          >
+            {t('testCases.shiftDates.button')}
+          </Button>
+          <Button
+            size="small"
             startIcon={<RunAllIcon />}
             onClick={() => runAllMutation.mutate()}
             disabled={testCases.length === 0 || runAllMutation.isPending}
@@ -518,7 +542,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             startIcon={<ExportIcon />}
             endIcon={<ExpandMoreIcon fontSize="small" />}
             onClick={(e) => setExportAnchor(e.currentTarget)}
-            disabled={testCases.length === 0 || exportZipMutation.isPending}
+            disabled={testCases.length === 0 || exportZipMutation.isPending || exportExcelMutation.isPending}
             variant="outlined"
             aria-haspopup="menu"
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
@@ -531,6 +555,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </MenuItem>
             <MenuItem onClick={() => { setExportAnchor(null); exportZipMutation.mutate() }}>
               <ListItemText primary={t('testCases.exportMenu.madie')} secondary={t('testCases.exportMenu.madieHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportExcelMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.excel')} secondary={t('testCases.exportMenu.excelHint')} />
             </MenuItem>
           </Menu>
           <Button
@@ -648,6 +675,13 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         </Stack>
       )}
       <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
+      <TestCaseShiftDatesDialog
+        open={shiftTarget !== null}
+        onClose={() => setShiftTarget(null)}
+        measure={measure}
+        target={shiftTarget}
+        count={testCases.length}
+      />
       <TestCaseImportDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}

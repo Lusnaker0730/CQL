@@ -470,6 +470,8 @@
       "jsonHint": "All test cases in one file; re-imports here with date shifting",
       "madie": "MADiE-compatible zip",
       "madieHint": "One FHIR Bundle per test case with a test-case MeasureReport; imports into MADiE or another CQL Platform",
+      "excel": "Excel (expected vs actual)",
+      "excelHint": "KEY sheet + one sheet per population group; a row per test case, mismatches highlighted",
       "zipFailed": "Export failed: {{error}}"
     },
     "importing": "Importing...",
@@ -506,14 +508,16 @@
       "runTestCaseDebug": "Run with debug trace (population membership, execution, coverage)",
       "exportJson": "Export JSON",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "shiftDates": "Shift dates by whole years"
     },
     "ariaLabels": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run test case",
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
-      "delete": "Delete test case"
+      "delete": "Delete test case",
+      "shiftDates": "Shift test case dates"
     },
     "measurementPeriod": {
       "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
@@ -557,6 +561,20 @@
       "warningsTitle": "Expected values dropped on these copies:",
       "done": "Done",
       "cancel": "Cancel"
+    },
+    "shiftDates": {
+      "button": "Shift dates…",
+      "titleOne": "Shift the dates of \"{{title}}\"",
+      "titleAll": "Shift the dates of all {{count}} test case(s)",
+      "hint": "Moves every date, dateTime and instant in the patient bundle(s) by whole years, keeping month and day — the way MADiE shifts test case dates — so a suite written for one Measurement Period can be reused for the next. Expectations stay as they are.",
+      "period": "This measure runs test cases in its Measurement Period {{start}} – {{end}}.",
+      "years": "Years",
+      "yearsHelp": "Positive = forward, negative = backward, at most ±{{max}}",
+      "resetsRuns": "The last run of each shifted test case is forgotten (it ran on the old dates) and the bundle is validated again.",
+      "confirm": "Shift by {{years}} year(s)",
+      "cancel": "Cancel",
+      "done": "Shifted {{count}} test case(s) by {{years}} year(s).",
+      "failed": "Shift failed: {{error}}"
     }
   },
   "populationTrace": {

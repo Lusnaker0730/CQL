@@ -12,7 +12,9 @@
 #     "expectMeasurementPeriodEnd": "2024-12-31",
 #     "expectActuals": { "numerator": "1" },     # optional: population → actual (first group)
 #     "expectValidation": true,                  # optional (PAT-245): POST …/validate must answer valid | invalid
-#     "expectRoundTrip": true                    # optional (PAT-247): export zip → import-bundles must recreate the expectation
+#     "expectRoundTrip": true,                   # optional (PAT-247): export zip → import-bundles must recreate the expectation
+#     "expectDateShift": { "years": -1, "expectStatus": "fail" },   # optional (PAT-248): shift → run → status, shift back → original status
+#     "expectExcelExport": true                  # optional (PAT-248): GET …/test-cases/export/excel must answer a workbook
 #   }
 #
 # Usage: lib/run-test-case.sh <measureId> <scenarioDir> <expected.json>
@@ -102,7 +104,7 @@ fi
 # (patient resources + test-case-cqfm MeasureReport), import the zip back, and the copy must carry
 # the same structured expectation, be named after the Patient (MADiE's convention) and run to the
 # same verdict. Needs no unzip on the host: the server does both halves.
-if [ "$(jq -r '.testCase.expectRoundTrip // false' "$EXPECTED" | tr -d '')" = "true" ]; then
+if [ "$(jq -r '.testCase.expectRoundTrip // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
     export_status=$(curl -s -o "$tmp/export.zip" -w '%{http_code}'         -H "Authorization: Bearer $TOKEN" "$API_BASE/measures/$MEASURE_ID/test-cases/export?ids=$tc_id")
     check "export zip (HTTP 200)" "$export_status" "200"
     check "export is a zip archive" "$(head -c 2 "$tmp/export.zip")" "PK"
@@ -115,7 +117,7 @@ __HTTP_STATUS__%{http_code}"         "$API_BASE/measures/$MEASURE_ID/test-cases/
     check "round trip imported 1 test case" "$(echo "$import_body" | jq -r '.successCount')" "1"
     check "round trip import had no warnings" "$(echo "$import_body" | jq -r '.warnings | length')" "0"
     check "round trip kept the structured expectation"         "$(echo "$import_body" | jq -c '.imported[0].expectedValues.groups[0].populations')"         "$(jq -c '.testCase.expectedValues.groups[0].populations' "$EXPECTED")"
-    patient_given=$(jq -r '[.entry[] | select(.resource.resourceType == "Patient")][0].resource.name[0].given // [] | join(" ")' "$bundle_file" | tr -d '')
+    patient_given=$(jq -r '[.entry[] | select(.resource.resourceType == "Patient")][0].resource.name[0].given // [] | join(" ")' "$bundle_file" | tr -d '\r')
     if [ -n "$patient_given" ]; then
         check "round trip titled the copy after the Patient's given name" "$(echo "$import_body" | jq -r '.imported[0].title')" "$patient_given"
     fi
@@ -127,6 +129,40 @@ __HTTP_STATUS__%{http_code}"         "$API_BASE/measures/$MEASURE_ID/test-cases/
     else
         echo "    ✗ round trip produced no test case id: $(echo "$import_body" | head -c 400)" >&2; fail=1
     fi
+fi
+
+# PAT-248: shifting the test case's dates by whole years moves its story out of (or into) the
+# measure's Measurement Period — the run verdict must follow, and shifting back must restore it.
+# The shift itself forgets the last run (pending, no lastRunAt) and re-validates the bundle.
+if [ "$(jq -r '.testCase.expectDateShift // empty | type' "$EXPECTED" | tr -d '\r')" = "object" ]; then
+    shift_years=$(jq -r '.testCase.expectDateShift.years' "$EXPECTED" | tr -d '\r')
+    shift_status=$(jq -r '.testCase.expectDateShift.expectStatus' "$EXPECTED" | tr -d '\r')
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/shift-dates?years=$shift_years" > "$tmp/shift.raw"
+    check "shift-dates by $shift_years year(s) (HTTP 200)" "$(status_of "$tmp/shift.raw")" "200"
+    check "shift forgets the last run (status pending)" "$(body_of "$tmp/shift.raw" | jq -r '.status')" "pending"
+    check "shift forgets the last run (no lastRunAt)" "$(body_of "$tmp/shift.raw" | jq -r '.lastRunAt // "null"')" "null"
+    check "shift keeps the expectation" \
+        "$(body_of "$tmp/shift.raw" | jq -c '.expectedValues.groups[0].populations')" \
+        "$(jq -c '.testCase.expectedValues.groups[0].populations' "$EXPECTED")"
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/run" > "$tmp/run-shifted.raw"
+    check "shifted test case runs to '$shift_status'" "$(body_of "$tmp/run-shifted.raw" | jq -r '.status')" "$shift_status"
+
+    back_years=$(( -shift_years ))
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/shift-dates?years=$back_years" > "$tmp/shift-back.raw"
+    check "shift-dates back by $back_years year(s) (HTTP 200)" "$(status_of "$tmp/shift-back.raw")" "200"
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/run" > "$tmp/run-back.raw"
+    check "shifted-back test case runs to '$expect_status' again" "$(body_of "$tmp/run-back.raw" | jq -r '.status')" "$expect_status"
+
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/shift-dates?years=0" > "$tmp/shift-zero.raw"
+    check "shift-dates by 0 years is refused (HTTP 400)" "$(status_of "$tmp/shift-zero.raw")" "400"
+fi
+
+# PAT-248: the suite as a workbook (KEY + one sheet per group). xlsx is a zip, so "PK" is the magic.
+if [ "$(jq -r '.testCase.expectExcelExport // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
+    excel_status=$(curl -s -o "$tmp/export.xlsx" -w '%{http_code}' \
+        -H "Authorization: Bearer $TOKEN" "$API_BASE/measures/$MEASURE_ID/test-cases/export/excel")
+    check "export excel (HTTP 200)" "$excel_status" "200"
+    check "export excel is a workbook" "$(head -c 2 "$tmp/export.xlsx")" "PK"
 fi
 
 exit $fail

@@ -19,6 +19,7 @@ import type {
   BatchEvaluationResult,
   DataRequirementInfo,
   BatchTestCaseImportResult,
+  TestCaseDateShiftResult,
   TestCaseCopyResult,
   EnhancedDashboardData,
   TrendSeriesPoint,
@@ -295,6 +296,32 @@ export const measureApi = {
       params: testCaseIds && testCaseIds.length > 0 ? { ids: testCaseIds.join(',') } : undefined,
       responseType: 'blob',
     })
+    return response.data
+  },
+
+  /** PAT-248: the suite as a workbook — KEY sheet + one sheet per group, expected next to actual. */
+  exportTestCasesExcel: async (measureId: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${measureId}/test-cases/export/excel`, { responseType: 'blob' })
+    return response.data
+  },
+
+  /** PAT-248: shift every date in one test case's bundle by whole years; the last run is forgotten. */
+  shiftTestCaseDates: async (measureId: number, testCaseId: number, years: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(
+      `/measures/${measureId}/test-cases/${testCaseId}/shift-dates`,
+      null,
+      { params: { years } },
+    )
+    return response.data
+  },
+
+  /** PAT-248: shift every test case of the measure by whole years. */
+  shiftAllTestCaseDates: async (measureId: number, years: number): Promise<TestCaseDateShiftResult> => {
+    const response = await api.post<TestCaseDateShiftResult>(
+      `/measures/${measureId}/test-cases/shift-dates`,
+      null,
+      { params: { years } },
+    )
     return response.data
   },
 

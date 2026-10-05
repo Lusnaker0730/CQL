@@ -59,6 +59,7 @@ public class MeasureController {
     private final CqlTranslationService translationService;
     private final TestCaseService testCaseService;
     private final TestCaseBundleService testCaseBundleService;
+    private final TestCaseExcelExportService testCaseExcelExportService;
     private final MeasureValidationService validationService;
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
@@ -694,6 +695,37 @@ public class MeasureController {
                 .header("Content-Disposition", "attachment; filename=test-cases-" + measureId + ".zip")
                 .header("Content-Type", "application/zip")
                 .body(zip);
+    }
+
+    @GetMapping("/{measureId}/test-cases/export/excel")
+    @Operation(summary = "Export Test Cases (Excel)", description = "PAT-248: a workbook with a KEY sheet and one sheet per population group — a row per test case, expected next to actual for every population, observations and strata, mismatches highlighted")
+    public ResponseEntity<byte[]> exportTestCasesExcel(@PathVariable Long measureId) {
+        requireMeasure(measureId);
+        byte[] workbook = testCaseExcelExportService.export(measureId);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=test-cases-" + measureId + ".xlsx")
+                .header("Content-Type", TestCaseExcelExportService.CONTENT_TYPE)
+                .body(workbook);
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/shift-dates")
+    @Operation(summary = "Shift Test Case Dates", description = "PAT-248: moves every date in the test case's patient bundle by whole years (positive = forward); the last run is forgotten and the bundle is validated again")
+    public ResponseEntity<TestCase> shiftTestCaseDates(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId,
+            @RequestParam int years) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.shiftDates(testCaseId, years));
+    }
+
+    @PostMapping("/{measureId}/test-cases/shift-dates")
+    @Operation(summary = "Shift All Test Case Dates", description = "PAT-248: shifts every test case of the measure by whole years")
+    public ResponseEntity<TestCaseDateShiftResult> shiftAllTestCaseDates(
+            @PathVariable Long measureId,
+            @RequestParam int years) {
+        requireOwnedMeasure(measureId);
+        return ResponseEntity.ok(testCaseService.shiftAllDates(measureId, years));
     }
 
     @PostMapping(value = "/{measureId}/test-cases/import-bundles", consumes = "multipart/form-data")

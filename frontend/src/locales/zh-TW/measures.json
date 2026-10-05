@@ -470,6 +470,8 @@
       "jsonHint": "全部測試案例一個檔案；可在此重新匯入並平移日期",
       "madie": "MADiE 相容 zip",
       "madieHint": "每個測試案例一個 FHIR Bundle 加測試案例 MeasureReport；可匯入 MADiE 或另一個 CQL Platform",
+      "excel": "Excel（期望 vs 實際）",
+      "excelHint": "KEY 工作表 + 每個母群群組一張；一列一個測試案例，不符處標色",
       "zipFailed": "匯出失敗：{{error}}"
     },
     "importing": "匯入中...",
@@ -506,14 +508,16 @@
       "runTestCaseDebug": "執行並顯示除錯追蹤（族群歸屬、執行細節、覆蓋率）",
       "exportJson": "匯出 JSON",
       "edit": "編輯",
-      "delete": "刪除"
+      "delete": "刪除",
+      "shiftDates": "以整年平移日期"
     },
     "ariaLabels": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行測試案例",
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
-      "delete": "刪除測試案例"
+      "delete": "刪除測試案例",
+      "shiftDates": "平移測試案例日期"
     },
     "measurementPeriod": {
       "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
@@ -557,6 +561,20 @@
       "warningsTitle": "以下複製的期望值已拿掉：",
       "done": "完成",
       "cancel": "取消"
+    },
+    "shiftDates": {
+      "button": "平移日期…",
+      "titleOne": "平移「{{title}}」的日期",
+      "titleAll": "平移全部 {{count}} 個測試案例的日期",
+      "hint": "把病人 bundle 內所有 date / dateTime / instant 以整年平移、保留月日（與 MADiE 的 shift test case dates 相同），讓為某個測量期間寫的測試案例可以沿用到下一個期間。期望值維持不變。",
+      "period": "本指標的測試案例以其測量期間 {{start}} – {{end}} 執行。",
+      "years": "年數",
+      "yearsHelp": "正數 = 往後、負數 = 往前，最多 ±{{max}}",
+      "resetsRuns": "被平移的測試案例會忘掉上次執行結果（那是在舊日期上跑的），bundle 會重新驗證。",
+      "confirm": "平移 {{years}} 年",
+      "cancel": "取消",
+      "done": "已平移 {{count}} 個測試案例 {{years}} 年。",
+      "failed": "平移失敗：{{error}}"
     }
   },
   "populationTrace": {
