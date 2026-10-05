@@ -105,23 +105,35 @@ fi
 # the same structured expectation, be named after the Patient (MADiE's convention) and run to the
 # same verdict. Needs no unzip on the host: the server does both halves.
 if [ "$(jq -r '.testCase.expectRoundTrip // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
-    export_status=$(curl -s -o "$tmp/export.zip" -w '%{http_code}'         -H "Authorization: Bearer $TOKEN" "$API_BASE/measures/$MEASURE_ID/test-cases/export?ids=$tc_id")
+    export_status=$(curl -s -o "$tmp/export.zip" -w '%{http_code}' \
+        -H "Authorization: Bearer $TOKEN" "$API_BASE/measures/$MEASURE_ID/test-cases/export?ids=$tc_id")
     check "export zip (HTTP 200)" "$export_status" "200"
     check "export is a zip archive" "$(head -c 2 "$tmp/export.zip")" "PK"
 
-    import_resp=$(curl -s -X POST -H "Authorization: Bearer $TOKEN"         -F "file=@$tmp/export.zip;type=application/zip" -w "
-__HTTP_STATUS__%{http_code}"         "$API_BASE/measures/$MEASURE_ID/test-cases/import-bundles")
+    # The zip is given to curl by a RELATIVE path: Windows-native curl cannot open an MSYS /tmp/… path
+    # inside -F (exit 26, silent with -s), which under set -e would end this step without a word.
+    import_resp=$(cd "$tmp" && curl -sS -X POST -H "Authorization: Bearer $TOKEN" \
+        -F "file=@export.zip;type=application/zip" -w "\n__HTTP_STATUS__%{http_code}" \
+        "$API_BASE/measures/$MEASURE_ID/test-cases/import-bundles") \
+        || { echo "    ✗ import-bundles transport error (curl exit $?)" >&2; exit 1; }
     import_status=$(echo "$import_resp" | tail -1 | sed 's/__HTTP_STATUS__//')
     import_body=$(echo "$import_resp" | sed '$d')
+    if ! echo "$import_body" | jq -e . > /dev/null 2>&1; then
+        echo "    ✗ import-bundles did not answer JSON (HTTP $import_status): $(echo "$import_body" | head -c 300)" >&2
+        exit 1
+    fi
     check "import-bundles (HTTP 200)" "$import_status" "200"
     check "round trip imported 1 test case" "$(echo "$import_body" | jq -r '.successCount')" "1"
     check "round trip import had no warnings" "$(echo "$import_body" | jq -r '.warnings | length')" "0"
-    check "round trip kept the structured expectation"         "$(echo "$import_body" | jq -c '.imported[0].expectedValues.groups[0].populations')"         "$(jq -c '.testCase.expectedValues.groups[0].populations' "$EXPECTED")"
+    check "round trip kept the structured expectation" \
+        "$(echo "$import_body" | jq -c '.imported[0].expectedValues.groups[0].populations')" \
+        "$(jq -c '.testCase.expectedValues.groups[0].populations' "$EXPECTED")"
     patient_given=$(jq -r '[.entry[] | select(.resource.resourceType == "Patient")][0].resource.name[0].given // [] | join(" ")' "$bundle_file" | tr -d '\r')
     if [ -n "$patient_given" ]; then
         check "round trip titled the copy after the Patient's given name" "$(echo "$import_body" | jq -r '.imported[0].title')" "$patient_given"
     fi
-    check "round trip left the MeasureReport out of the stored bundle"         "$(echo "$import_body" | jq -r '.imported[0].patientBundleJson | fromjson | [.entry[].resource.resourceType] | index("MeasureReport") // "none"')" "none"
+    check "round trip left the MeasureReport out of the stored bundle" \
+        "$(echo "$import_body" | jq -r '.imported[0].patientBundleJson | fromjson | [.entry[].resource.resourceType] | index("MeasureReport") // "none"')" "none"
     copy_id=$(echo "$import_body" | jq -r '.imported[0].id // empty')
     if [ -n "$copy_id" ]; then
         bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$copy_id/run" > "$tmp/run-copy.raw"
