@@ -10,7 +10,8 @@
 #     "expectStatus": "pass",                    # run status
 #     "expectMeasurementPeriodStart": "2024-01-01",   # optional: the period the run reports
 #     "expectMeasurementPeriodEnd": "2024-12-31",
-#     "expectActuals": { "numerator": "1" }      # optional: population → actual (first group)
+#     "expectActuals": { "numerator": "1" },     # optional: population → actual (first group)
+#     "expectValidation": true                   # optional (PAT-245): POST …/validate must answer valid | invalid
 #   }
 #
 # Usage: lib/run-test-case.sh <measureId> <scenarioDir> <expected.json>
@@ -81,5 +82,18 @@ while IFS= read -r pop; do
     actual=$(echo "$run_body" | jq -r ".valueComparisons[]? | select(.kind == \"population\" and .key == \"$pop\") | .actual" | head -1)
     check "actual $pop" "$actual" "$expected_actual"
 done < <(jq -r '.testCase.expectActuals // {} | keys[]?' "$EXPECTED" | tr -d '\r')
+
+# PAT-245: the real HAPI validator ran over the bundle and produced a verdict (valid or invalid —
+# which one depends on the profiles loaded in this stack; "error" / "pending" would be a bug).
+if [ "$(jq -r '.testCase.expectValidation // false' "$EXPECTED" | tr -d '')" = "true" ]; then
+    bash "$SCRIPT_DIR/test-case-raw.sh" POST "$MEASURE_ID" "/$tc_id/validate" > "$tmp/validate.raw"
+    check "validate (HTTP 200)" "$(status_of "$tmp/validate.raw")" "200"
+    vstatus=$(body_of "$tmp/validate.raw" | jq -r '.validationStatus // empty')
+    if [ "$vstatus" = "valid" ] || [ "$vstatus" = "invalid" ]; then
+        echo "    ✓ validation produced a verdict ($vstatus; $(body_of "$tmp/validate.raw" | jq -c '.validation | {totalResources, invalidResources, errorCount, warningCount}'))" >&2
+    else
+        echo "    ✗ validation verdict — expected valid|invalid, got '$vstatus'" >&2; fail=1
+    fi
+fi
 
 exit $fail

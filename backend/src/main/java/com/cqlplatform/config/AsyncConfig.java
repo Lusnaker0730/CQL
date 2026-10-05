@@ -95,6 +95,32 @@ public class AsyncConfig {
     }
 
     /**
+     * PAT-245 — one thread for test case FHIR validation. The HAPI validator is CPU-heavy and
+     * holds a large profile cache, so runs are serialised rather than competing with CQL
+     * execution; the queue is generous because a "validate all" on a big suite enqueues one task
+     * per test case. AbortPolicy: a full queue leaves the test case pending (logged) instead of
+     * blocking the saving request.
+     */
+    @Bean(name = "testCaseValidationExecutor")
+    public ExecutorService testCaseValidationExecutor() {
+        ThreadPoolExecutor executor = new ThreadPoolExecutor(
+                1, 1,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(2000),
+                r -> {
+                    Thread t = new Thread(r);
+                    t.setName("test-case-validation-" + t.getId());
+                    t.setDaemon(false);
+                    t.setContextClassLoader(Thread.currentThread().getContextClassLoader());
+                    return t;
+                },
+                new ThreadPoolExecutor.AbortPolicy());
+        executor.allowCoreThreadTimeOut(true);
+        registeredExecutors.add(executor);
+        return executor;
+    }
+
+    /**
      * PAT-150 — graceful shutdown for both executor pools.
      *
      * <p>Steps:

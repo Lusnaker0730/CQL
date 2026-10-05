@@ -241,12 +241,24 @@ export const measureApi = {
     return response.data
   },
 
-  runAllTestCases: async (measureId: number, debugMode = false): Promise<TestCaseRunResult[]> => {
+  runAllTestCases: async (measureId: number, debugMode = false, skipInvalid = false): Promise<TestCaseRunResult[]> => {
     const response = await api.post<TestCaseRunResult[]>(
       `/measures/${measureId}/test-cases/run`,
       null,
-      { params: { debugMode } }
+      { params: { debugMode, skipInvalid } }
     )
+    return response.data
+  },
+
+  /** PAT-245: validates the patient bundle with the FHIR validator now; returns the test case with the outcome. */
+  validateTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}/validate`)
+    return response.data
+  },
+
+  /** PAT-245: queues a background validation of every test case; returns how many were queued. */
+  validateAllTestCases: async (measureId: number): Promise<{ scheduled: number }> => {
+    const response = await api.post<{ scheduled: number }>(`/measures/${measureId}/test-cases/validate-all`)
     return response.data
   },
 

@@ -48,6 +48,7 @@ import {
 } from '../../utils/testCaseExpectedValues'
 import type { TestCase, MeasureDefinition, TestCaseExpectedValues } from '../../types'
 import EhrImportForTestCase from '../ehr/EhrImportForTestCase'
+import TestCaseValidationBadge from './TestCaseValidationBadge'
 import { TEST_CASE } from '../../constants/fieldConstraints'
 
 interface TestCaseEditorProps {
@@ -314,6 +315,16 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
     setIsDirty(true)
   }
 
+  // PAT-245: the stored validation of the bundle being edited; re-validating replaces it.
+  const [validatedCase, setValidatedCase] = useState<TestCase | null>(null)
+  const revalidateMutation = useMutation({
+    mutationFn: () => measureApi.validateTestCase(measure.id!, testCase!.id!),
+    onSuccess: (updated) => {
+      setValidatedCase(updated)
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+  })
+
   const saveMutation = useMutation({
     mutationFn: () => {
       const data: TestCase = {
@@ -382,6 +393,19 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(saveMutation.error)}
         </Alert>
+      )}
+      {!isNew && testCase && (
+        <Box sx={{ mb: 2 }} data-testid="editor-validation">
+          <TestCaseValidationBadge
+            testCase={validatedCase ?? testCase}
+            defaultExpanded
+            onRevalidate={readOnly ? undefined : () => revalidateMutation.mutate()}
+            revalidating={revalidateMutation.isPending}
+          />
+          {revalidateMutation.isError && (
+            <Typography variant="caption" color="error">{extractApiError(revalidateMutation.error)}</Typography>
+          )}
+        </Box>
       )}
       {showDraftAlert && (
         <Alert

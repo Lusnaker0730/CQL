@@ -1052,6 +1052,29 @@ export interface TestCase {
   updatedAt?: string
   series?: string
   sortOrder?: number
+  /** PAT-245: FHIR validation of the patient bundle — pending | valid | invalid | error; absent = never validated. */
+  validationStatus?: 'pending' | 'valid' | 'invalid' | 'error'
+  validation?: TestCaseValidation
+}
+
+/** PAT-245 — the FHIR validation outcome of a test case's patient bundle (error issues are capped). */
+export interface TestCaseValidation {
+  status: string
+  validatedAt?: string
+  totalResources?: number
+  invalidResources?: number
+  errorCount?: number
+  warningCount?: number
+  message?: string
+  issues?: TestCaseValidationIssue[]
+}
+
+export interface TestCaseValidationIssue {
+  resourceType?: string
+  resourceId?: string
+  severity?: string
+  location?: string
+  message: string
 }
 
 /** PAT-232 — one clause (ELM expression node with a source position) of a CQL library. */

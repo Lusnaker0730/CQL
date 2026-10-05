@@ -40,6 +40,9 @@ class TestCaseServiceTest {
     @Mock
     private PopulationEvaluator populationEvaluator;
 
+    @Mock
+    private TestCaseValidationService validationService;
+
     // Shared across test methods — forR4() is expensive (~300ms) and stateless for parsing.
     private static final FhirContext SHARED_FHIR_CTX = FhirContext.forR4();
 
@@ -415,5 +418,61 @@ class TestCaseServiceTest {
         int year = java.time.Year.now().getValue();
         assertThat(period[0]).isEqualTo(java.time.LocalDate.of(year, 1, 1));
         assertThat(period[1]).isEqualTo(java.time.LocalDate.of(year, 12, 31));
+    }
+
+    // ===== PAT-245 — FHIR validation of the patient bundle =====
+
+    @Test
+    void create_marksTheBundlePending_andSchedulesValidation() {
+        when(definitionService.getById(10L)).thenReturn(Optional.of(createMeasure(10L)));
+        when(repository.save(any())).thenAnswer(inv -> { TestCaseEntity e = inv.getArgument(0); e.setId(1L); return e; });
+
+        service.create(10L, TestCase.builder().title("New TC").patientBundleJson("{}").build());
+
+        org.mockito.ArgumentCaptor<TestCaseEntity> saved = org.mockito.ArgumentCaptor.forClass(TestCaseEntity.class);
+        verify(validationService).markPending(saved.capture());
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void update_revalidatesOnlyWhenTheBundleChanged_orWasNeverValidated() {
+        TestCaseEntity entity = createEntity(1L, 10L, "TC");
+        entity.setValidationStatus("valid");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // same bundle, already validated → untouched
+        service.update(1L, TestCase.builder().title("TC").patientBundleJson(entity.getPatientBundleJson()).build());
+        verify(validationService, never()).markPending(any());
+        verify(validationService, never()).scheduleValidation(any());
+
+        // a changed bundle → pending + scheduled
+        service.update(1L, TestCase.builder().title("TC").patientBundleJson("{\"resourceType\":\"Bundle\",\"entry\":[]}").build());
+        verify(validationService).markPending(entity);
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void runAllTestCases_skipInvalid_leavesOutInvalidCases_butRunsPendingAndUnvalidatedOnes() {
+        TestCaseEntity valid = createEntity(1L, 10L, "valid");
+        valid.setValidationStatus("valid");
+        TestCaseEntity invalid = createEntity(2L, 10L, "invalid");
+        invalid.setValidationStatus("invalid");
+        TestCaseEntity pending = createEntity(3L, 10L, "pending");
+        pending.setValidationStatus("pending");
+        TestCaseEntity never = createEntity(4L, 10L, "never");
+        when(definitionService.getById(10L)).thenReturn(Optional.of(createMeasure(10L)));
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(valid, invalid, pending, never));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(cqlExecutionService.executeWithProvider(any(CqlExecutionRequest.class), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(CqlExecutionResponse.builder().success(true)
+                        .results(Map.of("InPopulation", CqlExecutionResponse.ExpressionResult.builder()
+                                .name("InPopulation").value(true).valueType("Boolean").build()))
+                        .build());
+
+        List<TestCaseRunResult> results = service.runAllTestCases(10L, false, true);
+
+        assertThat(results).extracting(TestCaseRunResult::getTestCaseTitle).containsExactly("valid", "pending", "never");
+        assertThat(service.runAllTestCases(10L, false, false)).hasSize(4);
     }
 }

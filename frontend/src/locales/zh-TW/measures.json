@@ -511,6 +511,30 @@
     "measurementPeriod": {
       "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
       "currentYear": "測試案例以當年曆年（{{year}}）為測量期間執行——到「詳細資料」設定測量期間即可固定時間窗。"
+    },
+    "validation": {
+      "status": {
+        "valid": "有效",
+        "invalid": "無效",
+        "pending": "驗證中…",
+        "error": "驗證錯誤",
+        "none": "未驗證"
+      },
+      "hint": {
+        "pending": "病人 bundle 的 FHIR 驗證正在背景執行。",
+        "none": "此測試案例建立於驗證功能之前。按「全部驗證」或重新儲存即可驗證。",
+        "valid": "病人 bundle 的每個資源都通過 FHIR 驗證。",
+        "invalid": "至少一個資源有驗證錯誤——點一下查看。",
+        "error": "驗證器無法處理這個 bundle——點一下查看原因。"
+      },
+      "summary": "{{resources}} 個資源，{{invalid}} 個無效——{{errors}} 個錯誤、{{warnings}} 個警告",
+      "revalidate": "重新驗證",
+      "validating": "驗證中…",
+      "moreIssues": "…還有 {{count}} 個錯誤",
+      "validateAll": "全部驗證",
+      "validateAllQueued": "已排入 {{count}} 個測試案例的 FHIR 驗證；完成後清單會自動更新。",
+      "skipInvalid": "略過無效（{{count}}）",
+      "skipInvalidHint": "「全部執行」會略過 FHIR 驗證有錯誤的測試案例；驗證中與未驗證的仍會執行。"
     }
   },
   "populationTrace": {

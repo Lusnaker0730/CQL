@@ -658,13 +658,31 @@ public class MeasureController {
     }
 
     @PostMapping("/{measureId}/test-cases/run")
-    @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure")
+    @Operation(summary = "Run All Test Cases", description = "Execute all test cases for a measure; skipInvalid leaves out cases whose FHIR validation found errors (PAT-245)")
     public ResponseEntity<List<TestCaseRunResult>> runAllTestCases(
             @PathVariable Long measureId,
-            @RequestParam(defaultValue = "false") boolean debugMode) {
+            @RequestParam(defaultValue = "false") boolean debugMode,
+            @RequestParam(defaultValue = "false") boolean skipInvalid) {
         requireOwnedMeasure(measureId);
-        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId, debugMode);
+        List<TestCaseRunResult> results = testCaseService.runAllTestCases(measureId, debugMode, skipInvalid);
         return ResponseEntity.ok(results);
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/validate")
+    @Operation(summary = "Validate Test Case", description = "PAT-245: validates the test case's patient bundle with the FHIR validator now and returns the test case with the outcome")
+    public ResponseEntity<TestCase> validateTestCase(
+            @PathVariable Long measureId,
+            @PathVariable Long testCaseId) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.validateNow(testCaseId));
+    }
+
+    @PostMapping("/{measureId}/test-cases/validate-all")
+    @Operation(summary = "Validate All Test Cases", description = "PAT-245: queues a background FHIR validation of every test case of the measure")
+    public ResponseEntity<Map<String, Integer>> validateAllTestCases(@PathVariable Long measureId) {
+        requireOwnedMeasure(measureId);
+        return ResponseEntity.ok(Map.of("scheduled", testCaseService.validateAll(measureId)));
     }
 
     @PostMapping("/{measureId}/test-cases/coverage")

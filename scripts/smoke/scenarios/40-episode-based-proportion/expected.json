@@ -28,7 +28,8 @@
       "initial-population": "2",
       "denominator": "2",
       "numerator": "1"
-    }
+    },
+    "expectValidation": true
   },
   "_note": "PAT-243 episode-based proportion + PAT-242 measurement period. No periodStart / periodEnd here on purpose: the evaluation request passes none, so the measure's own Measurement Period (2024, set on the artifact and published onto the measure) applies. Three patients: p1 has two encounters (2024-03, 2023-06), p2 has one (2024-05), p3 none. IP = all encounters = 3 episodes; the denominator inherits the IP; the numerator is the encounters during the measurement period = 2. Patient-based counting would have reported 2 / 2 / 2 (score 100): both patients with any encounter also have one in 2024. The test case (two encounters, one in 2024) must report episode counts 2 / 2 / 1 and the 2024 period it ran in."
 }

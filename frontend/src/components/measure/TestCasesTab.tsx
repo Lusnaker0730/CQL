@@ -17,6 +17,8 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
+  Switch,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -49,6 +51,7 @@ import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
 import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
+import TestCaseValidationBadge from './TestCaseValidationBadge'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
@@ -75,6 +78,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [debugMode, setDebugMode] = useState(false)
+  // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
+  const [skipInvalid, setSkipInvalid] = useState(false)
   // PAT-243: episode-based groups report episode counts; the result rows must not read them as Yes / No.
   const episodeGroups = useMemo(() => episodeBasisByGroup(measure), [measure])
   // PAT-242: test cases run in the measure's Measurement Period when it has one, else the current year.
@@ -87,6 +92,9 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     queryKey: ['test-cases', measure.id],
     queryFn: () => measureApi.getTestCases(measure.id!),
     enabled: !!measure.id,
+    // PAT-245: validation runs in the background after a save — poll while any case is pending.
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((tc) => tc.validationStatus === 'pending') ? 3000 : false,
   })
 
   // Wrap setEditing to persist to sessionStorage
@@ -146,8 +154,24 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     },
   })
 
+  // PAT-245: FHIR validation of the patient bundles
+  const validateAllMutation = useMutation({
+    mutationFn: () => measureApi.validateAllTestCases(measure.id!),
+    onSuccess: (data) => {
+      showNotification(t('testCases.validation.validateAllQueued', { count: data.scheduled }), 'info')
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const revalidateMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.validateTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const invalidCount = useMemo(() => testCases.filter((tc) => tc.validationStatus === 'invalid').length, [testCases])
+
   const runAllMutation = useMutation({
-    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode),
+    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode, skipInvalid),
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
@@ -237,6 +261,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               fontWeight: 500
             }}>{tc.title}</Typography>
             {tc.series && <Chip label={tc.series} size="small" sx={{ height: 18, fontSize: '0.6rem' }} />}
+            <TestCaseValidationBadge testCase={tc} compact />
             {tc.description && (
               <Typography
                 variant="caption"
@@ -273,6 +298,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             </Tooltip>
           </Stack>
         </Stack>
+        {(tc.validationStatus === 'invalid' || tc.validationStatus === 'error') && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <TestCaseValidationBadge
+              testCase={tc}
+              onRevalidate={() => revalidateMutation.mutate(tc.id!)}
+              revalidating={revalidateMutation.isPending && revalidateMutation.variables === tc.id}
+            />
+          </Box>
+        )}
         {result && (
           <>
             <Divider />
@@ -413,6 +447,22 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           alignItems: "center"
         }}>
           <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('testCases.debugMode')} />
+          <Tooltip title={t('testCases.validation.skipInvalidHint')}>
+            <FormControlLabel
+              sx={{ mr: 0 }}
+              control={<Switch size="small" checked={skipInvalid} onChange={(e) => setSkipInvalid(e.target.checked)} />}
+              label={<Typography variant="body2" color="text.secondary">{t('testCases.validation.skipInvalid', { count: invalidCount })}</Typography>}
+            />
+          </Tooltip>
+          <Button
+            size="small"
+            onClick={() => validateAllMutation.mutate()}
+            disabled={testCases.length === 0 || validateAllMutation.isPending || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.validation.validateAll')}
+          </Button>
           <Button
             size="small"
             startIcon={<CalcIcon />}

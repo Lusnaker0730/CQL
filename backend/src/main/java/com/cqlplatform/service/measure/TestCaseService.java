@@ -37,6 +37,8 @@ public class TestCaseService {
     private final FhirContext fhirContext;
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
+    /** PAT-245 */
+    private final TestCaseValidationService validationService;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -68,7 +70,10 @@ public class TestCaseService {
 
         TestCaseEntity entity = modelToEntity(testCase);
         entity.setMeasureDefinitionId(measureDefinitionId);
+        // PAT-245: every new bundle is validated in the background
+        validationService.markPending(entity);
         entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
         log.info("Created test case '{}' for measure {}", entity.getTitle(), measureDefinitionId);
         return entityToModel(entity);
     }
@@ -85,6 +90,9 @@ public class TestCaseService {
             validateExpectedValues(measure, testCase.getExpectedValues());
         }
 
+        // PAT-245: a changed bundle (or one never validated) is validated again in the background
+        boolean bundleChanged = !Objects.equals(entity.getPatientBundleJson(), testCase.getPatientBundleJson())
+                || entity.getValidationStatus() == null;
         entity.setTitle(testCase.getTitle());
         entity.setDescription(testCase.getDescription());
         entity.setPatientBundleJson(testCase.getPatientBundleJson());
@@ -93,10 +101,26 @@ public class TestCaseService {
         entity.setExpectedValues(writeExpectedValues(testCase.getExpectedValues()));
         entity.setSeries(testCase.getSeries());
         entity.setSortOrder(testCase.getSortOrder() != null ? testCase.getSortOrder() : 0);
+        if (bundleChanged) validationService.markPending(entity);
 
         entity = repository.save(entity);
+        if (bundleChanged) validationService.scheduleValidation(entity.getId());
         log.info("Updated test case '{}'", entity.getTitle());
         return entityToModel(entity);
+    }
+
+    /** PAT-245: validates the test case now and returns it with the outcome. */
+    @Transactional
+    public TestCase validateNow(Long id) {
+        validationService.validateNow(id);
+        return repository.findById(id).map(this::entityToModel)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+    }
+
+    /** PAT-245: queues a validation of every test case of the measure; returns how many. */
+    @Transactional
+    public int validateAll(Long measureDefinitionId) {
+        return validationService.scheduleAll(measureDefinitionId);
     }
 
     @Transactional
@@ -173,11 +197,24 @@ public class TestCaseService {
 
     @Transactional
     public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode) {
+        return runAllTestCases(measureDefinitionId, debugMode, false);
+    }
+
+    /**
+     * @param skipInvalid PAT-245: leave out test cases whose last FHIR validation found errors
+     *        (pending / never-validated ones still run). An invalid bundle usually still
+     *        executes, so this is the author's choice, not a gate.
+     */
+    @Transactional
+    public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode, boolean skipInvalid) {
         MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
 
         List<TestCaseEntity> entities = repository
                 .findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        if (skipInvalid) {
+            entities = entities.stream().filter(e -> !TestCaseValidationService.isInvalid(e)).toList();
+        }
 
         // Cap debug mode for large suites to avoid per-expression evaluation overhead
         boolean effectiveDebug = debugMode;
@@ -801,6 +838,8 @@ public class TestCaseService {
                 .updatedAt(entity.getUpdatedAt())
                 .series(entity.getSeries())
                 .sortOrder(entity.getSortOrder())
+                .validationStatus(entity.getValidationStatus())
+                .validation(TestCaseValidationService.summaryFor(entity))
                 .build();
     }
 

@@ -511,6 +511,30 @@
     "measurementPeriod": {
       "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
       "currentYear": "Test cases run in the current calendar year ({{year}}) — set a Measurement Period in Details to pin the window."
+    },
+    "validation": {
+      "status": {
+        "valid": "Valid",
+        "invalid": "Invalid",
+        "pending": "Validating…",
+        "error": "Validation error",
+        "none": "Not validated"
+      },
+      "hint": {
+        "pending": "The FHIR validation of the patient bundle is running in the background.",
+        "none": "This test case was saved before validation existed. Use \"Validate all\" or re-save it.",
+        "valid": "Every resource of the patient bundle passed the FHIR validation.",
+        "invalid": "At least one resource has validation errors — click to see them.",
+        "error": "The validator could not run on this bundle — click to see why."
+      },
+      "summary": "{{resources}} resources, {{invalid}} invalid — {{errors}} errors, {{warnings}} warnings",
+      "revalidate": "Re-validate",
+      "validating": "Validating…",
+      "moreIssues": "… and {{count}} more error(s)",
+      "validateAll": "Validate all",
+      "validateAllQueued": "Queued FHIR validation of {{count}} test case(s); the list updates as they finish.",
+      "skipInvalid": "Skip invalid ({{count}})",
+      "skipInvalidHint": "\"Run all\" leaves out test cases whose FHIR validation found errors. Pending and never-validated cases still run."
     }
   },
   "populationTrace": {

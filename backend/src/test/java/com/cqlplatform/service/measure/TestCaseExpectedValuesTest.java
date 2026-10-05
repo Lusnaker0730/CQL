@@ -69,7 +69,8 @@ class TestCaseExpectedValuesTest {
         StratifierEvaluator stratifierEvaluator =
                 new StratifierEvaluator(populationEvaluator, new MeasureScoreCalculator());
         service = new TestCaseService(repository, definitionService, cqlExecutionService,
-                dateShiftService, FhirContext.forR4Cached(), populationEvaluator, stratifierEvaluator);
+                dateShiftService, FhirContext.forR4Cached(), populationEvaluator, stratifierEvaluator,
+                org.mockito.Mockito.mock(TestCaseValidationService.class));
         lenient().when(repository.save(any(TestCaseEntity.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
