@@ -863,6 +863,13 @@ public class MeasureController {
 
     // ===== Workflow =====
 
+    @GetMapping("/{id}/approval-readiness")
+    @Operation(summary = "Approval Readiness", description = "PAT-249: what blocks submit-for-review / approve (CQL that does not translate, FHIR-invalid test cases, test cases that do not pass on the current logic), the warnings, and whether the caller may approve under the four-eyes rule")
+    public ResponseEntity<ApprovalReadiness> getApprovalReadiness(@PathVariable Long id) {
+        requireMeasure(id);
+        return ResponseEntity.ok(definitionService.getApprovalReadiness(id, ownershipVerifier.getCurrentUsername()));
+    }
+
     @PostMapping("/{id}/submit-for-review")
     @Operation(summary = "Submit for Review", description = "Submits a draft measure for review")
     public ResponseEntity<MeasureDefinition> submitForReview(

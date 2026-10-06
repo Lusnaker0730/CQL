@@ -1,0 +1,7 @@
+{
+  "type": "approval-gates",
+  "blockerCode": "TEST_CASE_NOT_PASSING",
+  "notReadyError": "Measure Not Ready",
+  "fourEyesError": "Approval Not Allowed",
+  "_note": "PAT-249 approval gates + four-eyes (MADiE gap item 8a). A raw draft measure is ready while it has no test cases (NO_TEST_CASES is a warning). A test case whose expectation is wrong (adult expected OUT of the IP) is FHIR-valid but FAILS, so GET /approval-readiness reports ready=false with TEST_CASE_NOT_PASSING naming the case, and submit-for-review is refused with 409 'Measure Not Ready' + details. Fixing the expectation makes the run pass, readiness ready=true and submit succeed. The owner (admin, also the submitter) is then refused as approver with 403 'Approval Not Allowed'; after sharing with the seeded 'demo' user, demo's approve makes the measure active with approvedBy=demo. The scenario-31 CQL (IP = age >= 18 at the end of the Measurement Period) is reused; test cases run in the current calendar year, so a 1980 birth date is always in."
+}

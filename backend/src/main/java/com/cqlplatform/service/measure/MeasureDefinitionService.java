@@ -39,6 +39,8 @@ public class MeasureDefinitionService {
     private final com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
     /** PAT-246: a new version starts with the previous version's test cases. */
     private final com.cqlplatform.repository.TestCaseRepository testCaseRepository;
+    /** PAT-249: blockers stop submit / approve; four-eyes refuses the author as approver. */
+    private final ApprovalReadinessService readinessService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -652,6 +654,7 @@ public class MeasureDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), IN_REVIEW);
+        readinessService.requireReady(entity, "be submitted for review");
 
         String oldStatus = entity.getStatus();
         entity.setStatus(IN_REVIEW);
@@ -671,6 +674,8 @@ public class MeasureDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), ACTIVE);
+        readinessService.requireFourEyes(entity, currentUser);
+        readinessService.requireReady(entity, "be approved");
 
         String oldStatus = entity.getStatus();
         entity.setStatus(ACTIVE);
@@ -687,6 +692,14 @@ public class MeasureDefinitionService {
         notificationService.notifyMeasureApproved(currentUser, entity.getOwnerUsername(), entity.getName(), id);
 
         return entityToModel(entity);
+    }
+
+    /** PAT-249: what stands between the measure and its approval, with the four-eyes verdict for {@code currentUser}. */
+    @Transactional(readOnly = true)
+    public com.cqlplatform.model.measure.ApprovalReadiness getApprovalReadiness(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        return readinessService.check(entity, currentUser);
     }
 
     @Transactional
