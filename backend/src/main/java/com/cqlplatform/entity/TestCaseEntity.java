@@ -115,6 +115,23 @@ public class TestCaseEntity {
         lastRunActualPopulations = serializeMap(lastRunActualPopulationMap);
     }
 
+    /**
+     * BUG-148: write the column at the same time as the transient map. Hibernate dirty-checks
+     * persistent fields only and fires {@code @PreUpdate} only for dirty entities, so a change to
+     * the map alone (a PUT that edits nothing but the expectation) used to be answered with the new
+     * value and never written. Setting the serialized column here makes the entity dirty.
+     */
+    public void setExpectedPopulationMap(Map<String, Boolean> map) {
+        this.expectedPopulationMap = map != null ? map : new LinkedHashMap<>();
+        this.expectedPopulations = serializeMap(this.expectedPopulationMap);
+    }
+
+    /** BUG-148: same as {@link #setExpectedPopulationMap} for the last run's actual populations. */
+    public void setLastRunActualPopulationMap(Map<String, Boolean> map) {
+        this.lastRunActualPopulationMap = map != null ? map : new LinkedHashMap<>();
+        this.lastRunActualPopulations = serializeMap(this.lastRunActualPopulationMap);
+    }
+
     private void deserializeMaps() {
         expectedPopulationMap = deserializeMap(expectedPopulations);
         lastRunActualPopulationMap = deserializeMap(lastRunActualPopulations);
