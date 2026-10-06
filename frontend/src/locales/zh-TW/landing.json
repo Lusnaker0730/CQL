@@ -912,7 +912,8 @@
       "docs": "文件",
       "learn": "CQL 教學",
       "templates": "範本庫",
-      "login": "登入"
+      "login": "登入",
+      "faq": "常見問題"
     },
     "hero": {
       "eyebrow": "HL7 FHIR R4 · TW Core IG · Clinical Quality Language",
@@ -921,7 +922,7 @@
       "primaryCta": "申請試用",
       "secondaryCta": "看平台怎麼運作",
       "tertiaryCta": "先學 CQL",
-      "note": "診所帳號由平台團隊審核開通；每家診所在自己獨立的租戶內作業。",
+      "note": "推廣期免費。診所帳號由平台團隊審核開通；每家診所在自己獨立的租戶內作業。",
       "imageAlt": "視覺化 eCQM builder：由臨床元素組成的母群群組，旁邊是即時產生的 CQL"
     },
     "audiences": {
@@ -1106,9 +1107,63 @@
     },
     "cta": {
       "title": "準備用自己的指標試試看？",
-      "description": "申請診所帳號——平台團隊審核每一份申請，並為你建立獨立的租戶。",
+      "description": "FHIR 與 CQL 在台灣還在推廣階段，平台目前免費。申請診所帳號——平台團隊審核每一份申請，並為你建立獨立的租戶。",
       "apply": "申請試用",
       "login": "登入"
+    },
+    "trust": {
+      "title": "誰在維護、怎麼收費、資料放哪",
+      "subtitle": "把指標放上一個平台之前，大家會先問的事。",
+      "maintenance": {
+        "title": "維護與開放",
+        "description": "由 Claude Code 協作開發與維護，程式碼公開在 GitHub。每次變更都依 IEC 62304 / ISO 14971 留存需求、設計、風險與驗證紀錄。本平台不是已登記的醫療器材。",
+        "link": "GitHub 原始碼"
+      },
+      "standards": {
+        "title": "依循的標準",
+        "description": "HL7 FHIR R4 與 CQL，台灣端依衛生福利部公告的 TW Core IG（目前內建 1.0.0）。我們跟著衛福部公告的版本更新平台。",
+        "link": "TW Core IG（衛福部）"
+      },
+      "pricing": {
+        "title": "推廣期免費",
+        "description": "FHIR 與 CQL 在台灣仍在推廣階段，平台以免費方式提供、協助推廣。帳號採申請審核制，目前沒有付費方案。"
+      },
+      "data": {
+        "title": "你的資料",
+        "description": "每家診所一個租戶，隔離到資料庫列層級，每個指標操作都有稽核軌跡。建議以去識別化或合成病人資料撰寫與測試；平台用途是建立與驗證指標，不是臨床照護決策。"
+      }
+    },
+    "faq": {
+      "title": "常見問題",
+      "subtitle": "",
+      "cost": {
+        "q": "需要付費嗎？",
+        "a": "不用。FHIR 與 CQL 在台灣的推廣期內平台免費；若未來有變動，會提前通知既有診所。"
+      },
+      "whoCanApply": {
+        "q": "誰可以申請？要等多久？",
+        "a": "醫院、診所、醫資團隊與學研單位都可以。填寫申請表後由平台團隊審核，通過會以 email 寄一次性的開通連結，通常幾個工作天內。"
+      },
+      "needCql": {
+        "q": "我需要會寫 CQL 嗎？",
+        "a": "建指標不需要：視覺化 builder 用臨床元素組出母群並自動產生 CQL。想讀或手寫 CQL 的話，有編輯器與學習中心（HL7 CQL 官方教學的翻譯）。"
+      },
+      "data": {
+        "q": "我的資料放在哪裡？安全嗎？",
+        "a": "放在平台自己的資料庫、只屬於你診所的租戶裡；隔離在資料庫列層級強制執行，每個指標操作都留稽核。建議用去識別化或合成病人資料撰寫與測試。本平台不是已登記的醫療器材。"
+      },
+      "portability": {
+        "q": "指標可以帶走嗎？",
+        "a": "可以。指標匯出成 HL7 CQF Measures 封裝（Measure + Library + ValueSet）、測試案例匯出成 MADiE 相容的 zip、結果匯出成 FHIR MeasureReport、Excel 或 CSV，不綁定平台。"
+      },
+      "standards": {
+        "q": "支援哪些標準版本？",
+        "a": "FHIR R4（4.0.1）、HL7 CQL（參考實作引擎）、目前內建的 TW Core IG 1.0.0、CQF Measures IG 封裝與 CDS Hooks。我們跟著衛福部公告的版本更新。"
+      },
+      "support": {
+        "q": "怎麼回報問題或談合作？",
+        "a": "寫信到頁尾的信箱，或到 GitHub 開 issue；服務狀態頁可以看目前運作情形。"
+      }
     }
   },
   "login": {

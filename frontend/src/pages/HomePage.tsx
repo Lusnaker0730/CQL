@@ -1,6 +1,11 @@
-import { Box, Button, Chip, Container, Paper, Stack, Typography } from '@mui/material'
+import { Accordion, AccordionDetails, AccordionSummary, Box, Button, Chip, Container, Link, Paper, Stack, Typography } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import {
+  ExpandMore as ExpandMoreIcon,
+  Handyman as MaintainIcon,
+  Gavel as StandardsIcon,
+  VolunteerActivism as FreeIcon,
+  Lock as DataIcon2,
   LocalHospital as MedicalIcon,
   School as LearnIcon,
   Login as LoginIcon,
@@ -59,6 +64,19 @@ const DEMO_SHOTS = [
 
 const STANDARDS = ['HL7 FHIR R4', 'TW Core IG', 'HL7 CQL', 'CQF Measures IG', 'CDS Hooks', 'MADiE-compatible test cases']
 
+const GITHUB_URL = 'https://github.com/Lusnaker0730/CQL'
+const TWCORE_URL = 'https://twcore.mohw.gov.tw/ig/twcore/'
+
+/** PAT-251 trust section: who maintains it, which standards it follows, what it costs, where the data lives. */
+const TRUST = [
+  { key: 'maintenance', icon: MaintainIcon, color: '#1B3A5C', href: GITHUB_URL },
+  { key: 'standards', icon: StandardsIcon, color: '#0D7377', href: TWCORE_URL },
+  { key: 'pricing', icon: FreeIcon, color: '#E8A838', href: undefined },
+  { key: 'data', icon: DataIcon2, color: '#14A3A8', href: undefined },
+] as const
+
+const FAQ_KEYS = ['cost', 'whoCanApply', 'needCql', 'data', 'portability', 'standards', 'support'] as const
+
 function SectionTitle({ title, subtitle, id }: { title: string; subtitle?: string; id?: string }) {
   return (
     <Box id={id} sx={{ textAlign: 'center', mb: 5, scrollMarginTop: 80 }}>
@@ -100,6 +118,7 @@ export default function HomePage() {
     { key: 'docs', onClick: () => navigate('/docs') },
     { key: 'learn', onClick: () => navigate('/learn') },
     { key: 'templates', onClick: () => navigate('/templates') },
+    { key: 'faq', onClick: () => scrollTo('faq') },
   ]
 
   return (
@@ -318,6 +337,47 @@ export default function HomePage() {
           </Container>
         </Box>
         <CqlShowcase />
+
+        {/* Trust + FAQ */}
+        <Box component="section" sx={{ py: { xs: 7, md: 9 } }}>
+          <Container maxWidth="lg">
+            <SectionTitle id="trust" title={t('home.trust.title')} subtitle={t('home.trust.subtitle')} />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
+              {TRUST.map(({ key, icon: Icon, color, href }) => (
+                <Paper key={key} variant="outlined" sx={{ p: 3, borderRadius: 3 }} data-testid={`trust-${key}`}>
+                  <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', mb: 1.5 }}>
+                    <Box sx={{ width: 40, height: 40, borderRadius: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(color, 0.12) }}>
+                      <Icon sx={{ color }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>{t(`home.trust.${key}.title`)}</Typography>
+                  </Stack>
+                  <Typography variant="body2" color="text.secondary">{t(`home.trust.${key}.description`)}</Typography>
+                  {href && (
+                    <Link href={href} target="_blank" rel="noopener noreferrer" variant="body2" sx={{ display: 'inline-block', mt: 1.5, fontWeight: 600 }}>
+                      {t(`home.trust.${key}.link`)}
+                    </Link>
+                  )}
+                </Paper>
+              ))}
+            </Box>
+
+            <Box sx={{ mt: { xs: 7, md: 9 } }}>
+              <SectionTitle id="faq" title={t('home.faq.title')} subtitle={t('home.faq.subtitle')} />
+              <Box sx={{ maxWidth: 880, mx: 'auto' }}>
+                {FAQ_KEYS.map((key) => (
+                  <Accordion key={key} disableGutters elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: '12px !important', mb: 1.5, '&:before': { display: 'none' } }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls={`faq-${key}-content`} id={`faq-${key}-header`}>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>{t(`home.faq.${key}.q`)}</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ pt: 0 }}>
+                      <Typography variant="body2" color="text.secondary">{t(`home.faq.${key}.a`)}</Typography>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+              </Box>
+            </Box>
+          </Container>
+        </Box>
 
         {/* Closing CTA */}
         <Box component="section" sx={(theme) => ({ background: heroGradient(theme), color: 'common.white', py: { xs: 7, md: 8 } })}>

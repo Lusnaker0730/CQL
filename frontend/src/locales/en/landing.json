@@ -912,7 +912,8 @@
       "docs": "Docs",
       "learn": "Learn CQL",
       "templates": "Templates",
-      "login": "Sign in"
+      "login": "Sign in",
+      "faq": "FAQ"
     },
     "hero": {
       "eyebrow": "HL7 FHIR R4 · TW Core IG · Clinical Quality Language",
@@ -921,7 +922,7 @@
       "primaryCta": "Apply for access",
       "secondaryCta": "See how it works",
       "tertiaryCta": "Learn CQL first",
-      "note": "Clinic accounts are reviewed by the platform team; each clinic works in its own isolated tenant.",
+      "note": "Free during the adoption period. Clinic accounts are reviewed by the platform team; each clinic works in its own isolated tenant.",
       "imageAlt": "The visual eCQM builder: population groups assembled from clinical elements, with the generated CQL alongside"
     },
     "audiences": {
@@ -1106,9 +1107,63 @@
     },
     "cta": {
       "title": "Ready to try it with your own indicators?",
-      "description": "Apply for a clinic account — the platform team reviews every application and sets up an isolated tenant for you.",
+      "description": "The platform is free while FHIR and CQL are being adopted in Taiwan. Apply for a clinic account — the platform team reviews every application and sets up an isolated tenant for you.",
       "apply": "Apply for access",
       "login": "Sign in"
+    },
+    "trust": {
+      "title": "Who is behind it, and on what terms",
+      "subtitle": "The things people ask before they put their indicators on a platform.",
+      "maintenance": {
+        "title": "Maintenance & openness",
+        "description": "Developed and maintained with Claude Code as the engineering collaborator; the source is public on GitHub. Requirements, design, risks and verification are recorded per IEC 62304 / ISO 14971 for every change. The platform is not a registered medical device.",
+        "link": "Source code on GitHub"
+      },
+      "standards": {
+        "title": "Standards we follow",
+        "description": "HL7 FHIR R4 and CQL, with the Ministry of Health and Welfare’s TW Core IG as the Taiwan profile (currently bundled: 1.0.0). We track the versions the Ministry publishes and update the platform as they change.",
+        "link": "TW Core IG (MOHW)"
+      },
+      "pricing": {
+        "title": "Free during adoption",
+        "description": "FHIR and CQL are still being introduced in Taiwan, so the platform is offered free of charge to promote them. Accounts are approved on application; there is no paid tier today."
+      },
+      "data": {
+        "title": "Your data",
+        "description": "Every clinic has its own tenant, isolated down to the database row, with a full audit trail of who did what. Use de-identified or synthetic patients for authoring and testing; the platform is for building and verifying measures, not for clinical care decisions."
+      }
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "subtitle": "",
+      "cost": {
+        "q": "Does it cost anything?",
+        "a": "No. The platform is free during the adoption period for FHIR and CQL in Taiwan. If that ever changes, existing clinics will be told well in advance."
+      },
+      "whoCanApply": {
+        "q": "Who can apply, and how long does it take?",
+        "a": "Hospitals, clinics, health-IT teams and academic groups. Fill in the application form; the platform team reviews it and emails you a one-time setup link, usually within a few working days."
+      },
+      "needCql": {
+        "q": "Do I need to know CQL?",
+        "a": "Not to build a measure: the visual builder assembles populations from clinical elements and generates the CQL for you. If you want to read or hand-write CQL, the editor and the learning center (a translation of the HL7 CQL tutorial) are there."
+      },
+      "data": {
+        "q": "Where does my data live? Is it safe?",
+        "a": "In the platform’s own database, in a tenant that belongs to your clinic only; isolation is enforced at the database row level and every measure action is audited. We recommend de-identified or synthetic patients for authoring and testing. The platform is not a registered medical device."
+      },
+      "portability": {
+        "q": "Can I take my measures elsewhere?",
+        "a": "Yes. Measures export as HL7 CQF Measures packages (Measure + Library + ValueSet), test cases as MADiE-compatible zips, results as FHIR MeasureReport, Excel or CSV. Nothing is locked in."
+      },
+      "standards": {
+        "q": "Which standard versions are supported?",
+        "a": "FHIR R4 (4.0.1), HL7 CQL via the reference CQL engine, TW Core IG 1.0.0 as bundled today, CQF Measures IG packaging and CDS Hooks. We follow the versions the Ministry of Health and Welfare publishes."
+      },
+      "support": {
+        "q": "How do I report a problem or discuss a collaboration?",
+        "a": "Email the address in the footer, or open an issue on the GitHub repository. Service status is on the status page."
+      }
     }
   },
   "login": {

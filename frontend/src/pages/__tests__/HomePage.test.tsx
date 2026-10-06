@@ -44,6 +44,20 @@ describe('HomePage', () => {
     expect(screen.getByText('home.cta.title')).toBeInTheDocument()
   })
 
+  it('shows the trust cards (maintenance, standards, free, data) with outbound links and the FAQ', () => {
+    render(<HomePage />)
+
+    for (const k of ['maintenance', 'standards', 'pricing', 'data']) {
+      expect(screen.getByTestId(`trust-${k}`)).toHaveTextContent(`home.trust.${k}.title`)
+    }
+    expect(screen.getByRole('link', { name: 'home.trust.maintenance.link' })).toHaveAttribute('href', 'https://github.com/Lusnaker0730/CQL')
+    expect(screen.getByRole('link', { name: 'home.trust.standards.link' })).toHaveAttribute('href', 'https://twcore.mohw.gov.tw/ig/twcore/')
+    for (const k of ['cost', 'whoCanApply', 'needCql', 'data', 'portability', 'standards', 'support']) {
+      expect(screen.getByText(`home.faq.${k}.q`)).toBeInTheDocument()
+    }
+    expect(screen.getByRole('button', { name: 'home.nav.faq' })).toBeInTheDocument()
+  })
+
   it('wires the calls to action: apply, sign in, learn, docs, templates', () => {
     render(<HomePage />)
 
