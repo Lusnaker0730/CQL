@@ -179,7 +179,9 @@ export default function HomePage() {
                 <Typography variant="overline" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.8), letterSpacing: 2 })}>
                   {t('home.hero.eyebrow')}
                 </Typography>
-                <Typography variant="h3" component="h1" sx={{ fontWeight: 800, lineHeight: 1.2, mt: 1, mb: 2, fontSize: { xs: '2rem', md: '2.75rem' } }}>
+                {/* BUG-149: the theme colours every h1–h4 secondary.main, which is the hero gradient's own colour —
+                    headings on the gradient must say white explicitly */}
+                <Typography variant="h3" component="h1" sx={{ color: 'common.white', fontWeight: 800, lineHeight: 1.2, mt: 1, mb: 2, fontSize: { xs: '2rem', md: '2.75rem' } }}>
                   {t('home.hero.title')}
                 </Typography>
                 <Typography variant="h6" component="p" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.9), fontWeight: 400, mb: 3 })}>
@@ -382,7 +384,7 @@ export default function HomePage() {
         {/* Closing CTA */}
         <Box component="section" sx={(theme) => ({ background: heroGradient(theme), color: 'common.white', py: { xs: 7, md: 8 } })}>
           <Container maxWidth="md" sx={{ textAlign: 'center' }}>
-            <Typography variant="h4" component="h2" sx={{ fontWeight: 700, mb: 1.5 }}>{t('home.cta.title')}</Typography>
+            <Typography variant="h4" component="h2" sx={{ color: 'common.white', fontWeight: 700, mb: 1.5 }}>{t('home.cta.title')}</Typography>
             <Typography variant="body1" sx={(theme) => ({ color: alpha(theme.palette.common.white, 0.85), mb: 3 })}>{t('home.cta.description')}</Typography>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ justifyContent: 'center' }}>
               <Button variant="contained" size="large" onClick={() => navigate('/apply')} sx={(theme) => ({ bgcolor: 'common.white', color: '#0D7377', fontWeight: 700, textTransform: 'none', '&:hover': { bgcolor: alpha(theme.palette.common.white, 0.9) } })}>
