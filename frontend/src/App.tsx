@@ -32,6 +32,8 @@ const AuthoringPage = lazy(() => import('./pages/AuthoringPage'))
 const EcqmPage = lazy(() => import('./pages/EcqmPage'))
 const OktaCallbackPage = lazy(() => import('./pages/OktaCallbackPage'))
 const LearnPage = lazy(() => import('./pages/LearnPage'))
+// PAT-251: the public home page a signed-out visitor sees at `/` (the login form lives at /login)
+const HomePage = lazy(() => import('./pages/HomePage'))
 const TemplateCatalogPage = lazy(() => import('./pages/TemplateCatalogPage'))
 const StatusPage = lazy(() => import('./pages/StatusPage'))
 const DocsPage = lazy(() => import('./pages/DocsPage'))
@@ -73,7 +75,7 @@ export default function App() {
         <Route
           path="/*"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute publicHome={<Suspense fallback={<PageLoadingFallback />}><HomePage /></Suspense>}>
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
                 <Header />
                 <EhrOutageBanner />

@@ -243,7 +243,7 @@
       "quiz": "Self Quiz"
     },
     "seo": {
-      "defaultTitle": "CQL Learning Center — Taiwan CQL Platform",
+      "defaultTitle": "CQL Learning Center — Taiwan CQL Clinical Quality Platform",
       "defaultDescription": "Learn Clinical Quality Language (CQL) from scratch — tutorials, interactive examples, TWCORE IG guide, eCQM, FHIRPath, and hands-on playground.",
       "introduction": "Introduction to CQL — What is Clinical Quality Language, why it matters for healthcare quality measurement, and how it works with FHIR.",
       "concepts": "CQL Core Concepts — Data types, expressions, queries, retrieve statements, and clinical logic building blocks.",
@@ -899,5 +899,275 @@
     "successMessage": "Application received. The platform team will review it and contact you by email.",
     "backToHome": "Back to home",
     "failed": "Failed to submit the application. Please try again later."
+  },
+  "home": {
+    "seo": {
+      "title": "Taiwan CQL Clinical Quality Platform — build, verify and exchange clinical quality measures and CDS",
+      "description": "Turn clinical quality measures from documents into executable, verifiable, exchangeable logic: build eCQMs visually, verify them with test cases, evaluate FHIR / TW Core patient data, export HL7 packages and serve CDS Hooks."
+    },
+    "nav": {
+      "ariaLabel": "Site",
+      "features": "Features",
+      "howItWorks": "How it works",
+      "docs": "Docs",
+      "learn": "Learn CQL",
+      "templates": "Templates",
+      "login": "Sign in",
+      "faq": "FAQ"
+    },
+    "hero": {
+      "eyebrow": "HL7 FHIR R4 · TW Core IG · Clinical Quality Language",
+      "title": "Turn clinical quality measures into logic you can run, verify and exchange",
+      "subtitle": "For hospital quality teams, clinics and health-IT developers in Taiwan: build eCQMs and CDS rules visually, prove them with test cases, evaluate real FHIR data, and hand over HL7-standard packages.",
+      "primaryCta": "Apply for access",
+      "secondaryCta": "See how it works",
+      "tertiaryCta": "Learn CQL first",
+      "note": "Free during the adoption period. Clinic accounts are reviewed by the platform team; each clinic works in its own isolated tenant.",
+      "imageAlt": "The visual eCQM builder: population groups assembled from clinical elements, with the generated CQL alongside"
+    },
+    "audiences": {
+      "title": "Who it is for",
+      "subtitle": "Three kinds of teams use the platform — each gets a different part of the same toolchain.",
+      "hospital": {
+        "title": "Hospital quality & patient safety",
+        "description": "Own your indicators end to end instead of hand-counting from reports.",
+        "point1": "Define proportion / ratio / continuous-variable / cohort measures without writing CQL",
+        "point2": "Verify each version with test cases before a second reviewer approves it",
+        "point3": "Score monthly on FHIR data and export MeasureReport, Excel or CSV"
+      },
+      "clinic": {
+        "title": "Clinics & primary care",
+        "description": "Start from your patients’ My Health Bank bundles — no data warehouse needed.",
+        "point1": "Upload My Health Bank or EHR FHIR bundles as patient data",
+        "point2": "Reuse ready-made TW Core measure templates",
+        "point3": "Get CDS Hooks reminders in the consultation workflow"
+      },
+      "developer": {
+        "title": "Health-IT developers",
+        "description": "A standards-based CQL toolchain with an API, not a black box.",
+        "point1": "Monaco CQL editor with live translation, ELM and clause-level coverage",
+        "point2": "Exchange CQF Measures packages and MADiE-compatible test cases",
+        "point3": "API keys, CDS Hooks discovery and a FHIR R4 server to integrate against"
+      }
+    },
+    "howItWorks": {
+      "title": "How it works",
+      "subtitle": "From patient data to an approved, running measure in four steps.",
+      "import": {
+        "title": "Bring in patient data",
+        "description": "Upload My Health Bank FHIR bundles, connect an EHR, or generate TW Core-conformant synthetic patients. Everything is validated against TW Core IG profiles.",
+        "tag1": "My Health Bank bundle",
+        "tag2": "EHR connection",
+        "tag3": "Synthetic patients",
+        "imageAlt": "The synthetic patient generator producing TW Core-conformant test patients"
+      },
+      "build": {
+        "title": "Build the measure visually",
+        "description": "Assemble initial population, denominator, numerator, exclusions, stratifiers and observations from clinical elements. The CQL is generated and translated as you go.",
+        "tag1": "Population groups",
+        "tag2": "Stratifiers & SDE",
+        "tag3": "Live CQL",
+        "imageAlt": "The eCQM builder workspace"
+      },
+      "verify": {
+        "title": "Verify with test cases, then approve",
+        "description": "Each test case is a FHIR patient plus the expected counts. Runs compare expected to actual clause by clause; FHIR validation, readiness checks and a four-eyes approval gate stand before the measure goes live.",
+        "tag1": "Expected vs actual",
+        "tag2": "FHIR validation",
+        "tag3": "Four-eyes approval",
+        "imageAlt": "Test cases with validation status, run results and the approval readiness panel"
+      },
+      "run": {
+        "title": "Evaluate, report and alert",
+        "description": "Score the approved measure on your patients for any measurement period, export FHIR MeasureReport / Excel / CSV, schedule runs, and serve the same logic as CDS Hooks reminders.",
+        "tag1": "MeasureReport export",
+        "tag2": "Scheduled runs",
+        "tag3": "CDS Hooks",
+        "imageAlt": "Report history of a measure: score, status and duration of each evaluation"
+      }
+    },
+    "capabilities": {
+      "title": "What the platform offers",
+      "subtitle": "A complete toolchain around HL7 CQL, grouped by what you need it for.",
+      "authoring": {
+        "title": "Authoring",
+        "builder": {
+          "title": "Visual eCQM & CDS builder",
+          "description": "Drag clinical elements into population groups; CQL is generated, translated and validated live."
+        },
+        "editor": {
+          "title": "CQL editor",
+          "description": "Monaco with syntax highlighting, completion, TW Core snippets and ELM output."
+        },
+        "templates": {
+          "title": "TW Core templates",
+          "description": "Ready-made CQL for common Taiwanese indicators you can copy and adapt."
+        },
+        "libraries": {
+          "title": "Shared CQL libraries",
+          "description": "Upload libraries, call their functions from the builder, pin versions."
+        }
+      },
+      "verification": {
+        "title": "Verification & review",
+        "testCases": {
+          "title": "Test cases",
+          "description": "FHIR patient bundles with expected counts, observations and strata; run one or all."
+        },
+        "validation": {
+          "title": "FHIR validation",
+          "description": "Every test patient is validated against TW Core IG profiles in the background."
+        },
+        "coverage": {
+          "title": "Clause-level coverage",
+          "description": "See which CQL clauses your test cases actually exercised."
+        },
+        "approval": {
+          "title": "Readiness gate & four-eyes",
+          "description": "CQL errors or failing test cases block submission; the author cannot approve their own measure."
+        }
+      },
+      "exchange": {
+        "title": "Standards & exchange",
+        "cqfmPackage": {
+          "title": "CQF Measures packages",
+          "description": "Export / import Measure + Library + ValueSet bundles with a conformance report."
+        },
+        "madieTestCases": {
+          "title": "MADiE-compatible test cases",
+          "description": "Zip of FHIR bundles with test-case MeasureReports, both directions."
+        },
+        "fhirReports": {
+          "title": "FHIR MeasureReport",
+          "description": "Evaluation results as FHIR, Excel or CSV, including stratifier and supplemental data."
+        },
+        "cdsHooks": {
+          "title": "CDS Hooks services",
+          "description": "Publish rules as standard CDS Hooks services with prefetch and cards."
+        }
+      },
+      "data": {
+        "title": "Data sources",
+        "myHealthBank": {
+          "title": "My Health Bank import",
+          "description": "Upload a patient’s 健康存摺 FHIR bundle as test or evaluation data."
+        },
+        "ehr": {
+          "title": "EHR connections",
+          "description": "SMART Backend Services connection to pull patients from an EHR."
+        },
+        "patientGenerator": {
+          "title": "Synthetic patient generator",
+          "description": "TW Core-conformant fake patients with configurable conditions, labs and medications."
+        },
+        "terminology": {
+          "title": "Terminology & value sets",
+          "description": "Browse ICD-10, LOINC, NHI codes; author and version your own value sets."
+        }
+      },
+      "governance": {
+        "title": "Governance & security",
+        "tenants": {
+          "title": "Isolated clinic tenants",
+          "description": "Each clinic has its own tenant; data is separated down to the database row."
+        },
+        "approvalFlow": {
+          "title": "Versioned review workflow",
+          "description": "Draft → review → active with versioning, supersession and locked logic after approval."
+        },
+        "audit": {
+          "title": "Audit trail",
+          "description": "Who created, changed, submitted, approved or retired every measure."
+        },
+        "apiKeys": {
+          "title": "API keys & SSO",
+          "description": "Programmatic access, CDS Hooks authentication, Okta sign-in."
+        }
+      }
+    },
+    "demo": {
+      "title": "What it looks like",
+      "subtitle": "Screens from a platform instance running synthetic data.",
+      "measures": {
+        "title": "Measure workspace",
+        "description": "Versions, lifecycle status, test cases, evaluation and report history for each measure — the approved logic is locked, changes go into a new version.",
+        "imageAlt": "The measure list with versions and status"
+      },
+      "report": {
+        "title": "eCQM dashboard",
+        "description": "Every measure’s status and score trend per period, with threshold alerts, on one screen.",
+        "imageAlt": "The eCQM dashboard: measure counts by status and score trend charts"
+      },
+      "templatesCta": "Browse the template catalog",
+      "docsCta": "Read the documentation"
+    },
+    "standards": {
+      "title": "Built on open standards",
+      "subtitle": "Everything you author or export follows HL7 and Taiwan Ministry of Health and Welfare specifications."
+    },
+    "cta": {
+      "title": "Ready to try it with your own indicators?",
+      "description": "The platform is free while FHIR and CQL are being adopted in Taiwan. Apply for a clinic account — the platform team reviews every application and sets up an isolated tenant for you.",
+      "apply": "Apply for access",
+      "login": "Sign in"
+    },
+    "trust": {
+      "title": "Who is behind it, and on what terms",
+      "subtitle": "The things people ask before they put their indicators on a platform.",
+      "maintenance": {
+        "title": "Maintenance & openness",
+        "description": "Developed and maintained with Claude Code as the engineering collaborator; the source is public on GitHub. Requirements, design, risks and verification are recorded per IEC 62304 / ISO 14971 for every change. The platform is not a registered medical device.",
+        "link": "Source code on GitHub"
+      },
+      "standards": {
+        "title": "Standards we follow",
+        "description": "HL7 FHIR R4 and CQL, with the Ministry of Health and Welfare’s TW Core IG as the Taiwan profile (currently bundled: 1.0.0). We track the versions the Ministry publishes and update the platform as they change.",
+        "link": "TW Core IG (MOHW)"
+      },
+      "pricing": {
+        "title": "Free during adoption",
+        "description": "FHIR and CQL are still being introduced in Taiwan, so the platform is offered free of charge to promote them. Accounts are approved on application; there is no paid tier today."
+      },
+      "data": {
+        "title": "Your data",
+        "description": "Every clinic has its own tenant, isolated down to the database row, with a full audit trail of who did what. Use de-identified or synthetic patients for authoring and testing; the platform is for building and verifying measures, not for clinical care decisions."
+      }
+    },
+    "faq": {
+      "title": "Frequently asked questions",
+      "subtitle": "",
+      "cost": {
+        "q": "Does it cost anything?",
+        "a": "No. The platform is free during the adoption period for FHIR and CQL in Taiwan. If that ever changes, existing clinics will be told well in advance."
+      },
+      "whoCanApply": {
+        "q": "Who can apply, and how long does it take?",
+        "a": "Hospitals, clinics, health-IT teams and academic groups. Fill in the application form; the platform team reviews it and emails you a one-time setup link, usually within a few working days."
+      },
+      "needCql": {
+        "q": "Do I need to know CQL?",
+        "a": "Not to build a measure: the visual builder assembles populations from clinical elements and generates the CQL for you. If you want to read or hand-write CQL, the editor and the learning center (a translation of the HL7 CQL tutorial) are there."
+      },
+      "data": {
+        "q": "Where does my data live? Is it safe?",
+        "a": "In the platform’s own database, in a tenant that belongs to your clinic only; isolation is enforced at the database row level and every measure action is audited. We recommend de-identified or synthetic patients for authoring and testing. The platform is not a registered medical device."
+      },
+      "portability": {
+        "q": "Can I take my measures elsewhere?",
+        "a": "Yes. Measures export as HL7 CQF Measures packages (Measure + Library + ValueSet), test cases as MADiE-compatible zips, results as FHIR MeasureReport, Excel or CSV. Nothing is locked in."
+      },
+      "standards": {
+        "q": "Which standard versions are supported?",
+        "a": "FHIR R4 (4.0.1), HL7 CQL via the reference CQL engine, TW Core IG 1.0.0 as bundled today, CQF Measures IG packaging and CDS Hooks. We follow the versions the Ministry of Health and Welfare publishes."
+      },
+      "support": {
+        "q": "How do I report a problem or discuss a collaboration?",
+        "a": "Email the address in the footer, or open an issue on the GitHub repository. Service status is on the status page."
+      }
+    }
+  },
+  "login": {
+    "backHome": "Home",
+    "pageTitle": "Sign in"
   }
 }
