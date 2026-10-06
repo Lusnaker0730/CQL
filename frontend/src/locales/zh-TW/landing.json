@@ -1116,7 +1116,7 @@
       "subtitle": "把指標放上一個平台之前，大家會先問的事。",
       "maintenance": {
         "title": "維護與開放",
-        "description": "由 Claude Code 協作開發與維護，程式碼公開在 GitHub。每次變更都依 IEC 62304 / ISO 14971 留存需求、設計、風險與驗證紀錄。本平台不是已登記的醫療器材。",
+        "description": "由呂侑穎醫師與 Claude Code 共同開發與維護，程式碼公開在 GitHub。每次變更都依 IEC 62304 / ISO 14971 留存需求、設計、風險與驗證紀錄。本平台不是已登記的醫療器材。",
         "link": "GitHub 原始碼"
       },
       "standards": {

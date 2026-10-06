@@ -1116,7 +1116,7 @@
       "subtitle": "The things people ask before they put their indicators on a platform.",
       "maintenance": {
         "title": "Maintenance & openness",
-        "description": "Developed and maintained with Claude Code as the engineering collaborator; the source is public on GitHub. Requirements, design, risks and verification are recorded per IEC 62304 / ISO 14971 for every change. The platform is not a registered medical device.",
+        "description": "Developed and maintained by Dr. 呂侑穎 (physician) together with Claude Code as the engineering collaborator; the source is public on GitHub. Requirements, design, risks and verification are recorded per IEC 62304 / ISO 14971 for every change. The platform is not a registered medical device.",
         "link": "Source code on GitHub"
       },
       "standards": {
