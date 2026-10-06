@@ -111,7 +111,6 @@ class TestCaseValidationServiceTest {
         TestCaseEntity entity = TestCaseEntity.builder().id(7L).measureDefinitionId(1L).title("t")
                 .patientBundleJson("{\"resourceType\":\"Bundle\"}").build();
         when(repository.findById(7L)).thenReturn(Optional.of(entity));
-        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
         when(fhirValidationService.validateBundle(anyString())).thenReturn(new FhirValidationService.BundleValidationResult(
                 1, 0, 1, List.of(entry("Patient", "p1", false, issue("error", "bad")))));
 
@@ -121,13 +120,20 @@ class TestCaseValidationServiceTest {
 
         service.scheduleValidation(7L); // no transaction → runs at once on the direct executor
 
-        assertThat(entity.getValidationStatus()).isEqualTo(TestCaseValidation.INVALID);
-        assertThat(entity.getValidatedAt()).isNotNull();
-        TestCaseValidation stored = TestCaseValidationService.read(entity.getValidationSummary());
+        // PAT-253: the outcome goes through the targeted update — the entity loaded before the
+        // validation is never saved (it is detached on the executor; a merge would wipe a lock taken
+        // meanwhile), so its in-memory copy stays untouched.
+        org.mockito.ArgumentCaptor<String> summary = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(repository).storeValidation(org.mockito.ArgumentMatchers.eq(7L),
+                org.mockito.ArgumentMatchers.eq(TestCaseValidation.INVALID), summary.capture(), any());
+        verify(repository, org.mockito.Mockito.never()).save(any());
+        TestCaseValidation stored = TestCaseValidationService.read(summary.getValue());
         assertThat(stored.getIssues()).extracting(TestCaseValidation.Issue::getMessage).containsExactly("bad");
+        assertThat(stored.getErrorCount()).isEqualTo(1);
+        entity.setValidationStatus(TestCaseValidation.INVALID);
+        entity.setValidationSummary(summary.getValue());
         assertThat(TestCaseValidationService.isInvalid(entity)).isTrue();
         assertThat(TestCaseValidationService.summaryFor(entity).getErrorCount()).isEqualTo(1);
-        verify(repository).save(entity);
     }
 
     @Test
@@ -153,7 +159,13 @@ class TestCaseValidationServiceTest {
         int scheduled = service().scheduleAll(5L);
 
         assertThat(scheduled).isEqualTo(2);
-        assertThat(a.getValidationStatus()).isEqualTo(TestCaseValidation.VALID);
-        assertThat(b.getValidationStatus()).isEqualTo(TestCaseValidation.VALID);
+        // queued as pending on the entities (saved inside scheduleAll), outcome stored per id by the
+        // targeted update (PAT-253: the executor never saves the entity it loaded)
+        assertThat(a.getValidationStatus()).isEqualTo(TestCaseValidation.PENDING);
+        assertThat(b.getValidationStatus()).isEqualTo(TestCaseValidation.PENDING);
+        verify(repository).storeValidation(org.mockito.ArgumentMatchers.eq(1L),
+                org.mockito.ArgumentMatchers.eq(TestCaseValidation.VALID), anyString(), any());
+        verify(repository).storeValidation(org.mockito.ArgumentMatchers.eq(2L),
+                org.mockito.ArgumentMatchers.eq(TestCaseValidation.VALID), anyString(), any());
     }
 }

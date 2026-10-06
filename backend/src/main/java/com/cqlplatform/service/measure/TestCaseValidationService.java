@@ -105,16 +105,20 @@ public class TestCaseValidationService {
         return entities.size();
     }
 
-    /** Validates the test case now, stores the outcome and returns it. */
-    @Transactional
+    /**
+     * Validates the test case now, stores the outcome and returns it.
+     *
+     * <p>PAT-253: the outcome is stored with a targeted update, never by saving the entity that was
+     * loaded before the (slow) validation. On the executor this method is called on {@code this},
+     * i.e. outside any transaction: that entity is detached, and saving it would merge its stale
+     * snapshot (no lock, the old title…) over whatever changed meanwhile. The CI smoke run caught an
+     * edit lock being wiped exactly that way, 40 ms after it was taken.
+     */
     public TestCaseValidation validateNow(Long testCaseId) {
-        TestCaseEntity entity = repository.findById(testCaseId)
+        String bundleJson = repository.findById(testCaseId).map(TestCaseEntity::getPatientBundleJson)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + testCaseId));
-        TestCaseValidation outcome = validate(entity.getPatientBundleJson());
-        entity.setValidationStatus(outcome.getStatus());
-        entity.setValidatedAt(outcome.getValidatedAt());
-        entity.setValidationSummary(write(outcome));
-        repository.save(entity);
+        TestCaseValidation outcome = validate(bundleJson);
+        repository.storeValidation(testCaseId, outcome.getStatus(), write(outcome), outcome.getValidatedAt());
         log.info("Validated test case {}: {} ({} resources, {} invalid, {} errors, {} warnings)",
                 testCaseId, outcome.getStatus(), outcome.getTotalResources(), outcome.getInvalidResources(),
                 outcome.getErrorCount(), outcome.getWarningCount());

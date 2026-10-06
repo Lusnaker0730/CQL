@@ -32,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TestCaseLockConcurrencyIntegrationTest {
 
     @Autowired private TestCaseService testCaseService;
+    @Autowired private TestCaseValidationService validationService;
     @Autowired private TestCaseRepository testCaseRepository;
     @Autowired private MeasureDefinitionRepository measureRepository;
     @Autowired private PlatformTransactionManager txManager;
@@ -39,8 +40,14 @@ class TestCaseLockConcurrencyIntegrationTest {
     private Long measureId;
     private Long testCaseId;
 
+    @org.junit.jupiter.api.BeforeEach
+    void tenant() {
+        com.cqlplatform.security.TenantContext.setCurrentTenantId(1L);
+    }
+
     @AfterEach
     void cleanUp() {
+        com.cqlplatform.security.TenantContext.clear();
         if (testCaseId != null) testCaseRepository.deleteById(testCaseId);
         if (measureId != null) measureRepository.deleteById(measureId);
     }
@@ -90,5 +97,35 @@ class TestCaseLockConcurrencyIntegrationTest {
         assertThat(after.getValidationStatus()).isEqualTo("valid");   // the late save landed…
         assertThat(after.getLockedBy()).isEqualTo("alice");           // …without wiping the lock
         assertThat(after.getLockedAt()).isNotNull();
+    }
+
+    /**
+     * The real background path (what the CI smoke run hit): the executor calls {@code validateNow}
+     * on the bean itself, outside any transaction, so the entity it loads is detached. A lock taken
+     * while the HAPI validation runs must survive the outcome being stored.
+     */
+    @Test
+    void aLockTakenWhileTheBackgroundValidationRuns_survivesItsStore() throws Exception {
+        measureId = measureRepository.save(MeasureDefinitionEntity.builder()
+                .name("LockRaceMeasure2").version("1.0.0").status("draft").scoringType("cohort")
+                .ownerUsername("owner").tenantId(1L).build()).getId();
+        testCaseId = testCaseRepository.save(TestCaseEntity.builder()
+                .measureDefinitionId(measureId).title("raced")
+                .patientBundleJson("{\"resourceType\":\"Bundle\",\"type\":\"collection\",\"entry\":[{\"resource\":{\"resourceType\":\"Patient\",\"id\":\"p\"}}]}")
+                .build()).getId();
+
+        validationService.scheduleValidation(testCaseId);  // no transaction here → on the executor right away
+        assertThat(testCaseService.lock(testCaseId, "alice").getLockedBy()).isEqualTo("alice");
+
+        long deadline = System.currentTimeMillis() + 60_000;
+        TestCaseEntity after;
+        do {
+            Thread.sleep(50);
+            after = testCaseRepository.findById(testCaseId).orElseThrow();
+        } while ((after.getValidationStatus() == null || "pending".equals(after.getValidationStatus()))
+                && System.currentTimeMillis() < deadline);
+
+        assertThat(after.getValidationStatus()).isNotNull().isNotEqualTo("pending"); // the outcome landed…
+        assertThat(after.getLockedBy()).isEqualTo("alice");                           // …and the lock is intact
     }
 }
