@@ -37,6 +37,8 @@ class EcqmPublishRoundTripIntegrationTest {
 
     private static final Long TENANT = 1L;
     private static final String OWNER = "roundtrip-owner";
+    /** PAT-249 four-eyes: the owner may not approve; a reviewer the measure is shared with does. */
+    private static final String REVIEWER = "roundtrip-reviewer";
 
     @Autowired private EcqmPublishService publishService;
     @Autowired private EcqmArtifactRepository artifactRepository;
@@ -144,7 +146,8 @@ class EcqmPublishRoundTripIntegrationTest {
         assertThat(first.getMeasureStatus()).isEqualTo("draft");
 
         measureDefinitionService.submitForReview(v1.getId(), OWNER);
-        measureDefinitionService.approveMeasure(v1.getId(), OWNER);
+        measureDefinitionService.shareMeasure(v1.getId(), REVIEWER, OWNER);
+        measureDefinitionService.approveMeasure(v1.getId(), REVIEWER);
         com.cqlplatform.entity.MeasureScheduleEntity schedule = scheduleRepository.saveAndFlush(
                 com.cqlplatform.entity.MeasureScheduleEntity.builder().measureDefinitionId(v1.getId())
                         .cronExpression("0 0 2 * * *").createdBy(OWNER).build());
@@ -184,7 +187,8 @@ class EcqmPublishRoundTripIntegrationTest {
 
         // approving v2 retires v1 and moves the schedule
         measureDefinitionService.submitForReview(v2.getId(), OWNER);
-        measureDefinitionService.approveMeasure(v2.getId(), OWNER);
+        measureDefinitionService.shareMeasure(v2.getId(), REVIEWER, OWNER);
+        measureDefinitionService.approveMeasure(v2.getId(), REVIEWER);
         flushAndClear();
         assertThat(measureRepository.findByIdAndTenantId(v1.getId(), TENANT).orElseThrow().getStatus()).isEqualTo("retired");
         assertThat(measureRepository.findByIdAndTenantId(v2.getId(), TENANT).orElseThrow().getStatus()).isEqualTo("active");
