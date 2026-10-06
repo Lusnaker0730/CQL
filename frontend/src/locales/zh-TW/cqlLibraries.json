@@ -65,7 +65,12 @@
     "unsavedTitle": "未儲存的變更",
     "unsavedMessage": "您有未儲存的變更。要在離開前儲存嗎？",
     "discardChanges": "捨棄變更",
-    "saveAndLeave": "儲存並離開"
+    "saveAndLeave": "儲存並離開",
+    "lock": "鎖定",
+    "unlock": "解除鎖定",
+    "lockedBy": "已被 {{user}} 鎖定",
+    "lockedUntil": "已被 {{user}} 鎖定至 {{until}}",
+    "lockedWarning": "已被 {{user}} 鎖定，解除或逾時前無法儲存。"
   },
   "header": {
     "backToList": "返回程式庫列表",
@@ -192,6 +197,8 @@
     "versionFailed": "建立版本失敗：{{error}}",
     "shareFailed": "分享程式庫失敗：{{error}}",
     "importFailed": "匯入程式庫失敗：{{error}}",
-    "exportFailed": "匯出程式庫失敗：{{error}}"
+    "exportFailed": "匯出程式庫失敗：{{error}}",
+    "lockFailed": "鎖定程式庫失敗：{{error}}",
+    "unlockFailed": "解除鎖定程式庫失敗：{{error}}"
   }
 }

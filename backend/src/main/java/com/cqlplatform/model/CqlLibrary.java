@@ -20,6 +20,10 @@ public class CqlLibrary {
     private String ownerUsername;
     private List<String> sharedWith;
     private String accessLevel;
+    /** PAT-253: active edit lock (holder, taken at, lapses at); all null when unlocked. */
+    private String lockedBy;
+    private LocalDateTime lockedAt;
+    private LocalDateTime lockExpiresAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

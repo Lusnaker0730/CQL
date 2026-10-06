@@ -79,8 +79,13 @@ public class MeasureDefinition {
     private String accessLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Active edit lock only (an expired lock reads as unlocked); see {@code util.EditLock}. */
     private String lockedBy;
     private LocalDateTime lockedAt;
+    /** PAT-253: when the active lock lapses; null when unlocked. */
+    private LocalDateTime lockExpiresAt;
+    /** PAT-253: the version lineage (measure set) this measure belongs to. Read-only: ignored on create / update. */
+    private Long measureSetId;
 
     // Workflow review tracking
     private String reviewedBy;

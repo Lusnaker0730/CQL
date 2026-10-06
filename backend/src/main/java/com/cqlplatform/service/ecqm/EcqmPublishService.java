@@ -30,6 +30,8 @@ public class EcqmPublishService {
     private final EcqmCqlGenerationService cqlGenerationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
+    /** PAT-253 */
+    private final com.cqlplatform.service.measure.MeasureSetService measureSetService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -112,8 +114,8 @@ public class EcqmPublishService {
                 throw new com.cqlplatform.exception.MeasureLogicLockedException(previous.getId(), previous.getStatus());
             } else {
                 String version = sameVersion
-                        || measureRepository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), previous.getName(), ecqm.getVersion())
-                        ? measureDefinitionService.nextFreeMinorVersion(previous.getName(), previous.getVersion())
+                        || measureDefinitionService.versionTaken(previous, ecqm.getVersion()) // PAT-253: within the set
+                        ? measureDefinitionService.nextFreeMinorVersion(previous)
                         : ecqm.getVersion();
                 Long newId = measureDefinitionService.createVersionAs(previous.getId(), version).getId();
                 measureDef = measureRepository.findByIdAndTenantId(newId, effectiveTenantId())
@@ -131,6 +133,7 @@ public class EcqmPublishService {
         }
 
         measureDef.setName(ecqm.getName());
+        measureSetService.rename(measureDef.getMeasureSetId(), measureDef.getTenantId(), ecqm.getName()); // PAT-253: the set follows a rename
         measureDef.setVersion(ecqm.getVersion());
         measureDef.setTitle(ecqm.getName());
         measureDef.setDescription(ecqm.getDescription());
@@ -256,6 +259,7 @@ public class EcqmPublishService {
                 .createdBy(currentUser)
                 .ownerUsername(currentUser)
                 .tenantId(ecqm.getTenantId()) // published measure inherits the artifact's tenant
+                .measureSetId(measureSetService.createFor(ecqm.getTenantId(), ecqm.getName())) // PAT-253: first publish opens the lineage
                 .build();
     }
 

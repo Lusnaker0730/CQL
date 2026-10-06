@@ -59,6 +59,10 @@ class MeasureDefinitionServiceTest {
     @Mock
     private ApprovalReadinessService readinessService;
 
+    /** PAT-253: opens / renames measure sets; unstubbed createFor returns 0L, which is fine for create tests. */
+    @Mock
+    private MeasureSetService measureSetService;
+
     @InjectMocks
     private MeasureDefinitionService service;
 
@@ -237,8 +241,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.lockMeasure(1L, "user1"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already locked");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("is locked by otherUser");
     }
 
     @Test
@@ -276,8 +280,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.unlockMeasure(1L, "wrongUser"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Only the lock holder or owner");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("only the lock holder or the owner");
     }
 
     // ===== Sharing =====
@@ -732,7 +736,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinition body = MeasureDefinition.builder().name("M").version("1.0.0").ownerUsername("bob").build();
 
         assertThatThrownBy(() -> service.update(1L, body, "alice"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
                 .hasMessageContaining("locked by bob");
     }
 

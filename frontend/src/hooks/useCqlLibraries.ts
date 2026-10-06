@@ -85,6 +85,29 @@ export function useDeleteCqlLibrary() {
   })
 }
 
+/** PAT-253: edit lock on a library (holder-only saves until released or expired). */
+export function useLockCqlLibrary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => cqlApi.lockLibrary(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: CQL_LIBRARIES_KEY })
+      queryClient.invalidateQueries({ queryKey: ['cql-library', id] })
+    },
+  })
+}
+
+export function useUnlockCqlLibrary() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => cqlApi.unlockLibrary(id),
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: CQL_LIBRARIES_KEY })
+      queryClient.invalidateQueries({ queryKey: ['cql-library', id] })
+    },
+  })
+}
+
 export function useCreateCqlLibraryVersion() {
   const queryClient = useQueryClient()
   return useMutation({

@@ -190,7 +190,7 @@ class CqlControllerTest {
     void createLibrary_shouldReturn200() throws Exception {
         CqlLibrary lib = CqlLibrary.builder()
                 .id("Test-1.0").name("Test").version("1.0").build();
-        when(libraryService.saveLibrary(any(), any())).thenReturn(lib);
+        when(libraryService.saveLibrary(any(), any(), any())).thenReturn(lib);
 
         mockMvc.perform(post("/api/cql/libraries")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -204,7 +204,7 @@ class CqlControllerTest {
     void updateLibrary_shouldReturn200() throws Exception {
         CqlLibrary lib = CqlLibrary.builder()
                 .id("Test-1.0").name("Test").version("1.0").build();
-        when(libraryService.updateLibrary(eq("Test-1.0"), any(), any())).thenReturn(lib);
+        when(libraryService.updateLibrary(eq("Test-1.0"), any(), any(), any())).thenReturn(lib);
 
         mockMvc.perform(put("/api/cql/libraries/Test-1.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -218,7 +218,7 @@ class CqlControllerTest {
         mockMvc.perform(delete("/api/cql/libraries/Test-1.0"))
                 .andExpect(status().isNoContent());
 
-        verify(libraryService).deleteLibrary("Test-1.0");
+        verify(libraryService).deleteLibrary(eq("Test-1.0"), any());
     }
 
     @Test

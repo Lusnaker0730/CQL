@@ -43,6 +43,10 @@ class EcqmPublishServiceTest {
     @Mock
     private com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
 
+    /** PAT-253: a first publish opens the measure set; unstubbed createFor returns 0L. */
+    @Mock
+    private com.cqlplatform.service.measure.MeasureSetService measureSetService;
+
     @InjectMocks
     private EcqmPublishService publishService;
 
@@ -495,7 +499,7 @@ class EcqmPublishServiceTest {
         when(ecqmCqlBuilder.buildEcqmCql(anyString(), anyString(), anyString(), anyString(),
                 anyList(), anyList(), anyList(), anyList(), anyList(), anyString(), any(), any()))
                 .thenAnswer(inv -> new CqlBuildResult("library MyMeasure version '" + inv.getArgument(1) + "'\ndefine \"New\": true\n", List.of()));
-        when(measureDefinitionService.nextFreeMinorVersion("MyMeasure", "1.0.0")).thenReturn("1.1.0");
+        when(measureDefinitionService.nextFreeMinorVersion(any(MeasureDefinitionEntity.class))).thenReturn("1.1.0"); // PAT-253: by set
         MeasureDefinitionEntity copy = MeasureDefinitionEntity.builder().id(101L).name("MyMeasure").version("1.1.0").status("draft").build();
         when(measureDefinitionService.createVersionAs(100L, "1.1.0"))
                 .thenReturn(com.cqlplatform.model.measure.MeasureDefinition.builder().id(101L).build());

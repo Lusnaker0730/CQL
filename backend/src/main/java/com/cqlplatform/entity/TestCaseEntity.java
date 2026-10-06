@@ -12,6 +12,14 @@ import java.util.Map;
 
 @Entity
 @Table(name = "test_case")
+/*
+ * PAT-253: only the columns a transaction actually changed are written. The background FHIR
+ * validation (PAT-245) and a test case run both load the entity, do slow work (HAPI, the CQL
+ * engine) and then save it — Hibernate's default full-row UPDATE wrote every column back from
+ * that stale snapshot, so an edit lock taken (or a title edited) in the meantime was silently
+ * reverted. The CI smoke run caught it: the lock was wiped 30 ms after it was taken.
+ */
+@org.hibernate.annotations.DynamicUpdate
 @Data
 @Builder
 @NoArgsConstructor
@@ -91,6 +99,13 @@ public class TestCaseEntity {
 
     @Column(name = "validated_at")
     private LocalDateTime validatedAt;
+
+    /** PAT-253 (V79): edit lock holder; null = unlocked. Expiry rule in {@code util.EditLock}. */
+    @Column(name = "locked_by", length = 100)
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
 
     @PrePersist
     protected void onCreate() {

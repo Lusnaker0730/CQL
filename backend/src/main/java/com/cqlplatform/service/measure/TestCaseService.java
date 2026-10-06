@@ -2,7 +2,10 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.TestCaseEntity;
 import com.cqlplatform.exception.BundleParseException;
+import com.cqlplatform.exception.ResourceLockedException;
 import com.cqlplatform.exception.ValidationException;
+import com.cqlplatform.util.EditLock;
+import org.springframework.beans.factory.annotation.Value;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
@@ -39,6 +42,10 @@ public class TestCaseService {
     private final StratifierEvaluator stratifierEvaluator;
     /** PAT-245 */
     private final TestCaseValidationService validationService;
+
+    /** PAT-253: edit-lock expiry, shared with measures and CQL libraries. */
+    @Value("${measure.locking.timeout-minutes:30}")
+    private int lockTimeoutMinutes;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -78,10 +85,18 @@ public class TestCaseService {
         return entityToModel(entity);
     }
 
+    /** Anonymous update — refused while the case is locked by anyone; see {@link #update(Long, TestCase, String)}. */
     @Transactional
     public TestCase update(Long id, TestCase testCase) {
+        return update(id, testCase, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public TestCase update(Long id, TestCase testCase, String currentUser) {
         TestCaseEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
 
         if (testCase.getExpectedValues() != null && !testCase.getExpectedValues().isEmpty()) {
             Long measureId = entity.getMeasureDefinitionId();
@@ -120,9 +135,16 @@ public class TestCaseService {
      */
     @Transactional
     public TestCase shiftDates(Long id, int years) {
+        return shiftDates(id, years, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public TestCase shiftDates(Long id, int years, String currentUser) {
         requireShiftYears(years);
         TestCaseEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
         shiftEntity(entity, years);
         entity = repository.save(entity);
         validationService.scheduleValidation(entity.getId());
@@ -133,11 +155,22 @@ public class TestCaseService {
     /** PAT-248: {@link #shiftDates} for every test case of the measure; returns how many were shifted. */
     @Transactional
     public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years) {
+        return shiftAllDates(measureDefinitionId, years, null);
+    }
+
+    /** PAT-253: all or nothing — one case locked by someone else refuses the whole shift (409 Locked). */
+    @Transactional
+    public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years, String currentUser) {
         requireShiftYears(years);
         List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
         List<Long> shifted = new ArrayList<>();
-        for (TestCaseEntity entity : entities) {
-            if (entity.getPatientBundleJson() == null || entity.getPatientBundleJson().isBlank()) continue;
+        List<TestCaseEntity> shiftable = entities.stream()
+                .filter(e -> e.getPatientBundleJson() != null && !e.getPatientBundleJson().isBlank())
+                .toList();
+        for (TestCaseEntity entity : shiftable) {
+            requireNotLockedByOther(entity, currentUser); // PAT-253: refuse before touching anything
+        }
+        for (TestCaseEntity entity : shiftable) {
             shiftEntity(entity, years);
             shifted.add(entity.getId());
         }
@@ -186,8 +219,64 @@ public class TestCaseService {
 
     @Transactional
     public void delete(Long id) {
+        delete(id, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public void delete(Long id, String currentUser) {
+        repository.findById(id).ifPresent(entity -> requireNotLockedByOther(entity, currentUser));
         repository.deleteById(id);
         log.info("Deleted test case {}", id);
+    }
+
+    // ===== Edit lock (PAT-253) =====
+
+    /** Takes the edit lock for {@code currentUser} (or refreshes their own); 409 Locked while someone else holds one. */
+    @Transactional
+    public TestCase lock(Long id, String currentUser) {
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
+        entity.setLockedBy(currentUser);
+        entity.setLockedAt(java.time.LocalDateTime.now());
+        entity = repository.save(entity);
+        log.info("Test case {} locked by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    /** Releases the lock; only the holder or the measure's owner may release someone's active lock. */
+    @Transactional
+    public TestCase unlock(Long id, String currentUser) {
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)
+                && !isMeasureOwner(entity.getMeasureDefinitionId(), currentUser)) {
+            throw new ResourceLockedException("Test case", id, entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes),
+                    "Test case " + id + " is locked by " + entity.getLockedBy()
+                            + "; only the lock holder or the measure owner can unlock it.");
+        }
+        String previousHolder = entity.getLockedBy();
+        entity.setLockedBy(null);
+        entity.setLockedAt(null);
+        entity = repository.save(entity);
+        if (previousHolder != null) log.info("Test case {} unlocked by {} (was locked by {})", id, currentUser, previousHolder);
+        return entityToModel(entity);
+    }
+
+    private void requireNotLockedByOther(TestCaseEntity entity, String currentUser) {
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)) {
+            throw new ResourceLockedException("Test case", entity.getId(), entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes));
+        }
+    }
+
+    private boolean isMeasureOwner(Long measureDefinitionId, String user) {
+        if (user == null) return false;
+        return definitionService.getById(measureDefinitionId)
+                .map(m -> m.getOwnerUsername() == null || m.getOwnerUsername().equals(user))
+                .orElse(false);
     }
 
     // ===== Copy to another measure (PAT-246) =====
@@ -927,7 +1016,11 @@ public class TestCaseService {
     // ===== Entity ↔ Model Conversion =====
 
     private TestCase entityToModel(TestCaseEntity entity) {
+        boolean locked = EditLock.isActive(entity.getLockedBy(), entity.getLockedAt(), lockTimeoutMinutes);
         return TestCase.builder()
+                .lockedBy(locked ? entity.getLockedBy() : null)
+                .lockedAt(locked ? entity.getLockedAt() : null)
+                .lockExpiresAt(locked ? EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes) : null)
                 .id(entity.getId())
                 .measureDefinitionId(entity.getMeasureDefinitionId())
                 .title(entity.getTitle())
