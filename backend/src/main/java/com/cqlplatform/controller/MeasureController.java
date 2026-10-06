@@ -623,7 +623,7 @@ public class MeasureController {
             @Valid @RequestBody TestCase testCase) {
         requireOwnedMeasure(measureId);
         verifyTestCaseBelongsToMeasure(measureId, testCaseId);
-        TestCase updated = testCaseService.update(testCaseId, testCase);
+        TestCase updated = testCaseService.update(testCaseId, testCase, ownershipVerifier.getCurrentUsername());
         return ResponseEntity.ok(updated);
     }
 
@@ -634,8 +634,26 @@ public class MeasureController {
             @PathVariable Long testCaseId) {
         requireOwnedMeasure(measureId);
         verifyTestCaseBelongsToMeasure(measureId, testCaseId);
-        testCaseService.delete(testCaseId);
+        testCaseService.delete(testCaseId, ownershipVerifier.getCurrentUsername());
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== Test case edit lock (PAT-253) =====
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/lock")
+    @Operation(summary = "Lock Test Case", description = "PAT-253: takes (or refreshes) the caller's edit lock on a test case. Writes by anyone else are refused with 409 Locked until it is released or expires (measure.locking.timeout-minutes)")
+    public ResponseEntity<TestCase> lockTestCase(@PathVariable Long measureId, @PathVariable Long testCaseId) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.lock(testCaseId, ownershipVerifier.getCurrentUsername()));
+    }
+
+    @PostMapping("/{measureId}/test-cases/{testCaseId}/unlock")
+    @Operation(summary = "Unlock Test Case", description = "PAT-253: releases the edit lock — the holder or the measure owner only")
+    public ResponseEntity<TestCase> unlockTestCase(@PathVariable Long measureId, @PathVariable Long testCaseId) {
+        requireOwnedMeasure(measureId);
+        verifyTestCaseBelongsToMeasure(measureId, testCaseId);
+        return ResponseEntity.ok(testCaseService.unlock(testCaseId, ownershipVerifier.getCurrentUsername()));
     }
 
     @PostMapping("/{measureId}/test-cases/batch-import")
@@ -716,7 +734,7 @@ public class MeasureController {
             @RequestParam int years) {
         requireOwnedMeasure(measureId);
         verifyTestCaseBelongsToMeasure(measureId, testCaseId);
-        return ResponseEntity.ok(testCaseService.shiftDates(testCaseId, years));
+        return ResponseEntity.ok(testCaseService.shiftDates(testCaseId, years, ownershipVerifier.getCurrentUsername()));
     }
 
     @PostMapping("/{measureId}/test-cases/shift-dates")
@@ -725,7 +743,7 @@ public class MeasureController {
             @PathVariable Long measureId,
             @RequestParam int years) {
         requireOwnedMeasure(measureId);
-        return ResponseEntity.ok(testCaseService.shiftAllDates(measureId, years));
+        return ResponseEntity.ok(testCaseService.shiftAllDates(measureId, years, ownershipVerifier.getCurrentUsername()));
     }
 
     @PostMapping(value = "/{measureId}/test-cases/import-bundles", consumes = "multipart/form-data")
@@ -791,7 +809,7 @@ public class MeasureController {
     @Operation(summary = "Measure History", description = "Returns all versions of a measure by name (owner or admin only)")
     public ResponseEntity<List<MeasureDefinition>> getMeasureHistory(@PathVariable Long id) {
         MeasureDefinition measure = requireOwnedMeasure(id);
-        return ResponseEntity.ok(definitionService.getHistory(measure.getName()));
+        return ResponseEntity.ok(definitionService.getHistory(measure));
     }
 
     @GetMapping("/version-compare")

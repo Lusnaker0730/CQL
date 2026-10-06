@@ -76,4 +76,9 @@ public class TestCase {
 
     /** PAT-245: counts and error issues of the last validation; null when none yet. Read-only. */
     private TestCaseValidation validation;
+
+    /** PAT-253: active edit lock (holder, taken at, lapses at); all null when unlocked. */
+    private String lockedBy;
+    private LocalDateTime lockedAt;
+    private LocalDateTime lockExpiresAt;
 }

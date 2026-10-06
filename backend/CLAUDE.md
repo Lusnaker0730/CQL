@@ -61,6 +61,7 @@ public class XxxService {
 | `MeasureNotEvaluableException` | 409 `Measure Not Evaluable`（PAT-219：非 `active` 指標不得評估） |
 | `MeasureNotReadyException` | 409 `Measure Not Ready`（PAT-249：送審 / 核准被阻擋項擋住，`details` 列出） |
 | `ApprovalNotAllowedException` | 403 `Approval Not Allowed`（PAT-249 四眼：作者 / 送審者不得核准） |
+| `ResourceLockedException` | 409 `Locked`（PAT-253：指標 / 測試案例 / CQL 程式庫被他人的有效編輯鎖擋住，`details` 帶 `lockedBy` / `lockExpiresAt`） |
 | `ValidationException` | 400 (附 details list) |
 | `CqlTranslationException` | 400 (附 error list) |
 | `CqlGenerationException` | 422 (附 details) |
@@ -92,7 +93,7 @@ ecqm/        (1 file)              — standard-sde
 ## 資料庫
 
 - PostgreSQL (prod & dev) / H2 (test only)
-- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V78；V56 是 Java migration，在 `src/main/java/db/migration/`）
+- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V79；V56 是 Java migration，在 `src/main/java/db/migration/`）
 - 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份；CI `migration-test` job 會數量比對，缺一個就紅）
 - JPA `ddl-auto=validate`（不會自動建表）
 - 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔 + 對應 `rollback_V{N+1}__description.sql`

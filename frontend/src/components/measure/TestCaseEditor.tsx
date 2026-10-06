@@ -25,6 +25,7 @@ import {
   Code as JsonIcon,
   CloudDownload as EhrImportIcon,
   AutoFixHigh as UseActualIcon,
+  Lock as LockIcon,
 } from '@mui/icons-material'
 import Editor from '../common/MonacoEditor'
 import GradientButton from '../common/GradientButton'
@@ -57,6 +58,8 @@ interface TestCaseEditorProps {
   onClose: () => void
   onSaved: () => void
   readOnly?: boolean
+  /** PAT-253: the user holding the edit lock when it is not the caller (the editor is read-only then). */
+  lockedByOther?: string
 }
 
 const POPULATION_KEYS = [
@@ -112,7 +115,7 @@ const DEFAULT_BUNDLE = `{
   ]
 }`
 
-function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: TestCaseEditorProps) {
+function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly, lockedByOther }: TestCaseEditorProps) {
   const { t } = useTranslation('measures')
   const theme = useTheme()
   const queryClient = useQueryClient()
@@ -389,6 +392,11 @@ function TestCaseEditorInner({ measure, testCase, onClose, onSaved, readOnly }: 
           </GradientButton>
         </Stack>
       </Stack>
+      {lockedByOther && (
+        <Alert severity="warning" icon={<LockIcon />} sx={{ mb: 2 }} data-testid="test-case-lock-notice">
+          {t('testCases.lock.editorLocked', { user: lockedByOther })}
+        </Alert>
+      )}
       {saveMutation.isError && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(saveMutation.error)}

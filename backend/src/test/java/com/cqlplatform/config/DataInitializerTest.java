@@ -43,6 +43,7 @@ class DataInitializerTest {
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private MeasureDefinitionRepository measureDefinitionRepository;
     @Mock private TenantRepository tenantRepository;
+    @Mock private com.cqlplatform.repository.MeasureSetRepository measureSetRepository;
     @InjectMocks private DataInitializer initializer;
 
     @BeforeEach
@@ -50,6 +51,9 @@ class DataInitializerTest {
         lenient().when(passwordEncoder.encode(anyString())).thenReturn("encoded");
         lenient().when(tenantRepository.findByCode("default"))
                 .thenReturn(Optional.of(TenantEntity.builder().id(7L).code("default").build()));
+        // PAT-253: the seed opens the demo measure's set first
+        lenient().when(measureSetRepository.save(any(com.cqlplatform.entity.MeasureSetEntity.class)))
+                .thenAnswer(inv -> { var set = inv.getArgument(0, com.cqlplatform.entity.MeasureSetEntity.class); set.setId(42L); return set; });
     }
 
     @Test
@@ -66,6 +70,7 @@ class DataInitializerTest {
         assertThat(saved.getValue().getName()).isEqualTo("DiabetesHbA1cRate");
         assertThat(saved.getValue().getOwnerUsername()).isEqualTo("demo");
         assertThat(saved.getValue().getStatus()).isEqualTo("active");
+        assertThat(saved.getValue().getMeasureSetId()).isEqualTo(42L); // PAT-253: seeded into its own set
     }
 
     @Test

@@ -120,6 +120,16 @@ public class MeasureDefinitionEntity {
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
 
+    /**
+     * PAT-253 (V79): the version lineage this row belongs to ({@link MeasureSetEntity}). NOT NULL in
+     * PostgreSQL after the V79 backfill and always set by the application; left nullable in the
+     * mapping so H2 tests can build rows without a set (history / supersede then fall back to the
+     * pre-V79 name-based lineage).
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "measure_set_id")
+    private Long measureSetId;
+
     @Column(name = "reviewed_by", length = 100)
     private String reviewedBy;
 

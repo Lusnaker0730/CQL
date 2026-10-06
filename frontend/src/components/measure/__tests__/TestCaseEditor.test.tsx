@@ -101,6 +101,13 @@ describe('TestCaseEditor — structured expectations payload', () => {
     expect(body.expectedPopulations).toEqual({ 'initial-population': true, denominator: true, numerator: false })
   })
 
+  it('PAT-253: another user’s edit lock shows the notice and leaves the editor read-only', () => {
+    render(<TestCaseEditor measure={simpleMeasure} testCase={{ id: 9, title: 'held', lockedBy: 'alice' }}
+      onClose={vi.fn()} onSaved={vi.fn()} readOnly lockedByOther="alice" />)
+    expect(screen.getByTestId('test-case-lock-notice')).toHaveTextContent('testCases.lock.editorLocked')
+    expect(screen.getByRole('button', { name: /testCaseEditor\.save/ })).toBeDisabled()
+  })
+
   it('warns when the flat switches are used on a measure they cannot describe', () => {
     render(<TestCaseEditor measure={twoGroupMeasure} testCase={null} onClose={vi.fn()} onSaved={vi.fn()} />)
     fireEvent.click(structuredToggle())

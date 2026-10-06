@@ -538,7 +538,9 @@
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
       "delete": "刪除測試案例",
-      "shiftDates": "平移測試案例日期"
+      "shiftDates": "平移測試案例日期",
+      "lock": "鎖定測試案例",
+      "unlock": "解除鎖定測試案例"
     },
     "measurementPeriod": {
       "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
@@ -596,6 +598,15 @@
       "cancel": "取消",
       "done": "已平移 {{count}} 個測試案例 {{years}} 年。",
       "failed": "平移失敗：{{error}}"
+    },
+    "lock": {
+      "lock": "鎖定編輯",
+      "unlock": "解除鎖定",
+      "lockedBy": "已被 {{user}} 鎖定",
+      "lockedUntil": "已被 {{user}} 鎖定至 {{until}}",
+      "editorLocked": "已被 {{user}} 鎖定，解除或逾時前為唯讀。",
+      "lockFailed": "鎖定失敗：{{error}}",
+      "unlockFailed": "解除鎖定失敗：{{error}}"
     }
   },
   "populationTrace": {

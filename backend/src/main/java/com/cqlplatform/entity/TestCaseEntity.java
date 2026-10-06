@@ -92,6 +92,13 @@ public class TestCaseEntity {
     @Column(name = "validated_at")
     private LocalDateTime validatedAt;
 
+    /** PAT-253 (V79): edit lock holder; null = unlocked. Expiry rule in {@code util.EditLock}. */
+    @Column(name = "locked_by", length = 100)
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();

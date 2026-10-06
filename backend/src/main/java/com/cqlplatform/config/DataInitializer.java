@@ -25,6 +25,7 @@ public class DataInitializer implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final MeasureDefinitionRepository measureDefinitionRepository;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.repository.MeasureSetRepository measureSetRepository;
 
     @Override
     public void run(String... args) {
@@ -220,8 +221,12 @@ public class DataInitializer implements CommandLineRunner {
                         .scoringUnit("%")
                         .build());
 
+        // PAT-253: the seeded measure opens its own measure set, like any other create
+        Long measureSetId = measureSetRepository.save(com.cqlplatform.entity.MeasureSetEntity.builder()
+                .tenantId(defaultTenantId).name("DiabetesHbA1cRate").build()).getId();
         MeasureDefinitionEntity measure = MeasureDefinitionEntity.builder()
                 .tenantId(defaultTenantId)
+                .measureSetId(measureSetId)
                 .name("DiabetesHbA1cRate")
                 .version("1.0.0")
                 .title("糖尿病病人醣化血紅素(HbA1c)或糖化白蛋白(glycated albumin)執行率")

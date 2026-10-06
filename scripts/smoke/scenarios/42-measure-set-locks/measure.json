@@ -1,0 +1,9 @@
+{
+  "name": "SmokeMeasureSet",
+  "version": "1.0.0",
+  "title": "Smoke — PAT-253 measure set lineage + edit locks",
+  "description": "Raw draft MeasureDefinition (POST /api/measures) owned by the seeded demo user. Its measure set must survive a rename of the next version (history / supersede-on-approve key on the set), sharing must span the set, and a test case / CQL library locked by demo must refuse admin's writes with 409 Locked until released.",
+  "status": "draft",
+  "scoringType": "cohort",
+  "cqlContent": "library SmokeMeasureSet version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n"
+}

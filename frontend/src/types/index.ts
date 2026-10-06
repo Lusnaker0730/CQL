@@ -208,6 +208,10 @@ export interface CqlLibrary {
   ownerUsername?: string
   sharedWith?: string[]
   accessLevel?: string
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -623,6 +627,10 @@ export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementP
   accessLevel?: string
   lockedBy?: string
   lockedAt?: string
+  /** PAT-253: when the active lock lapses. */
+  lockExpiresAt?: string
+  /** PAT-253: the version lineage (measure set) this measure belongs to; read-only. */
+  measureSetId?: number
   reviewedBy?: string
   approvedBy?: string
   reviewComment?: string
@@ -1055,6 +1063,10 @@ export interface TestCase {
   /** PAT-245: FHIR validation of the patient bundle — pending | valid | invalid | error; absent = never validated. */
   validationStatus?: 'pending' | 'valid' | 'invalid' | 'error'
   validation?: TestCaseValidation
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
 }
 
 /** PAT-246 — outcome of copying test cases to another measure. */

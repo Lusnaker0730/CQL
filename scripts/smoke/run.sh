@@ -386,6 +386,18 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        measure-set-locks)
+            # PAT-253 measure set lineage + edit locks: a renamed version stays in its
+            # set's history and supersedes the old active one on approve; sharing spans the
+            # set; a test case / CQL library locked by one user refuses the other's writes
+            # with 409 Locked until released. Everything lives in lib/run-measure-set-locks.sh.
+            if bash "$SCRIPT_DIR/lib/run-measure-set-locks.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         measure-status-guard)
             # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
             # the eCQM publish path lands as draft too since BUG-147) is created
@@ -714,7 +726,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

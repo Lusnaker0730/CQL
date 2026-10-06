@@ -538,7 +538,9 @@
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
       "delete": "Delete test case",
-      "shiftDates": "Shift test case dates"
+      "shiftDates": "Shift test case dates",
+      "lock": "Lock test case",
+      "unlock": "Unlock test case"
     },
     "measurementPeriod": {
       "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
@@ -596,6 +598,15 @@
       "cancel": "Cancel",
       "done": "Shifted {{count}} test case(s) by {{years}} year(s).",
       "failed": "Shift failed: {{error}}"
+    },
+    "lock": {
+      "lock": "Lock for editing",
+      "unlock": "Release lock",
+      "lockedBy": "Locked by {{user}}",
+      "lockedUntil": "Locked by {{user}} until {{until}}",
+      "editorLocked": "Locked by {{user}} — read-only until the lock is released or expires.",
+      "lockFailed": "Lock failed: {{error}}",
+      "unlockFailed": "Unlock failed: {{error}}"
     }
   },
   "populationTrace": {
