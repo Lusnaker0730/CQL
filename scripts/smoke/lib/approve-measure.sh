@@ -58,7 +58,9 @@ if [ "$http_status" != "200" ]; then
     exit 1
 fi
 
-reviewer_token=$(SMOKE_USER="$REVIEWER" SMOKE_PASSWORD="$REVIEWER_PASSWORD" bash "$SCRIPT_DIR/auth.sh")
+# run.sh logs the reviewer in once per run (REVIEWER_TOKEN); a fresh login per scenario trips the
+# login rate limit on CI. Fall back to logging in when the script is used on its own.
+reviewer_token="${REVIEWER_TOKEN:-$(SMOKE_USER="$REVIEWER" SMOKE_PASSWORD="$REVIEWER_PASSWORD" bash "$SCRIPT_DIR/auth.sh")}"
 post approve "$reviewer_token" '{"reason":"smoke harness PAT-219 lifecycle walk (reviewer)"}'
 if [ "$http_status" != "200" ]; then
     echo "approve as $REVIEWER failed with HTTP $http_status: $body" >&2

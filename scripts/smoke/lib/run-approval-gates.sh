@@ -118,7 +118,7 @@ check "measure still in review" "$(body_of "$tmp/after-self.raw" | jq -r '.statu
 # 7. another reviewer approves
 call POST "/measures/$measure_id/share" "$TOKEN" "$(jq -nc --arg u "$REVIEWER" '{targetUsername: $u}')" > "$tmp/share.raw"
 check "shared with reviewer $REVIEWER (HTTP 200)" "$(status_of "$tmp/share.raw")" "200"
-reviewer_token=$(SMOKE_USER="$REVIEWER" SMOKE_PASSWORD="$REVIEWER_PASSWORD" bash "$SCRIPT_DIR/auth.sh")
+reviewer_token="${REVIEWER_TOKEN:-$(SMOKE_USER="$REVIEWER" SMOKE_PASSWORD="$REVIEWER_PASSWORD" bash "$SCRIPT_DIR/auth.sh")}"
 call GET "/measures/$measure_id/approval-readiness" "$reviewer_token" > "$tmp/ready-reviewer.raw"
 check "reviewer is not blocked by four-eyes" "$(body_of "$tmp/ready-reviewer.raw" | jq -r '.fourEyes.selfApprovalBlocked')" "false"
 call POST "/measures/$measure_id/approve" "$reviewer_token" '{"reason":"smoke PAT-249 reviewer"}' > "$tmp/approve.raw"

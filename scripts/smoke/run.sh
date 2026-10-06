@@ -160,6 +160,11 @@ echo ""
 echo "── Authenticating ──"
 TOKEN=$(bash "$SCRIPT_DIR/lib/auth.sh")
 export TOKEN
+# PAT-249: the reviewer who approves what admin submitted (four-eyes). Logged in ONCE here and
+# reused by approve-measure.sh / run-approval-gates.sh — the login endpoint is rate-limited and a
+# fresh login per scenario tripped it on CI from scenario 23 on.
+REVIEWER_TOKEN=$(SMOKE_USER="${SMOKE_REVIEWER:-demo}" SMOKE_PASSWORD="${SMOKE_REVIEWER_PASSWORD:-password}" bash "$SCRIPT_DIR/lib/auth.sh")
+export REVIEWER_TOKEN
 echo "  got JWT (${#TOKEN} chars)"
 
 # BUG-144, second half: a fresh installation is supposed to get the demo measure. It never

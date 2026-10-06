@@ -13,12 +13,19 @@ API_BASE="${API_BASE:-http://localhost:8080/api}"
 USERNAME="${SMOKE_USER:-admin}"
 PASSWORD="${SMOKE_PASSWORD:-admin}"
 
-response=$(curl -sf -X POST "$API_BASE/auth/login" \
+raw=$(curl -s -X POST "$API_BASE/auth/login" \
     -H "Content-Type: application/json" \
-    -d "$(jq -nc --arg u "$USERNAME" --arg p "$PASSWORD" '{username: $u, password: $p}')" 2>&1) || {
-    echo "login failed for $USERNAME: $response" >&2
+    -w "\n__HTTP_STATUS__%{http_code}" \
+    -d "$(jq -nc --arg u "$USERNAME" --arg p "$PASSWORD" '{username: $u, password: $p}')") || {
+    echo "login transport error for $USERNAME (curl failed)" >&2
     exit 1
 }
+http_status=$(echo "$raw" | tail -1 | sed 's/__HTTP_STATUS__//')
+response=$(echo "$raw" | sed '$d')
+if [ "$http_status" != "200" ]; then
+    echo "login failed for $USERNAME: HTTP $http_status $(echo "$response" | head -c 300)" >&2
+    exit 1
+fi
 
 token=$(echo "$response" | jq -r '.token // empty')
 if [ -z "$token" ]; then
