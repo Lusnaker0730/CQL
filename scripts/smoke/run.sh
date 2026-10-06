@@ -369,6 +369,18 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        approval-gates)
+            # PAT-249 approval readiness gate + four-eyes: a failing test case blocks
+            # submit-for-review (409 Measure Not Ready), the owner's own approve is refused
+            # (403 Approval Not Allowed), the shared reviewer's approve lands the measure
+            # active. Everything lives in lib/run-approval-gates.sh.
+            if bash "$SCRIPT_DIR/lib/run-approval-gates.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         measure-status-guard)
             # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
             # the eCQM publish path lands as draft too since BUG-147) is created
@@ -697,7 +709,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

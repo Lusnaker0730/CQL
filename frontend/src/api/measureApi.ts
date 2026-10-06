@@ -20,6 +20,7 @@ import type {
   DataRequirementInfo,
   BatchTestCaseImportResult,
   TestCaseDateShiftResult,
+  ApprovalReadiness,
   TestCaseCopyResult,
   EnhancedDashboardData,
   TrendSeriesPoint,
@@ -393,6 +394,12 @@ export const measureApi = {
   // the request body. The vestigial `currentUser` body field triggered 500 errors
   // when Jackson rejected it as unknown on WorkflowActionRequest. Body is now
   // only used for the real payload (reason on reject).
+  /** PAT-249: blockers / warnings / four-eyes verdict for the caller, before pressing submit or approve. */
+  getApprovalReadiness: async (id: number): Promise<ApprovalReadiness> => {
+    const response = await api.get<ApprovalReadiness>(`/measures/${id}/approval-readiness`)
+    return response.data
+  },
+
   submitForReview: async (id: number): Promise<MeasureDefinition> => {
     const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, {})
     return response.data

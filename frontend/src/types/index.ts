@@ -1222,6 +1222,45 @@ export interface BatchTestCaseImportResult {
   warnings?: string[]
 }
 
+/** PAT-249: one finding of the approval readiness check; `items` names the test cases concerned (capped). */
+export interface ApprovalReadinessItem {
+  code: string
+  count: number
+  message: string
+  items: string[]
+}
+
+/** PAT-249: what stands between a measure and its approval; blockers stop submit / approve on the server. */
+export interface ApprovalReadiness {
+  measureId: number
+  status: string
+  ready: boolean
+  blockers: ApprovalReadinessItem[]
+  warnings: ApprovalReadinessItem[]
+  testCases?: {
+    total: number
+    passed: number
+    failed: number
+    errored: number
+    notRun: number
+    stale: number
+    valid: number
+    invalid: number
+    validationPending: number
+    validationError: number
+    neverValidated: number
+  }
+  cqlErrorCount: number
+  cqlWarningCount: number
+  fourEyes?: {
+    enabled: boolean
+    author?: string
+    submittedBy?: string
+    selfApprovalBlocked: boolean
+  }
+  checkedAt: string
+}
+
 /** PAT-248: outcome of shifting every test case of a measure by whole years. */
 export interface TestCaseDateShiftResult {
   measureDefinitionId: number

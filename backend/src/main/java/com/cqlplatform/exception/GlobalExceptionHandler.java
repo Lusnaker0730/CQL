@@ -63,6 +63,18 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Publish Conflict", ex.getMessage());
     }
 
+    /** PAT-249: blockers (CQL errors, invalid / failing test cases) stop submit-for-review and approve; details list them. */
+    @ExceptionHandler(MeasureNotReadyException.class)
+    public ResponseEntity<ErrorResponse> handleMeasureNotReadyException(MeasureNotReadyException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Measure Not Ready", ex.getMessage(), ex.getDetails());
+    }
+
+    /** PAT-249: four-eyes — the author / submitter may not approve their own measure. */
+    @ExceptionHandler(ApprovalNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleApprovalNotAllowedException(ApprovalNotAllowedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, "Approval Not Allowed", ex.getMessage());
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
         return buildResponse(HttpStatus.BAD_REQUEST, "Validation Error", ex.getMessage(), ex.getDetails());

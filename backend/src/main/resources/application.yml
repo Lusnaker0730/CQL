@@ -262,6 +262,11 @@ measure:
     default-period-end: ${MEASURE_DEFAULT_PERIOD_END:}
   locking:
     timeout-minutes: ${MEASURE_LOCK_TIMEOUT_MINUTES:30}
+  review:
+    # PAT-249 four-eyes: the measure's author (owner / creator) and whoever submitted it for review
+    # may not approve it. Switch off only for single-person installations — the gate on CQL errors
+    # and invalid / failing test cases stays on regardless.
+    four-eyes: ${MEASURE_REVIEW_FOUR_EYES:true}
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 
