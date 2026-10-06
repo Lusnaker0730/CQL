@@ -243,7 +243,7 @@
       "quiz": "Self Quiz"
     },
     "seo": {
-      "defaultTitle": "CQL Learning Center — Taiwan CQL Platform",
+      "defaultTitle": "CQL Learning Center — Taiwan CQL Clinical Quality Platform",
       "defaultDescription": "Learn Clinical Quality Language (CQL) from scratch — tutorials, interactive examples, TWCORE IG guide, eCQM, FHIRPath, and hands-on playground.",
       "introduction": "Introduction to CQL — What is Clinical Quality Language, why it matters for healthcare quality measurement, and how it works with FHIR.",
       "concepts": "CQL Core Concepts — Data types, expressions, queries, retrieve statements, and clinical logic building blocks.",
@@ -902,7 +902,7 @@
   },
   "home": {
     "seo": {
-      "title": "Taiwan CQL Platform — build, verify and exchange clinical quality measures and CDS",
+      "title": "Taiwan CQL Clinical Quality Platform — build, verify and exchange clinical quality measures and CDS",
       "description": "Turn clinical quality measures from documents into executable, verifiable, exchangeable logic: build eCQMs visually, verify them with test cases, evaluate FHIR / TW Core patient data, export HL7 packages and serve CDS Hooks."
     },
     "nav": {

@@ -243,7 +243,7 @@
       "quiz": "自我測驗"
     },
     "seo": {
-      "defaultTitle": "CQL 學習中心 — 台灣CQL概念平台",
+      "defaultTitle": "CQL 學習中心 — 台灣CQL臨床品質平台",
       "defaultDescription": "從零開始學習臨床品質語言 (CQL) — 入門教學、互動範例、TWCORE IG 指南、eCQM、FHIRPath 與線上練習場。",
       "introduction": "CQL 入門介紹 — 什麼是臨床品質語言、為什麼對醫療品質量測至關重要、如何與 FHIR 搭配使用。",
       "concepts": "CQL 核心概念 — 資料型別、表達式、查詢、Retrieve 語句與臨床邏輯構建模組。",
@@ -902,7 +902,7 @@
   },
   "home": {
     "seo": {
-      "title": "台灣CQL概念平台 — 臨床品質指標、測試驗證與決策支援的 CQL 平台",
+      "title": "台灣CQL臨床品質平台 — 臨床品質指標、測試驗證與決策支援的 CQL 平台",
       "description": "把臨床品質指標從文件變成可執行、可驗證、可交換的邏輯：視覺化建立 eCQM、以測試案例驗證、對 FHIR / TW Core 病人資料評估、匯出 HL7 標準封裝、提供 CDS Hooks 即時提醒。"
     },
     "nav": {
