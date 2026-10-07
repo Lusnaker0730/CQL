@@ -86,23 +86,31 @@ function SectionTitle({ title, subtitle, id }: { title: string; subtitle?: strin
   )
 }
 
+/**
+ * PAT-254: the captures are 1568×721 at true 2× (a 784×360 CSS-px region of the app rendered at
+ * double scale), so text stays legible in the ~600 px wide boxes and on HiDPI screens. WebP first,
+ * the JPEG of the same name as the fallback (`src` always names the .jpg).
+ */
 function Screenshot({ src, alt }: { src: string; alt: string }) {
   return (
-    <Box
-      component="img"
-      src={src}
-      alt={alt}
-      loading="lazy"
-      sx={{
-        width: '100%',
-        display: 'block',
-        borderRadius: 2,
-        border: '1px solid',
-        borderColor: 'divider',
-        boxShadow: (theme) => `0 12px 32px ${alpha(theme.palette.common.black, 0.12)}`,
-        bgcolor: 'background.paper',
-      }}
-    />
+    <picture>
+      <source type="image/webp" srcSet={src.replace(/\.jpg$/, '.webp')} />
+      <Box
+        component="img"
+        src={src}
+        alt={alt}
+        loading="lazy"
+        sx={{
+          width: '100%',
+          display: 'block',
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          boxShadow: (theme) => `0 12px 32px ${alpha(theme.palette.common.black, 0.12)}`,
+          bgcolor: 'background.paper',
+        }}
+      />
+    </picture>
   )
 }
 
