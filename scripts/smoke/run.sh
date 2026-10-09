@@ -386,6 +386,17 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        synthetic-cohort)
+            # PAT-255: 120 patients from the platform's own TW Core generator (fixed seed),
+            # evaluated by the seeded demo measure against an oracle computed in TypeScript.
+            # Everything lives in lib/run-synthetic-cohort.sh.
+            if bash "$SCRIPT_DIR/lib/run-synthetic-cohort.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         measure-set-locks)
             # PAT-253 measure set lineage + edit locks: a renamed version stays in its
             # set's history and supersedes the old active one on approve; sharing spans the
@@ -726,7 +737,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

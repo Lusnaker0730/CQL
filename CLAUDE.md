@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-254 / BUG-149
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-255 / BUG-149
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -225,7 +225,7 @@ scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build im
 scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-42 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層 + 程式庫函式呼叫 + episode 計數與指標層級測量期間 + 審核門檻與四眼 + 指標集血統與編輯鎖，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+43 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層 + 程式庫函式呼叫 + episode 計數與指標層級測量期間 + 審核門檻與四眼 + 指標集血統與編輯鎖 + 合成病人世代（PAT-255：120 個由平台自己的 TW Core 產生器以固定種子產生的病人，`expected.json` 是 TypeScript 算的 oracle；改了產生器或 `config/twcore/*.json` 要在 `frontend/` 跑 `npm run gen:cohort` 重產 fixture，`syntheticCohort.test.ts` 會以 `fixtureSha256` 擋住漂移），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 
@@ -349,7 +349,7 @@ regulatory_docs/
 - Monaco Editor 整合: `useCqlEditor` hook 管理編輯器生命週期
 - 前端 dev server proxy: `/api/*` → `localhost:8080`
 - 前端時間/尺寸常數統一在 `constants/` 目錄，禁止在元件中寫 magic number
-- 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼
+- 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼。**隨機來源一律走 `utils/random.ts`**（PAT-255：`setSeed` / `setReferenceDate` 讓結果可重現，`fhirPatientGenerator.resetIdSequence` 固定 id；smoke 43 的 fixture 靠這個）
 - `utils/random.ts` 提供共用隨機函數（`randomInt`, `randomElement`, `pickRandom`），禁止在其他檔案重複定義
 - Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）
 - 病人產生器上傳 Bundle 用 `PUT ResourceType/id` 保留 client-side ID（`GenerationResultPanel.tsx`）；不要改回 `POST ResourceType`，否則 HAPI 重配 ID 而前端搜尋原 id 會找不到
