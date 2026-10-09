@@ -53,6 +53,7 @@ import MeasureShareDialog from './MeasureShareDialog'
 import AuditTrailDialog from './AuditTrailDialog'
 import MeasureValidationPanel from './MeasureValidationPanel'
 import BuilderSourceBanner from './BuilderSourceBanner'
+import ApprovalReadinessPanel from './ApprovalReadinessPanel'
 import {
   useSubmitForReview,
   useApproveMeasure,
@@ -60,9 +61,10 @@ import {
   useRetireMeasure,
   useLockMeasure,
   useUnlockMeasure,
+  useApprovalReadiness,
 } from '../../hooks/useMeasures'
 import { useNotification } from '../../hooks/useNotification'
-import { extractApiError } from '../../utils/errorUtils'
+import { extractApiError, extractApiErrorDetails } from '../../utils/errorUtils'
 import { getStoredUsername } from '../../utils/validation'
 import { MEASURE_STATUS } from '../../constants/measureConstants'
 import { ALERT_DISMISS_MS, ALERT_DISMISS_ERROR_MS } from '../../constants/timing'
@@ -100,6 +102,15 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const lockMutation = useLockMeasure()
   const unlockMutation = useUnlockMeasure()
 
+  // PAT-249: blockers (CQL errors, invalid / failing test cases) stop submit and approve on the
+  // server; the panel shows them first, and the buttons follow the verdict. Four-eyes: the author /
+  // submitter cannot approve — the approve button is disabled for them with the reason shown.
+  const showReadiness = measure.status === MEASURE_STATUS.DRAFT || measure.status === MEASURE_STATUS.IN_REVIEW
+  const readinessQuery = useApprovalReadiness(measure.id, showReadiness)
+  const readiness = readinessQuery.data
+  const blockedByReadiness = !!readiness && !readiness.ready
+  const blockedByFourEyes = !!readiness?.fourEyes?.selfApprovalBlocked
+
   const isLockedByOther = !!measure.lockedBy && measure.lockedBy !== currentUser
   const isLockedByMe = !!measure.lockedBy && measure.lockedBy === currentUser
   // BUG-147: only a draft's logic (CQL, population mapping, scoring) may change; approved,
@@ -133,7 +144,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       },
       onError: (err) => {
         const fallback = errorFallback || t('editor.errors.actionFailed')
-        setWorkflowAlert({ severity: 'error', message: extractApiError(err) || fallback })
+        // PAT-249: a 409 "Measure Not Ready" carries the blockers in details — show them.
+        const details = extractApiErrorDetails(err)
+        const message = extractApiError(err) || fallback
+        setWorkflowAlert({ severity: 'error', message: details?.length ? `${message} — ${details.join('; ')}` : message })
         setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
       },
     })
@@ -239,6 +253,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {showReadiness && (
+        <ApprovalReadinessPanel
+          readiness={readiness}
+          isLoading={readinessQuery.isFetching}
+          onRefresh={() => { readinessQuery.refetch() }}
+        />
+      )}
       {workflowAlert && (
         <Alert
           severity={workflowAlert.severity}
@@ -375,7 +396,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               size="small"
               startIcon={<SubmitIcon />}
               onClick={() => handleWorkflowAction(submitMutation, t('editor.workflowMessages.submitted'))}
-              disabled={submitMutation.isPending}
+              disabled={submitMutation.isPending || blockedByReadiness}
               color="info"
               variant="outlined"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
@@ -389,7 +410,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                 size="small"
                 startIcon={<ApproveIcon />}
                 onClick={() => handleWorkflowAction(approveMutation, t('editor.workflowMessages.approved'))}
-                disabled={approveMutation.isPending}
+                disabled={approveMutation.isPending || blockedByReadiness || blockedByFourEyes}
                 color="success"
                 variant="outlined"
                 sx={{ textTransform: 'none', fontSize: '0.75rem' }}

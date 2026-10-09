@@ -67,6 +67,17 @@ export const cqlApi = {
     await api.delete(`/cql/libraries/${id}`)
   },
 
+  /** PAT-253: take (or refresh) the caller's edit lock on a library; 409 Locked while someone else holds one. */
+  lockLibrary: async (id: string): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/lock`)
+    return response.data
+  },
+
+  unlockLibrary: async (id: string): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/unlock`)
+    return response.data
+  },
+
   getLatestLibrary: async (name: string): Promise<CqlLibrary> => {
     const response = await api.get<CqlLibrary>(`/cql/libraries/latest/${encodeURIComponent(name)}`)
     return response.data

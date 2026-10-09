@@ -3,6 +3,7 @@ import { alpha } from '@mui/material/styles'
 import {
   LocalHospital as MedicalIcon,
   School as LearnIcon,
+  Home as HomeIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
@@ -10,9 +11,8 @@ import { useTranslation } from 'react-i18next'
 import LanguageMenu from '../components/common/LanguageMenu'
 import PublicFooter from '../components/common/PublicFooter'
 import LoginForm from '../components/landing/LoginForm'
-import FeatureCards from '../components/landing/FeatureCards'
-import CqlShowcase from '../components/landing/CqlShowcase'
 
+/** The sign-in page (/login). Since PAT-251 the marketing content lives on HomePage at `/`. */
 export default function LandingPage() {
   const { t } = useTranslation('landing')
   const { t: tc } = useTranslation()
@@ -61,6 +61,13 @@ export default function LandingPage() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Button
+              startIcon={<HomeIcon />}
+              onClick={() => navigate('/')}
+              sx={{ color: 'common.white', textTransform: 'none' }}
+            >
+              {t('login.backHome')}
+            </Button>
             <Button
               startIcon={<LearnIcon />}
               onClick={() => navigate('/learn')}
@@ -202,16 +209,6 @@ export default function LandingPage() {
             </Box>
           </Container>
         </Box>
-
-        {/* Feature Cards */}
-        <Box sx={{ bgcolor: 'background.default' }}>
-          <Container maxWidth="lg">
-            <FeatureCards />
-          </Container>
-        </Box>
-
-        {/* CQL Showcase */}
-        <CqlShowcase />
 
         <PublicFooter />
       </Box>

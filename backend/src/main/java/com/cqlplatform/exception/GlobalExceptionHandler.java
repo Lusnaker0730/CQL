@@ -57,10 +57,28 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.CONFLICT, "Measure Logic Locked", ex.getMessage());
     }
 
+    /** PAT-253: someone else holds an active edit lock on the measure / test case / CQL library; details name them. */
+    @ExceptionHandler(ResourceLockedException.class)
+    public ResponseEntity<ErrorResponse> handleResourceLockedException(ResourceLockedException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Locked", ex.getMessage(), ex.getDetails());
+    }
+
     /** PAT-238: re-publish would overwrite measure-page edits; the builder asks and retries with force. */
     @ExceptionHandler(PublishConflictException.class)
     public ResponseEntity<ErrorResponse> handlePublishConflictException(PublishConflictException ex) {
         return buildResponse(HttpStatus.CONFLICT, "Publish Conflict", ex.getMessage());
+    }
+
+    /** PAT-249: blockers (CQL errors, invalid / failing test cases) stop submit-for-review and approve; details list them. */
+    @ExceptionHandler(MeasureNotReadyException.class)
+    public ResponseEntity<ErrorResponse> handleMeasureNotReadyException(MeasureNotReadyException ex) {
+        return buildResponse(HttpStatus.CONFLICT, "Measure Not Ready", ex.getMessage(), ex.getDetails());
+    }
+
+    /** PAT-249: four-eyes — the author / submitter may not approve their own measure. */
+    @ExceptionHandler(ApprovalNotAllowedException.class)
+    public ResponseEntity<ErrorResponse> handleApprovalNotAllowedException(ApprovalNotAllowedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, "Approval Not Allowed", ex.getMessage());
     }
 
     @ExceptionHandler(ValidationException.class)

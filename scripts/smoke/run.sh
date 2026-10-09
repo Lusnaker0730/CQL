@@ -160,6 +160,11 @@ echo ""
 echo "── Authenticating ──"
 TOKEN=$(bash "$SCRIPT_DIR/lib/auth.sh")
 export TOKEN
+# PAT-249: the reviewer who approves what admin submitted (four-eyes). Logged in ONCE here and
+# reused by approve-measure.sh / run-approval-gates.sh — the login endpoint is rate-limited and a
+# fresh login per scenario tripped it on CI from scenario 23 on.
+REVIEWER_TOKEN=$(SMOKE_USER="${SMOKE_REVIEWER:-demo}" SMOKE_PASSWORD="${SMOKE_REVIEWER_PASSWORD:-password}" bash "$SCRIPT_DIR/lib/auth.sh")
+export REVIEWER_TOKEN
 echo "  got JWT (${#TOKEN} chars)"
 
 # BUG-144, second half: a fresh installation is supposed to get the demo measure. It never
@@ -363,6 +368,41 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                 failed_scenarios+=("$name"); continue
             fi
             if echo "$response" | bash "$SCRIPT_DIR/lib/assert-authoring-cql.sh" - "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
+        approval-gates)
+            # PAT-249 approval readiness gate + four-eyes: a failing test case blocks
+            # submit-for-review (409 Measure Not Ready), the owner's own approve is refused
+            # (403 Approval Not Allowed), the shared reviewer's approve lands the measure
+            # active. Everything lives in lib/run-approval-gates.sh.
+            if bash "$SCRIPT_DIR/lib/run-approval-gates.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
+        synthetic-cohort)
+            # PAT-255: 120 patients from the platform's own TW Core generator (fixed seed),
+            # evaluated by the seeded demo measure against an oracle computed in TypeScript.
+            # Everything lives in lib/run-synthetic-cohort.sh.
+            if bash "$SCRIPT_DIR/lib/run-synthetic-cohort.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
+        measure-set-locks)
+            # PAT-253 measure set lineage + edit locks: a renamed version stays in its
+            # set's history and supersedes the old active one on approve; sharing spans the
+            # set; a test case / CQL library locked by one user refuses the other's writes
+            # with 409 Locked until released. Everything lives in lib/run-measure-set-locks.sh.
+            if bash "$SCRIPT_DIR/lib/run-measure-set-locks.sh" "$scenario_dir" "$expected_file"; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")
@@ -697,7 +737,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

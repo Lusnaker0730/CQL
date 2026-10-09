@@ -25,7 +25,7 @@ import {
   randomDateInRange,
   randomGender,
 } from './twDemographics'
-import { randomInt, randomElement, randomFloat, pickRandom } from './random'
+import { randomInt, randomElement, randomFloat, pickRandom, random } from './random'
 import { downloadBlob } from './download'
 
 const FHIR_SNOMED = 'http://snomed.info/sct'
@@ -74,14 +74,24 @@ function getAllergyMap(): Map<string, AllergyItem> {
 }
 
 let idCounter = 0
+let idBase = Date.now()
 
 function nextId(prefix: string): string {
   idCounter += 1
-  return `${prefix}-${Date.now()}-${idCounter}`
+  return `${prefix}-${idBase}-${idCounter}`
+}
+
+/**
+ * PAT-255: restarts the id sequence from a fixed base so a seeded run yields the same ids.
+ * Without a base the sequence keys on the wall clock again (the interactive generator's default).
+ */
+export function resetIdSequence(base: number = Date.now()): void {
+  idCounter = 0
+  idBase = base
 }
 
 function pickWeightedEncounterType(): (typeof ENCOUNTER_TYPES)[number] {
-  const r = Math.random()
+  const r = random()
   let cumulative = 0
   for (const et of ENCOUNTER_TYPES) {
     cumulative += et.weight
@@ -442,6 +452,40 @@ export function generateCustomPatient(config: CustomGenerationConfig): Generated
 
 export function generateBatch(config: BatchGenerationConfig): GeneratedPatientData[] {
   return Array.from({ length: config.numPatients }, () => generateCompletePatient(config))
+}
+
+/** Every resource of a generated patient, patient first. */
+export function patientResources(data: GeneratedPatientData): FhirResource[] {
+  return [
+    data.patient,
+    ...data.encounters,
+    ...data.conditions,
+    ...data.observations,
+    ...data.medications,
+    ...data.medication_requests,
+    ...data.allergies,
+  ]
+}
+
+/**
+ * A FHIR transaction Bundle that PUTs every resource under its own id (client-side ids are kept,
+ * so what the UI shows afterwards is searchable by the same id — see GenerationResultPanel).
+ */
+export interface TransactionBundle {
+  resourceType: 'Bundle'
+  type: 'transaction'
+  entry: Array<{ fullUrl: string; resource: FhirResource; request: { method: 'PUT'; url: string } }>
+}
+
+export function toTransactionBundle(patients: GeneratedPatientData[]): TransactionBundle {
+  return {
+    resourceType: 'Bundle',
+    type: 'transaction',
+    entry: patients.flatMap(patientResources).map((resource) => {
+      const ref = `${resource.resourceType as string}/${resource.id as string}`
+      return { fullUrl: ref, resource, request: { method: 'PUT' as const, url: ref } }
+    }),
+  }
 }
 
 export function downloadAsJson(data: GeneratedPatientData[], filename?: string): void {

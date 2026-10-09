@@ -318,7 +318,8 @@ public class AuthoringController {
         ArtifactResponse artifact = artifactService.getById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Artifact", id));
 
-        CqlLibrary library = cqlLibraryService.saveLibrary(cql, artifact.getDescription());
+        CqlLibrary library = cqlLibraryService.saveLibrary(cql, artifact.getDescription(),
+                ownershipVerifier.getCurrentUsername());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("libraryId", library.getId());

@@ -207,6 +207,27 @@
       "approved": "This version is approved (or retired): its logic — CQL, population mapping, scoring — can no longer change. Descriptive fields stay editable. To change the logic, create a new version; it starts as a draft and goes through review, and replaces this one when approved.",
       "inReview": "This version is under review: its logic cannot change until the review finishes (a reviewer can reject it back to draft).",
       "createVersion": "Create new version"
+    },
+    "readiness": {
+      "checking": "Checking approval readiness…",
+      "ready": "Ready for review and approval — CQL translates and every test case passes",
+      "notReady": "{{count}} blocker(s) stop submit / approve",
+      "refresh": "Re-check",
+      "testCaseTally": "Test cases {{passed}} / {{total}} passing · {{invalid}} invalid",
+      "fourEyesInfo": "Four-eyes: the author and whoever submits for review cannot approve; another reviewer the measure is shared with must.",
+      "fourEyesBlocked": "Four-eyes: you are the author ({{author}}) or the submitter, so you cannot approve this measure — share it with another reviewer.",
+      "codes": {
+        "CQL_MISSING": "The measure has no CQL",
+        "CQL_ERRORS": "CQL has {{count}} translation error(s)",
+        "TEST_CASE_INVALID": "{{count}} test case(s) have FHIR validation errors",
+        "TEST_CASE_VALIDATION_PENDING": "{{count}} test case(s) are still being validated — wait or re-validate",
+        "TEST_CASE_NOT_PASSING": "{{count}} test case(s) do not pass on the current logic (failed, errored or not run)",
+        "NO_TEST_CASES": "No test cases — nothing verifies the logic (allowed, but not recommended)",
+        "TEST_CASE_NEVER_VALIDATED": "{{count}} test case(s) were never FHIR-validated — run \"Validate all\"",
+        "TEST_CASE_VALIDATION_ERROR": "{{count}} test case(s) could not be validated (validator error) — re-validate",
+        "TEST_CASE_RUN_STALE": "{{count}} passing test case(s) last ran before the measure's last change — run them again",
+        "CQL_WARNINGS": "CQL translates with {{count}} warning(s)"
+      }
     }
   },
   "details": {
@@ -517,7 +538,9 @@
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
       "delete": "Delete test case",
-      "shiftDates": "Shift test case dates"
+      "shiftDates": "Shift test case dates",
+      "lock": "Lock test case",
+      "unlock": "Unlock test case"
     },
     "measurementPeriod": {
       "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
@@ -575,6 +598,15 @@
       "cancel": "Cancel",
       "done": "Shifted {{count}} test case(s) by {{years}} year(s).",
       "failed": "Shift failed: {{error}}"
+    },
+    "lock": {
+      "lock": "Lock for editing",
+      "unlock": "Release lock",
+      "lockedBy": "Locked by {{user}}",
+      "lockedUntil": "Locked by {{user}} until {{until}}",
+      "editorLocked": "Locked by {{user}} — read-only until the lock is released or expires.",
+      "lockFailed": "Lock failed: {{error}}",
+      "unlockFailed": "Unlock failed: {{error}}"
     }
   },
   "populationTrace": {

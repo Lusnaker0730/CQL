@@ -208,6 +208,10 @@ export interface CqlLibrary {
   ownerUsername?: string
   sharedWith?: string[]
   accessLevel?: string
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -623,6 +627,10 @@ export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementP
   accessLevel?: string
   lockedBy?: string
   lockedAt?: string
+  /** PAT-253: when the active lock lapses. */
+  lockExpiresAt?: string
+  /** PAT-253: the version lineage (measure set) this measure belongs to; read-only. */
+  measureSetId?: number
   reviewedBy?: string
   approvedBy?: string
   reviewComment?: string
@@ -1055,6 +1063,10 @@ export interface TestCase {
   /** PAT-245: FHIR validation of the patient bundle — pending | valid | invalid | error; absent = never validated. */
   validationStatus?: 'pending' | 'valid' | 'invalid' | 'error'
   validation?: TestCaseValidation
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
 }
 
 /** PAT-246 — outcome of copying test cases to another measure. */
@@ -1220,6 +1232,45 @@ export interface BatchTestCaseImportResult {
   errors: string[]
   /** PAT-247: imported, but with something dropped or worth knowing — one line per test case. */
   warnings?: string[]
+}
+
+/** PAT-249: one finding of the approval readiness check; `items` names the test cases concerned (capped). */
+export interface ApprovalReadinessItem {
+  code: string
+  count: number
+  message: string
+  items: string[]
+}
+
+/** PAT-249: what stands between a measure and its approval; blockers stop submit / approve on the server. */
+export interface ApprovalReadiness {
+  measureId: number
+  status: string
+  ready: boolean
+  blockers: ApprovalReadinessItem[]
+  warnings: ApprovalReadinessItem[]
+  testCases?: {
+    total: number
+    passed: number
+    failed: number
+    errored: number
+    notRun: number
+    stale: number
+    valid: number
+    invalid: number
+    validationPending: number
+    validationError: number
+    neverValidated: number
+  }
+  cqlErrorCount: number
+  cqlWarningCount: number
+  fourEyes?: {
+    enabled: boolean
+    author?: string
+    submittedBy?: string
+    selfApprovalBlocked: boolean
+  }
+  checkedAt: string
 }
 
 /** PAT-248: outcome of shifting every test case of a measure by whole years. */

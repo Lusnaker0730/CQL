@@ -38,6 +38,8 @@ import {
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
   EventRepeat as ShiftDatesIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -61,6 +63,7 @@ import TestCaseShiftDatesDialog from './TestCaseShiftDatesDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
+import { getStoredUsername } from '../../utils/validation'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
@@ -144,6 +147,21 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     },
     onError: (err) => showNotification(tCommon('mutationErrors.deleteFailed', { error: extractApiError(err) }), 'error'),
   })
+
+  // PAT-253: edit lock — only the holder may edit / delete / shift a locked case until the lock is
+  // released or expires; the server refuses everyone else with 409 Locked, the UI just mirrors it.
+  const currentUser = useMemo(() => getStoredUsername(), [])
+  const lockMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.lockTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(t('testCases.lock.lockFailed', { error: extractApiError(err) }), 'error'),
+  })
+  const unlockMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.unlockTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(t('testCases.lock.unlockFailed', { error: extractApiError(err) }), 'error'),
+  })
+  const lockedByOther = (tc: TestCase) => !!tc.lockedBy && tc.lockedBy !== currentUser
 
   const runOneMutation = useMutation({
     mutationFn: (testCaseId: number) => measureApi.runTestCase(measure.id!, testCaseId, debugMode),
@@ -316,14 +334,27 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             <Tooltip title={t('testCases.tooltips.exportJson')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
+            {lockedByOther(tc) ? (
+              <Tooltip title={t('testCases.lock.lockedUntil', { user: tc.lockedBy, until: tc.lockExpiresAt ? new Date(tc.lockExpiresAt).toLocaleString() : '' })}>
+                <Chip icon={<LockIcon />} label={t('testCases.lock.lockedBy', { user: tc.lockedBy })} size="small" color="warning" variant="outlined" data-testid={`test-case-lock-${tc.id}`} />
+              </Tooltip>
+            ) : tc.lockedBy ? (
+              <Tooltip title={t('testCases.lock.unlock')}>
+                <IconButton size="small" aria-label={t('testCases.ariaLabels.unlock')} color="warning" onClick={() => unlockMutation.mutate(tc.id!)} disabled={unlockMutation.isPending}><LockOpenIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title={t('testCases.lock.lock')}>
+                <IconButton size="small" aria-label={t('testCases.ariaLabels.lock')} onClick={() => lockMutation.mutate(tc.id!)} disabled={readOnly || lockMutation.isPending}><LockIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            )}
             <Tooltip title={t('testCases.tooltips.shiftDates')}>
-              <IconButton size="small" aria-label={t('testCases.ariaLabels.shiftDates')} onClick={() => setShiftTarget(tc)} disabled={readOnly}><ShiftDatesIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.shiftDates')} onClick={() => setShiftTarget(tc)} disabled={readOnly || lockedByOther(tc)}><ShiftDatesIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.edit')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.delete')}>
-              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)} disabled={lockedByOther(tc)}><DeleteIcon fontSize="small" /></IconButton>
             </Tooltip>
           </Stack>
         </Stack>
@@ -429,7 +460,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         testCase={editing === 'new' ? null : editing}
         onClose={() => setEditing(null)}
         onSaved={() => setEditing(null)}
-        readOnly={readOnly}
+        readOnly={readOnly || (editing !== 'new' && lockedByOther(editing))}
+        lockedByOther={editing !== 'new' && lockedByOther(editing) ? editing.lockedBy : undefined}
       />
     )
   }

@@ -13,6 +13,7 @@ import com.cqlplatform.service.cql.CqlTranslationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -53,6 +54,14 @@ class MeasureDefinitionServiceTest {
 
     @Mock
     private com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
+
+    /** PAT-249: void gates — a plain mock lets every existing workflow test through. */
+    @Mock
+    private ApprovalReadinessService readinessService;
+
+    /** PAT-253: opens / renames measure sets; unstubbed createFor returns 0L, which is fine for create tests. */
+    @Mock
+    private MeasureSetService measureSetService;
 
     @InjectMocks
     private MeasureDefinitionService service;
@@ -232,8 +241,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.lockMeasure(1L, "user1"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already locked");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("is locked by otherUser");
     }
 
     @Test
@@ -271,8 +280,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.unlockMeasure(1L, "wrongUser"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Only the lock holder or owner");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("only the lock holder or the owner");
     }
 
     // ===== Sharing =====
@@ -341,6 +350,56 @@ class MeasureDefinitionServiceTest {
 
         MeasureDefinition result = service.approveMeasure(1L, "owner");
         assertThat(result.getStatus()).isEqualTo("active");
+        // PAT-249: four-eyes is checked before readiness, both before anything is written
+        InOrder gates = inOrder(readinessService, repository);
+        gates.verify(readinessService).requireFourEyes(entity, "owner");
+        gates.verify(readinessService).requireReady(entity, "be approved");
+        gates.verify(repository).save(any());
+    }
+
+    // ===== PAT-249: approval gates =====
+
+    @Test
+    void submitForReview_refusedWhileTheMeasureHasBlockers_writesNothing() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        doThrow(new com.cqlplatform.exception.MeasureNotReadyException("not ready", List.of("2 test case(s) do not pass")))
+                .when(readinessService).requireReady(entity, "be submitted for review");
+
+        assertThatThrownBy(() -> service.submitForReview(1L, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.MeasureNotReadyException.class)
+                .hasMessageContaining("not ready");
+        assertThat(entity.getStatus()).isEqualTo("draft");
+        verify(repository, never()).save(any());
+        verify(auditRepository, never()).save(any());
+        verify(notificationService, never()).notifyMeasureSubmitted(any(), any(), any(), any());
+    }
+
+    @Test
+    void approveMeasure_refusedByFourEyes_writesNothing_andReadinessIsNotEvenChecked() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        entity.setStatus("in-review");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        doThrow(new com.cqlplatform.exception.ApprovalNotAllowedException("Four-eyes principle: its author (owner) may not approve"))
+                .when(readinessService).requireFourEyes(entity, "owner");
+
+        assertThatThrownBy(() -> service.approveMeasure(1L, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ApprovalNotAllowedException.class)
+                .hasMessageContaining("Four-eyes");
+        assertThat(entity.getStatus()).isEqualTo("in-review");
+        verify(readinessService, never()).requireReady(any(), any());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void getApprovalReadiness_delegatesForTheTenantsMeasure() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        com.cqlplatform.model.measure.ApprovalReadiness readiness = com.cqlplatform.model.measure.ApprovalReadiness.builder().measureId(1L).ready(true).build();
+        when(readinessService.check(entity, "bob")).thenReturn(readiness);
+
+        assertThat(service.getApprovalReadiness(1L, "bob")).isSameAs(readiness);
+        assertThatThrownBy(() -> service.getApprovalReadiness(99L, "bob")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -677,7 +736,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinition body = MeasureDefinition.builder().name("M").version("1.0.0").ownerUsername("bob").build();
 
         assertThatThrownBy(() -> service.update(1L, body, "alice"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
                 .hasMessageContaining("locked by bob");
     }
 

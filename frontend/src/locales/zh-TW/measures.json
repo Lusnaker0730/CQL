@@ -207,6 +207,27 @@
       "approved": "此版本已核准（或已退役）：邏輯（CQL、母群對應、計分方式）不能再改，說明類欄位仍可編輯。要改邏輯請建立新版本——新版本從 draft 開始走審核，核准後取代此版本。",
       "inReview": "此版本審核中：審核結束前邏輯不能改（審核者可退回 draft）。",
       "createVersion": "建立新版本"
+    },
+    "readiness": {
+      "checking": "檢查審核就緒狀態…",
+      "ready": "可送審 / 可核准——CQL 可翻譯、每個測試案例都通過",
+      "notReady": "{{count}} 個阻擋項擋住送審 / 核准",
+      "refresh": "重新檢查",
+      "testCaseTally": "測試案例 {{passed}} / {{total}} 通過 · {{invalid}} 無效",
+      "fourEyesInfo": "四眼原則：作者與送審者不能核准，需由指標分享給的其他審核者核准。",
+      "fourEyesBlocked": "四眼原則：你是作者（{{author}}）或送審者，不能核准這支指標——請分享給其他審核者。",
+      "codes": {
+        "CQL_MISSING": "指標沒有 CQL",
+        "CQL_ERRORS": "CQL 有 {{count}} 個翻譯錯誤",
+        "TEST_CASE_INVALID": "{{count}} 個測試案例的 FHIR 驗證有錯誤",
+        "TEST_CASE_VALIDATION_PENDING": "{{count}} 個測試案例仍在驗證中——請稍候或重新驗證",
+        "TEST_CASE_NOT_PASSING": "{{count}} 個測試案例在目前邏輯上未通過（失敗、錯誤或未執行）",
+        "NO_TEST_CASES": "沒有測試案例——沒有東西驗證邏輯（允許，但不建議）",
+        "TEST_CASE_NEVER_VALIDATED": "{{count}} 個測試案例從未做過 FHIR 驗證——請按「全部驗證」",
+        "TEST_CASE_VALIDATION_ERROR": "{{count}} 個測試案例無法驗證（驗證器錯誤）——請重新驗證",
+        "TEST_CASE_RUN_STALE": "{{count}} 個通過的測試案例上次執行早於指標最後修改——請重新執行",
+        "CQL_WARNINGS": "CQL 翻譯有 {{count}} 個警告"
+      }
     }
   },
   "details": {
@@ -517,7 +538,9 @@
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
       "delete": "刪除測試案例",
-      "shiftDates": "平移測試案例日期"
+      "shiftDates": "平移測試案例日期",
+      "lock": "鎖定測試案例",
+      "unlock": "解除鎖定測試案例"
     },
     "measurementPeriod": {
       "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
@@ -575,6 +598,15 @@
       "cancel": "取消",
       "done": "已平移 {{count}} 個測試案例 {{years}} 年。",
       "failed": "平移失敗：{{error}}"
+    },
+    "lock": {
+      "lock": "鎖定編輯",
+      "unlock": "解除鎖定",
+      "lockedBy": "已被 {{user}} 鎖定",
+      "lockedUntil": "已被 {{user}} 鎖定至 {{until}}",
+      "editorLocked": "已被 {{user}} 鎖定，解除或逾時前為唯讀。",
+      "lockFailed": "鎖定失敗：{{error}}",
+      "unlockFailed": "解除鎖定失敗：{{error}}"
     }
   },
   "populationTrace": {

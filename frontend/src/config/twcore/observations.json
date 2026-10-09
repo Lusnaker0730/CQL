@@ -22,10 +22,10 @@
       "name": "血液檢查",
       "observations": [
         {"code": "718-7", "display": "Hemoglobin", "unit": "g/dL", "ucum_code": "g/dL", "min_val": 10, "max_val": 18},
-        {"code": "4544-3", "display": "Red blood cell count", "unit": "10*6/uL", "ucum_code": "10*6/uL", "min_val": 4, "max_val": 6},
+        {"code": "789-8", "display": "Red blood cell count", "unit": "10*6/uL", "ucum_code": "10*6/uL", "min_val": 4, "max_val": 6},
         {"code": "777-3", "display": "Platelet count", "unit": "10*3/uL", "ucum_code": "10*3/uL", "min_val": 150, "max_val": 450},
         {"code": "6690-2", "display": "White blood cell count", "unit": "10*3/uL", "ucum_code": "10*3/uL", "min_val": 4, "max_val": 11},
-        {"code": "4548-4", "display": "Hematocrit", "unit": "%", "ucum_code": "%", "min_val": 35, "max_val": 50},
+        {"code": "4544-3", "display": "Hematocrit", "unit": "%", "ucum_code": "%", "min_val": 35, "max_val": 50},
         {"code": "787-2", "display": "Mean corpuscular volume", "unit": "fL", "ucum_code": "fL", "min_val": 80, "max_val": 100},
         {"code": "785-6", "display": "Mean corpuscular hemoglobin concentration", "unit": "g/dL", "ucum_code": "g/dL", "min_val": 32, "max_val": 36},
         {"code": "786-4", "display": "Mean corpuscular hemoglobin", "unit": "pg", "ucum_code": "pg", "min_val": 27, "max_val": 32},
@@ -54,7 +54,8 @@
         {"code": "2339-0", "display": "Glucose", "unit": "mg/dL", "ucum_code": "mg/dL", "min_val": 70, "max_val": 200},
         {"code": "1558-6", "display": "Fasting glucose", "unit": "mg/dL", "ucum_code": "mg/dL", "min_val": 70, "max_val": 126},
         {"code": "33747-0", "display": "Random glucose", "unit": "mg/dL", "ucum_code": "mg/dL", "min_val": 70, "max_val": 140},
-        {"code": "17856-6", "display": "Hemoglobin A1c", "unit": "%", "ucum_code": "%", "min_val": 4.0, "max_val": 7.0},
+        {"code": "4548-4", "display": "Hemoglobin A1c/Hemoglobin.total in Blood", "unit": "%", "ucum_code": "%", "min_val": 4.5, "max_val": 11.0},
+        {"code": "17856-6", "display": "Hemoglobin A1c (HPLC)", "unit": "%", "ucum_code": "%", "min_val": 4.5, "max_val": 11.0},
         {"code": "20448-7", "display": "Fasting insulin", "unit": "uU/mL", "ucum_code": "uU/mL", "min_val": 2, "max_val": 25},
         {"code": "1506-8", "display": "C-peptide", "unit": "ng/mL", "ucum_code": "ng/mL", "min_val": 0.5, "max_val": 3.0}
       ]

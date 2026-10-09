@@ -243,7 +243,7 @@
       "quiz": "自我測驗"
     },
     "seo": {
-      "defaultTitle": "CQL 學習中心 — 台灣CQL概念平台",
+      "defaultTitle": "CQL 學習中心 — 台灣CQL臨床品質平台",
       "defaultDescription": "從零開始學習臨床品質語言 (CQL) — 入門教學、互動範例、TWCORE IG 指南、eCQM、FHIRPath 與線上練習場。",
       "introduction": "CQL 入門介紹 — 什麼是臨床品質語言、為什麼對醫療品質量測至關重要、如何與 FHIR 搭配使用。",
       "concepts": "CQL 核心概念 — 資料型別、表達式、查詢、Retrieve 語句與臨床邏輯構建模組。",
@@ -899,5 +899,275 @@
     "successMessage": "已收到您的申請,平台團隊審核後將以 email 與您聯繫。",
     "backToHome": "回首頁",
     "failed": "申請送出失敗,請稍後再試。"
+  },
+  "home": {
+    "seo": {
+      "title": "台灣CQL臨床品質平台 — 臨床品質指標、測試驗證與決策支援的 CQL 平台",
+      "description": "把臨床品質指標從文件變成可執行、可驗證、可交換的邏輯：視覺化建立 eCQM、以測試案例驗證、對 FHIR / TW Core 病人資料評估、匯出 HL7 標準封裝、提供 CDS Hooks 即時提醒。"
+    },
+    "nav": {
+      "ariaLabel": "網站導覽",
+      "features": "功能",
+      "howItWorks": "運作方式",
+      "docs": "文件",
+      "learn": "CQL 教學",
+      "templates": "範本庫",
+      "login": "登入",
+      "faq": "常見問題"
+    },
+    "hero": {
+      "eyebrow": "HL7 FHIR R4 · TW Core IG · Clinical Quality Language",
+      "title": "把臨床品質指標變成可以執行、驗證、交換的邏輯",
+      "subtitle": "給醫院品管、診所與醫資開發者：視覺化建立 eCQM 與 CDS 規則，用測試案例證明它是對的，對真實 FHIR 資料評估，再以 HL7 標準封裝交付。",
+      "primaryCta": "申請試用",
+      "secondaryCta": "看平台怎麼運作",
+      "tertiaryCta": "先學 CQL",
+      "note": "推廣期免費。診所帳號由平台團隊審核開通；每家診所在自己獨立的租戶內作業。",
+      "imageAlt": "視覺化 eCQM builder：由臨床元素組成的母群群組，旁邊是即時產生的 CQL"
+    },
+    "audiences": {
+      "title": "給誰用",
+      "subtitle": "三種團隊用同一套工具鏈的不同部分。",
+      "hospital": {
+        "title": "醫院品管與病人安全",
+        "description": "指標從定義到報表自己掌握，不再從報表人工數。",
+        "point1": "不寫 CQL 就能定義比例 / 比率 / 連續變數 / 世代型指標",
+        "point2": "每個版本先用測試案例驗證，再由第二位審核者核准",
+        "point3": "每月對 FHIR 資料算分，匯出 MeasureReport、Excel 或 CSV"
+      },
+      "clinic": {
+        "title": "診所與基層",
+        "description": "從病人的健康存摺 bundle 就能開始，不需要資料倉儲。",
+        "point1": "上傳健康存摺或 EHR 的 FHIR bundle 當病人資料",
+        "point2": "直接套用現成的 TW Core 指標範本",
+        "point3": "看診流程中收到 CDS Hooks 提醒"
+      },
+      "developer": {
+        "title": "醫資與開發者",
+        "description": "有 API、依標準的 CQL 工具鏈，不是黑盒子。",
+        "point1": "Monaco CQL 編輯器：即時翻譯、ELM、逐子句覆蓋率",
+        "point2": "交換 CQF Measures 封裝與 MADiE 相容測試案例",
+        "point3": "API key、CDS Hooks discovery、可串接的 FHIR R4 伺服器"
+      }
+    },
+    "howItWorks": {
+      "title": "怎麼運作",
+      "subtitle": "從病人資料到核准上線的指標，四個步驟。",
+      "import": {
+        "title": "匯入病人資料",
+        "description": "上傳健康存摺 FHIR bundle、連接 EHR，或產生符合 TW Core 的假病人。所有資料都依 TW Core IG profile 驗證。",
+        "tag1": "健康存摺 bundle",
+        "tag2": "EHR 連線",
+        "tag3": "假病人產生器",
+        "imageAlt": "假病人產生器：產生符合 TW Core 的測試病人"
+      },
+      "build": {
+        "title": "視覺化建立指標",
+        "description": "用臨床元素組出初始母群、分母、分子、排除、分層與觀測值，CQL 隨手產生並即時翻譯。",
+        "tag1": "母群群組",
+        "tag2": "分層與補充資料",
+        "tag3": "即時 CQL",
+        "imageAlt": "eCQM builder 工作區"
+      },
+      "verify": {
+        "title": "用測試案例驗證，再核准",
+        "description": "每個測試案例是一位 FHIR 病人加上期望計數；執行時逐子句比對期望與實際。FHIR 驗證、就緒檢查與四眼核准擋在上線之前。",
+        "tag1": "期望 vs 實際",
+        "tag2": "FHIR 驗證",
+        "tag3": "四眼核准",
+        "imageAlt": "測試案例清單：驗證狀態、執行結果與審核就緒面板"
+      },
+      "run": {
+        "title": "評估、報表與提醒",
+        "description": "對任一測量期間的病人資料算分，匯出 FHIR MeasureReport / Excel / CSV，排程定期執行，同一套邏輯也能以 CDS Hooks 在看診時提醒。",
+        "tag1": "MeasureReport 匯出",
+        "tag2": "排程執行",
+        "tag3": "CDS Hooks",
+        "imageAlt": "指標的報表歷史：每次評估的分數、狀態與耗時"
+      }
+    },
+    "capabilities": {
+      "title": "平台提供什麼",
+      "subtitle": "圍繞 HL7 CQL 的完整工具鏈，依用途分五組。",
+      "authoring": {
+        "title": "作者工具",
+        "builder": {
+          "title": "視覺化 eCQM 與 CDS builder",
+          "description": "把臨床元素拖進母群群組，CQL 即時產生、翻譯、驗證。"
+        },
+        "editor": {
+          "title": "CQL 編輯器",
+          "description": "Monaco 語法高亮、自動完成、TW Core 片段、ELM 輸出。"
+        },
+        "templates": {
+          "title": "TW Core 範本",
+          "description": "常見台灣指標的現成 CQL，可複製修改。"
+        },
+        "libraries": {
+          "title": "共用 CQL 程式庫",
+          "description": "上傳程式庫、在 builder 呼叫其函式、釘選版本。"
+        }
+      },
+      "verification": {
+        "title": "驗證與審核",
+        "testCases": {
+          "title": "測試案例",
+          "description": "FHIR 病人 bundle 加期望計數、觀測值與分層；單跑或全跑。"
+        },
+        "validation": {
+          "title": "FHIR 驗證",
+          "description": "每位測試病人都在背景依 TW Core IG profile 驗證。"
+        },
+        "coverage": {
+          "title": "逐子句覆蓋率",
+          "description": "看到測試案例實際走過哪些 CQL 子句。"
+        },
+        "approval": {
+          "title": "就緒檢查與四眼",
+          "description": "CQL 錯誤或測試案例失敗擋住送審；作者不能核准自己的指標。"
+        }
+      },
+      "exchange": {
+        "title": "標準交換",
+        "cqfmPackage": {
+          "title": "CQF Measures 封裝",
+          "description": "匯出 / 匯入 Measure + Library + ValueSet bundle，附符合性報告。"
+        },
+        "madieTestCases": {
+          "title": "MADiE 相容測試案例",
+          "description": "FHIR bundle + 測試案例 MeasureReport 的 zip，雙向。"
+        },
+        "fhirReports": {
+          "title": "FHIR MeasureReport",
+          "description": "評估結果以 FHIR、Excel 或 CSV 匯出，含分層與補充資料。"
+        },
+        "cdsHooks": {
+          "title": "CDS Hooks 服務",
+          "description": "把規則發布成標準 CDS Hooks 服務，含 prefetch 與 cards。"
+        }
+      },
+      "data": {
+        "title": "資料來源",
+        "myHealthBank": {
+          "title": "健康存摺匯入",
+          "description": "上傳病人的健康存摺 FHIR bundle 當測試或評估資料。"
+        },
+        "ehr": {
+          "title": "EHR 連線",
+          "description": "以 SMART Backend Services 連線從 EHR 取得病人。"
+        },
+        "patientGenerator": {
+          "title": "假病人產生器",
+          "description": "符合 TW Core 的假病人，病症、檢驗與用藥可設定。"
+        },
+        "terminology": {
+          "title": "術語與 value set",
+          "description": "瀏覽 ICD-10、LOINC、健保碼；自建並版本化 value set。"
+        }
+      },
+      "governance": {
+        "title": "治理與安全",
+        "tenants": {
+          "title": "診所租戶隔離",
+          "description": "每家診所一個租戶，資料隔離到資料庫列層級。"
+        },
+        "approvalFlow": {
+          "title": "版本化審核流程",
+          "description": "草稿 → 審核 → 生效，含版本、取代與核准後邏輯鎖定。"
+        },
+        "audit": {
+          "title": "稽核軌跡",
+          "description": "每支指標誰建立、修改、送審、核准、退役都有紀錄。"
+        },
+        "apiKeys": {
+          "title": "API key 與 SSO",
+          "description": "程式化存取、CDS Hooks 認證、Okta 登入。"
+        }
+      }
+    },
+    "demo": {
+      "title": "實際畫面",
+      "subtitle": "以下畫面來自跑著合成資料的平台實例。",
+      "measures": {
+        "title": "指標工作區",
+        "description": "每支指標的版本、生命週期狀態、測試案例、評估與報表歷史——核准後的邏輯鎖定，修改走新版本。",
+        "imageAlt": "指標清單與版本狀態"
+      },
+      "report": {
+        "title": "eCQM 儀表板",
+        "description": "每支指標的狀態與各期間分數趨勢、閾值警示，一個畫面看完。",
+        "imageAlt": "eCQM 儀表板：各狀態指標數與分數趨勢圖"
+      },
+      "templatesCta": "瀏覽範本庫",
+      "docsCta": "閱讀文件"
+    },
+    "standards": {
+      "title": "依循的開放標準",
+      "subtitle": "你建立或匯出的一切都依 HL7 與衛福部的規範。"
+    },
+    "cta": {
+      "title": "準備用自己的指標試試看？",
+      "description": "FHIR 與 CQL 在台灣還在推廣階段，平台目前免費。申請診所帳號——平台團隊審核每一份申請，並為你建立獨立的租戶。",
+      "apply": "申請試用",
+      "login": "登入"
+    },
+    "trust": {
+      "title": "誰在維護、怎麼收費、資料放哪",
+      "subtitle": "把指標放上一個平台之前，大家會先問的事。",
+      "maintenance": {
+        "title": "維護與開放",
+        "description": "由呂侑穎醫師與 Claude Code 共同開發與維護，程式碼公開在 GitHub。每次變更都依 IEC 62304 / ISO 14971 留存需求、設計、風險與驗證紀錄。本平台不是已登記的醫療器材。",
+        "link": "GitHub 原始碼"
+      },
+      "standards": {
+        "title": "依循的標準",
+        "description": "HL7 FHIR R4 與 CQL，台灣端依衛生福利部公告的 TW Core IG（目前內建 1.0.0）。我們跟著衛福部公告的版本更新平台。",
+        "link": "TW Core IG（衛福部）"
+      },
+      "pricing": {
+        "title": "推廣期免費",
+        "description": "FHIR 與 CQL 在台灣仍在推廣階段，平台以免費方式提供、協助推廣。帳號採申請審核制，目前沒有付費方案。"
+      },
+      "data": {
+        "title": "你的資料",
+        "description": "每家診所一個租戶，隔離到資料庫列層級，每個指標操作都有稽核軌跡。建議以去識別化或合成病人資料撰寫與測試；平台用途是建立與驗證指標，不是臨床照護決策。"
+      }
+    },
+    "faq": {
+      "title": "常見問題",
+      "subtitle": "",
+      "cost": {
+        "q": "需要付費嗎？",
+        "a": "不用。FHIR 與 CQL 在台灣的推廣期內平台免費；若未來有變動，會提前通知既有診所。"
+      },
+      "whoCanApply": {
+        "q": "誰可以申請？要等多久？",
+        "a": "醫院、診所、醫資團隊與學研單位都可以。填寫申請表後由平台團隊審核，通過會以 email 寄一次性的開通連結，通常幾個工作天內。"
+      },
+      "needCql": {
+        "q": "我需要會寫 CQL 嗎？",
+        "a": "建指標不需要：視覺化 builder 用臨床元素組出母群並自動產生 CQL。想讀或手寫 CQL 的話，有編輯器與學習中心（HL7 CQL 官方教學的翻譯）。"
+      },
+      "data": {
+        "q": "我的資料放在哪裡？安全嗎？",
+        "a": "放在平台自己的資料庫、只屬於你診所的租戶裡；隔離在資料庫列層級強制執行，每個指標操作都留稽核。建議用去識別化或合成病人資料撰寫與測試。本平台不是已登記的醫療器材。"
+      },
+      "portability": {
+        "q": "指標可以帶走嗎？",
+        "a": "可以。指標匯出成 HL7 CQF Measures 封裝（Measure + Library + ValueSet）、測試案例匯出成 MADiE 相容的 zip、結果匯出成 FHIR MeasureReport、Excel 或 CSV，不綁定平台。"
+      },
+      "standards": {
+        "q": "支援哪些標準版本？",
+        "a": "FHIR R4（4.0.1）、HL7 CQL（參考實作引擎）、目前內建的 TW Core IG 1.0.0、CQF Measures IG 封裝與 CDS Hooks。我們跟著衛福部公告的版本更新。"
+      },
+      "support": {
+        "q": "怎麼回報問題或談合作？",
+        "a": "寫信到頁尾的信箱，或到 GitHub 開 issue；服務狀態頁可以看目前運作情形。"
+      }
+    }
+  },
+  "login": {
+    "backHome": "回首頁",
+    "pageTitle": "登入"
   }
 }
