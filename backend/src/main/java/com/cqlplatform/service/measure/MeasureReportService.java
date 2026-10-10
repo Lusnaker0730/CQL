@@ -72,6 +72,16 @@ public class MeasureReportService {
                 }
             }
 
+            // BUG-145: the duration is metadata, the report is the record. The column has a CHECK
+            // (>= 0, or NULL for "not known") since V51 — a duration that cannot be right is stored
+            // as unknown instead of getting the whole report rejected. 0 would claim it took no time.
+            Long storedDurationMs = durationMs;
+            if (durationMs < 0) {
+                log.warn("Evaluation duration {} ms is negative (clock adjusted during the evaluation?) — "
+                        + "storing it as unknown so the report is kept", durationMs);
+                storedDurationMs = null;
+            }
+
             MeasureReportEntity entity = MeasureReportEntity.builder()
                     .measureDefinitionId(measureDefinitionId)
                     .measureVersion(measureVersion)
@@ -88,7 +98,7 @@ public class MeasureReportService {
                     .resultJson(resultJson)
                     .fhirServerUrl(fhirServerUrl)
                     .evaluatedBy(evaluatedBy)
-                    .evaluationDurationMs(durationMs)
+                    .evaluationDurationMs(storedDurationMs)
                     .tenantId(effectiveTenantId())
                     .build();
 

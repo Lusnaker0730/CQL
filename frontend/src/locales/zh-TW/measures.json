@@ -137,7 +137,7 @@
       "measurePlaceholder": "在此貼上 FHIR Measure 資源 JSON...",
       "importing": "匯入中...",
       "import": "匯入",
-      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過，{{valueSets}} 個值集已找到。",
+      "bundleSuccess": "Bundle 已匯入：{{libraries}} 個庫已匯入，{{skipped}} 個略過；{{valueSetsFound}} 個 value set 中有 {{valueSets}} 個已存為本單位的草稿 value set。",
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
       "exportError": "匯出失敗：{{error}}",
@@ -182,7 +182,8 @@
       "cqlOnly": "僅 CQL",
       "elmOnly": "僅 ELM",
       "hqmfXml": "HQMF (XML)",
-      "humanReadable": "人類可讀文件 (HTML)"
+      "humanReadable": "人類可讀文件 (HTML)",
+      "packageCheck": "交換封裝檢查"
     },
     "versionMenu": {
       "createVersion": "建立版本",
@@ -201,6 +202,32 @@
       "unlockFailed": "解鎖失敗",
       "exportFailed": "匯出失敗：{{error}}",
       "loadVersionFailed": "無法載入指標版本：{{error}}"
+    },
+    "logicLocked": {
+      "approved": "此版本已核准（或已退役）：邏輯（CQL、母群對應、計分方式）不能再改，說明類欄位仍可編輯。要改邏輯請建立新版本——新版本從 draft 開始走審核，核准後取代此版本。",
+      "inReview": "此版本審核中：審核結束前邏輯不能改（審核者可退回 draft）。",
+      "createVersion": "建立新版本"
+    },
+    "readiness": {
+      "checking": "檢查審核就緒狀態…",
+      "ready": "可送審 / 可核准——CQL 可翻譯、每個測試案例都通過",
+      "notReady": "{{count}} 個阻擋項擋住送審 / 核准",
+      "refresh": "重新檢查",
+      "testCaseTally": "測試案例 {{passed}} / {{total}} 通過 · {{invalid}} 無效",
+      "fourEyesInfo": "四眼原則：作者與送審者不能核准，需由指標分享給的其他審核者核准。",
+      "fourEyesBlocked": "四眼原則：你是作者（{{author}}）或送審者，不能核准這支指標——請分享給其他審核者。",
+      "codes": {
+        "CQL_MISSING": "指標沒有 CQL",
+        "CQL_ERRORS": "CQL 有 {{count}} 個翻譯錯誤",
+        "TEST_CASE_INVALID": "{{count}} 個測試案例的 FHIR 驗證有錯誤",
+        "TEST_CASE_VALIDATION_PENDING": "{{count}} 個測試案例仍在驗證中——請稍候或重新驗證",
+        "TEST_CASE_NOT_PASSING": "{{count}} 個測試案例在目前邏輯上未通過（失敗、錯誤或未執行）",
+        "NO_TEST_CASES": "沒有測試案例——沒有東西驗證邏輯（允許，但不建議）",
+        "TEST_CASE_NEVER_VALIDATED": "{{count}} 個測試案例從未做過 FHIR 驗證——請按「全部驗證」",
+        "TEST_CASE_VALIDATION_ERROR": "{{count}} 個測試案例無法驗證（驗證器錯誤）——請重新驗證",
+        "TEST_CASE_RUN_STALE": "{{count}} 個通過的測試案例上次執行早於指標最後修改——請重新執行",
+        "CQL_WARNINGS": "CQL 翻譯有 {{count}} 個警告"
+      }
     }
   },
   "details": {
@@ -226,7 +253,8 @@
       "department": "科別",
       "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
-      "compositeScoring": "複合評分"
+      "compositeScoring": "複合評分",
+      "scoringTypeLocked": "計分方式屬於邏輯——要改請建立新版本"
     },
     "measureOverview": "指標概述",
     "overviewFields": {
@@ -258,7 +286,9 @@
     "legalFields": {
       "copyright": "著作權",
       "disclaimer": "免責聲明"
-    }
+    },
+    "standardMetadata": "標準 Metadata（FHIR Measure）",
+    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期與實驗性旗標——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。"
   },
   "cql": {
     "translate": "翻譯",
@@ -313,6 +343,7 @@
       "stratifierId": "分層 ID",
       "cqlExpression": "CQL 運算式",
       "removeStratifier": "移除分層",
+      "components": "元件：{{list}}——病人的分層是各元件值的組合。",
       "populationAssociations": "族群關聯",
       "addStratifier": "新增分層",
       "description": "說明",
@@ -455,6 +486,15 @@
     "running": "執行中...",
     "runAll": "全部執行",
     "exportAll": "全部匯出",
+    "exportMenu": {
+      "json": "平台 JSON",
+      "jsonHint": "全部測試案例一個檔案；可在此重新匯入並平移日期",
+      "madie": "MADiE 相容 zip",
+      "madieHint": "每個測試案例一個 FHIR Bundle 加測試案例 MeasureReport；可匯入 MADiE 或另一個 CQL Platform",
+      "excel": "Excel（期望 vs 實際）",
+      "excelHint": "KEY 工作表 + 每個母群群組一張；一列一個測試案例，不符處標色",
+      "zipFailed": "匯出失敗：{{error}}"
+    },
     "importing": "匯入中...",
     "import": "匯入",
     "addTestCase": "新增測試案例",
@@ -468,20 +508,105 @@
     "debugPanelTitle": "CQL 執行追蹤",
     "populationTraceTitle": "族群歸屬追蹤",
     "coverageTitle": "表達式覆蓋率",
+    "clauseCoverage": {
+      "title": "逐子句覆蓋率",
+      "button": "逐子句覆蓋率",
+      "tooltip": "執行所有測試案例，把 CQL 的每個子句依「是否有任一測試案例執行到」標色（Bonnie / MADiE 的做法）。",
+      "measureTitle": "全部測試案例的逐子句覆蓋率",
+      "measureSubtitle": "{{total}} 個測試案例中 {{executed}} 個已執行，{{passed}} 個通過",
+      "noneExecuted": "{{total}} 個測試案例都無法執行，沒有覆蓋率可顯示。請用除錯模式開啟其中一個查看原因。",
+      "overall": "已覆蓋：{{value}}",
+      "onlyUncovered": "只列出有缺口的敘述",
+      "legendCovered": "至少一次執行到",
+      "legendUncovered": "從未執行到",
+      "allCovered": "每個子句都被執行到了。",
+      "byStatement": "依敘述",
+      "sourceLabel": "標示逐子句覆蓋率的 CQL"
+    },
     "tooltips": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行此測試案例",
       "runTestCaseDebug": "執行並顯示除錯追蹤（族群歸屬、執行細節、覆蓋率）",
       "exportJson": "匯出 JSON",
       "edit": "編輯",
-      "delete": "刪除"
+      "delete": "刪除",
+      "shiftDates": "以整年平移日期"
     },
     "ariaLabels": {
       "runWithCoverage": "執行並計算覆蓋率",
       "runTestCase": "執行測試案例",
       "exportJson": "匯出測試案例 JSON",
       "edit": "編輯測試案例",
-      "delete": "刪除測試案例"
+      "delete": "刪除測試案例",
+      "shiftDates": "平移測試案例日期",
+      "lock": "鎖定測試案例",
+      "unlock": "解除鎖定測試案例"
+    },
+    "measurementPeriod": {
+      "measure": "測試案例以指標的測量期間 {{start}} – {{end}} 執行。",
+      "currentYear": "測試案例以當年曆年（{{year}}）為測量期間執行——到「詳細資料」設定測量期間即可固定時間窗。"
+    },
+    "validation": {
+      "status": {
+        "valid": "有效",
+        "invalid": "無效",
+        "pending": "驗證中…",
+        "error": "驗證錯誤",
+        "none": "未驗證"
+      },
+      "hint": {
+        "pending": "病人 bundle 的 FHIR 驗證正在背景執行。",
+        "none": "此測試案例建立於驗證功能之前。按「全部驗證」或重新儲存即可驗證。",
+        "valid": "病人 bundle 的每個資源都通過 FHIR 驗證。",
+        "invalid": "至少一個資源有驗證錯誤——點一下查看。",
+        "error": "驗證器無法處理這個 bundle——點一下查看原因。"
+      },
+      "summary": "{{resources}} 個資源，{{invalid}} 個無效——{{errors}} 個錯誤、{{warnings}} 個警告",
+      "revalidate": "重新驗證",
+      "validating": "驗證中…",
+      "moreIssues": "…還有 {{count}} 個錯誤",
+      "validateAll": "全部驗證",
+      "validateAllQueued": "已排入 {{count}} 個測試案例的 FHIR 驗證；完成後清單會自動更新。",
+      "skipInvalid": "略過無效（{{count}}）",
+      "skipInvalidHint": "「全部執行」會略過 FHIR 驗證有錯誤的測試案例；驗證中與未驗證的仍會執行。"
+    },
+    "copyDialog": {
+      "button": "複製到…",
+      "title": "複製測試案例到其他指標",
+      "hint": "把選取的測試案例（病人 bundle、期望值、驗證結果）複製到另一支指標，通常是本指標的另一個版本。期望值對不上目標指標母群群組的，該份複製會拿掉期望值並在下方列出。",
+      "target": "目標指標",
+      "sameMeasure": "同一指標",
+      "noTargets": "沒有其他可複製的指標。",
+      "selectAll": "已選 {{selected}} / {{total}}",
+      "copy": "複製",
+      "copying": "複製中…",
+      "copied": "已複製 {{count}} 個測試案例到 {{target}}。",
+      "warningsTitle": "以下複製的期望值已拿掉：",
+      "done": "完成",
+      "cancel": "取消"
+    },
+    "shiftDates": {
+      "button": "平移日期…",
+      "titleOne": "平移「{{title}}」的日期",
+      "titleAll": "平移全部 {{count}} 個測試案例的日期",
+      "hint": "把病人 bundle 內所有 date / dateTime / instant 以整年平移、保留月日（與 MADiE 的 shift test case dates 相同），讓為某個測量期間寫的測試案例可以沿用到下一個期間。期望值維持不變。",
+      "period": "本指標的測試案例以其測量期間 {{start}} – {{end}} 執行。",
+      "years": "年數",
+      "yearsHelp": "正數 = 往後、負數 = 往前，最多 ±{{max}}",
+      "resetsRuns": "被平移的測試案例會忘掉上次執行結果（那是在舊日期上跑的），bundle 會重新驗證。",
+      "confirm": "平移 {{years}} 年",
+      "cancel": "取消",
+      "done": "已平移 {{count}} 個測試案例 {{years}} 年。",
+      "failed": "平移失敗：{{error}}"
+    },
+    "lock": {
+      "lock": "鎖定編輯",
+      "unlock": "解除鎖定",
+      "lockedBy": "已被 {{user}} 鎖定",
+      "lockedUntil": "已被 {{user}} 鎖定至 {{until}}",
+      "editorLocked": "已被 {{user}} 鎖定，解除或逾時前為唯讀。",
+      "lockFailed": "鎖定失敗：{{error}}",
+      "unlockFailed": "解除鎖定失敗：{{error}}"
     }
   },
   "populationTrace": {
@@ -490,7 +615,8 @@
       "population": "族群",
       "raw": "CQL",
       "effective": "實際",
-      "reason": "原因"
+      "reason": "原因",
+      "episodes": "Episode 數"
     },
     "phases": {
       "BUNDLE_PARSE": "Bundle 解析",
@@ -524,10 +650,11 @@
   },
   "importDialog": {
     "title": "匯入測試案例",
-    "dropHint": "點擊或拖曳 JSON 檔案至此處以匯入測試案例",
-    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、或原始 FHIR Bundle",
+    "dropHint": "點擊或拖曳 JSON / zip 檔案至此處以匯入測試案例",
+    "formatHint": "支援：JSON 陣列、單一測試案例、MADiE 格式、原始 FHIR Bundle，或測試案例 bundle 的 zip（CQL Platform / MADiE 匯出）",
     "noValidCases": "檔案中未找到有效的測試案例。每個項目必須包含病人 Bundle。",
     "parseError": "檔案解析失敗：{{error}}",
+    "serverImport": "{{file}} 內是帶有測試案例 MeasureReport 的 bundle（CQL Platform 或 MADiE 匯出）。伺服器會把每份報告讀成期望值；對不上本指標的報告會被拿掉並列在下方。匯入後可從測試案例清單平移日期。",
     "preview": "在 {{file}} 中找到 {{count}} 個測試案例",
     "removeFromImport": "從匯入中移除",
     "enableDateShift": "啟用日期平移（調整病人 Bundle 中的所有日期）",
@@ -535,11 +662,14 @@
     "shiftDaysHelp": "正數 = 往後、負數 = 往前",
     "shiftExplanation": "病人 Bundle 中所有的日期、日期時間和期間欄位都將按指定天數平移。適用於將歷史資料對齊至評估期間。",
     "importing": "正在匯入 {{count}} 個測試案例...",
+    "importingFile": "正在伺服器端匯入 {{file}}...",
     "importError": "匯入失敗：{{error}}",
     "resultSummary": "成功匯入 {{success}}/{{total}} 個測試案例",
+    "warnings": "{{count}} 則提醒",
     "done": "完成",
     "cancel": "取消",
-    "importCount": "匯入 {{count}} 個測試案例"
+    "importCount": "匯入 {{count}} 個測試案例",
+    "importFile": "匯入檔案"
   },
   "testCaseEditor": {
     "newTitle": "新增測試案例",
@@ -579,7 +709,25 @@
       "invalidJson": "無效的 JSON"
     },
     "draftRestored": "已還原先前未儲存的草稿。",
-    "discardDraft": "捨棄草稿"
+    "discardDraft": "捨棄草稿",
+    "structured": {
+      "toggle": "分 group 期望值（母群、observation、stratifier）",
+      "toggleHint": "比對時使用與正式指標評估相同的規則，測試通過即代表報表會以同樣方式計入這位病人。",
+      "legacyWarning": "這個指標有多個 population group、measure observation 或 stratifier。下方的簡易開關無法區分 group，也不會檢查 observation 與 stratifier，請開啟「分 group 期望值」來測試。",
+      "group": "Group {{id}}",
+      "populationsHint": "請設定母群階層生效「之後」的歸屬：被分母排除的病人不算在分子內。",
+      "patientBasedNote": "此群組以病人計數：每個母群對這個測試案例是 0 或 1。",
+      "assertObservations": "檢查 measure observation 數值",
+      "observations": "期望的 observation 數值",
+      "observationsPlaceholder": "例如 30, 45",
+      "observationsHint": "每個 observation 一個數值，順序不拘；留空代表期望沒有任何數值。",
+      "observationsInvalid": "不是數字：{{tokens}}",
+      "stratifiers": "期望的分層落點",
+      "stratifierHint": "留空代表不檢查這個 stratifier",
+      "useActual": "帶入上次執行的實際值",
+      "noGroups": "這個指標尚未定義 population group，沒有可逐 group 設定的項目。",
+      "episodeBasedNote": "此群組以 {{basis}} episode 計數：請填入母群階層生效後，這位病人有幾個 episode 屬於各母群。"
+    }
   },
   "testCaseResult": {
     "pass": "通過",
@@ -589,12 +737,20 @@
       "population": "族群",
       "expected": "預期",
       "actual": "實際",
-      "result": "結果"
+      "result": "結果",
+      "group": "Group",
+      "item": "項目"
     },
     "yes": "是",
     "no": "否",
     "na": "-",
-    "ms": "ms"
+    "ms": "ms",
+    "kinds": {
+      "observation": "Observation 數值",
+      "stratifier": "Stratifier {{id}}"
+    },
+    "structuredTable": "分 group 比對結果",
+    "noStratum": "（未落入任何分層）"
   },
   "evaluationResult": {
     "populationLabels": {
@@ -612,7 +768,8 @@
     "tableHeaders": {
       "population": "族群",
       "count": "計數",
-      "subjects": "受試者"
+      "subjects": "受試者",
+      "countEpisodes": "計數（{{basis}} episode）"
     },
     "na": "N/A",
     "toggleStratification": "切換分層詳細資訊",
@@ -624,6 +781,18 @@
       "populations": "族群"
     },
     "supplementalData": "補充資料",
+    "supplementalDataResults": {
+      "title": "補充資料與風險校正因子",
+      "definition": "定義",
+      "usage": "用途",
+      "value": "值",
+      "patients": "病人數",
+      "share": "占比",
+      "noValue": "（無值）",
+      "supplementalData": "補充資料",
+      "riskAdjustment": "風險校正因子",
+      "empty": "沒有病人有值。"
+    },
     "groupLabel": "群組：{{groupId}}",
     "aggregateMethods": {
       "average": "平均值",
@@ -1021,8 +1190,8 @@
       "text": "文字",
       "start": "開始",
       "end": "結束",
-      "emptyOption": "\u2014",
-      "selectOption": "\u2014 選擇 \u2014",
+      "emptyOption": "—",
+      "selectOption": "— 選擇 —",
       "autoGenerated": "留空時自動產生",
       "boundTo": "綁定至：{{url}}",
       "searchTerminology": "搜尋術語",
@@ -1058,5 +1227,66 @@
       "type": "類型",
       "noChoices": "此欄位無可用的選擇型別。"
     }
+  },
+  "exportConformance": {
+    "title": "交換封裝檢查",
+    "loading": "正在檢查封裝",
+    "ready": "這個封裝可以被其他單位的系統匯入並執行。",
+    "notReady": "封裝有錯誤：其他單位無法用它執行這個指標。",
+    "measureProfiles": "Measure 宣告符合的 profile",
+    "libraryProfiles": "主要 Library 宣告符合的 profile",
+    "noProfiles": "目前沒有宣告任何 profile，請看下方的檢查結果補齊缺少的內容。",
+    "valueSets": "Value set",
+    "valueSetName": "Value set",
+    "valueSetPackaged": "封裝內容",
+    "valueSetIncluded": "完整定義（{{source}}）",
+    "valueSetNameOnly": "僅有 URL",
+    "issues": "檢查結果",
+    "noIssues": "沒有需要修正的項目。",
+    "severity": {
+      "error": "錯誤",
+      "warning": "警告",
+      "info": "提示"
+    },
+    "canonicalBaseHint": "Canonical URL 目前使用預設的佔位網址。對外分享封裝前，請管理員把 FHIR_CANONICAL_BASE 設成貴單位擁有的網域。"
+  },
+  "standardMetadata": {
+    "measureTypes": "指標類型",
+    "measureTypesHelper": "FHIR Measure.type——可複選（最多 5 個）",
+    "types": {
+      "process": "過程（Process）",
+      "outcome": "結果（Outcome）",
+      "structure": "結構（Structure）",
+      "patient-reported-outcome": "病人自述結果（PRO）",
+      "composite": "複合（Composite）"
+    },
+    "experimental": "實驗性",
+    "experimentalHelper": "僅供測試，不用於實際照護",
+    "effectiveStart": "生效起日",
+    "effectiveEnd": "生效迄日",
+    "effectivePeriodInverted": "生效迄日早於起日。",
+    "approvalDate": "核准日期",
+    "lastReviewDate": "最後審閱日期",
+    "clinicalRecommendationStatement": "臨床建議聲明",
+    "clinicalRecommendationStatementPlaceholder": "本指標依據的臨床指引或建議摘要，例如「ADA 建議多數非懷孕成人 HbA1c 目標低於 7%」",
+    "definitionTerms": "名詞定義",
+    "definitionTermsHelper": "指標中使用的名詞及其在本指標中的定義（FHIR Measure.definition），最多 50 條。",
+    "term": "名詞",
+    "definition": "定義",
+    "addTerm": "新增名詞",
+    "removeTerm": "移除名詞"
+  },
+  "measurementPeriod": {
+    "measurementPeriodStart": "測量期間起日",
+    "measurementPeriodEnd": "測量期間迄日",
+    "hint": "指標檢視資料的時間窗，也就是 CQL「Measurement Period」參數的預設值。測試案例執行與未指定期間的評估都用它；留空則沿用當年曆年。",
+    "inverted": "測量期間迄日早於起日。"
+  },
+  "builderSource": {
+    "builtIn": "由 eCQM builder 建立：{{name}}（擁有者 {{owner}}）。",
+    "publishedAt": "最後發布於 {{at}}。",
+    "openInBuilder": "在 builder 開啟",
+    "measureEdited": "發布之後，邏輯或母群對應在這裡被改過。從 builder 再次發布前會先詢問是否覆寫——要保留這些修改，請先在 builder 做同樣的改動。",
+    "builderChanged": "builder 有尚未發布到這個指標的變更——到 builder 發布才會生效。"
   }
 }

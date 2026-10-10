@@ -40,6 +40,16 @@ public class XxxService {
 - **禁止** `@Autowired` 在欄位上，用 `@RequiredArgsConstructor` + `final`
 - **禁止**在 Service 層處理 HTTP 狀態碼
 
+### Jackson 2 / 3 並存（PAT-229）
+- Spring Boot 4 的 HTTP 訊息轉換器是 **Jackson 3**（`tools.jackson`）；專案自己的 `ObjectMapper` 與 FHIR 服務用的是 **Jackson 2**（`com.fasterxml.jackson.databind`）。一般 DTO 兩邊都吃得下（註解套件相同），**樹型別不行**
+- Controller 要收 / 回 raw FHIR JSON 時照舊宣告 Jackson 2 的 `JsonNode` / `ObjectNode`——`config/Jackson2TreeBridgeConfig` 註冊的 Jackson 3 module 負責轉換。沒有它時 `@RequestBody JsonNode` 一律 500、回傳的 `ObjectNode` 會被寫成 `{"array":false,…,"nodeType":"OBJECT"}`（2026-09-19 在 Boot 4.1.0 實測五個 FHIR 匯入 / 匯出端點都是這樣壞的，單元測試全綠；推測自 2026-05 升 Boot 4.0 起就如此，未回頭驗證舊版）
+- 新增這類端點**一定要有 MockMvc 測試**走過真的轉換器（範本：`FhirJsonBodyEndpointsTest`）；只測 service 抓不到
+
+### CQL 引擎 5.x 值模型（PAT-231）
+- 引擎的結果與輸入都是 `runtime.Value`；平台程式碼只處理純 Java。**取結果 → `CqlValues.unwrap`；給引擎 FHIR 資源 → `CqlValues.fromFhir`；給引擎參數 → `CqlValues.wrap`**。`CqlValues` 是唯一的橋接，別在其他地方 `instanceof runtime.Boolean`
+- `unwrap` 後 `Tuple` 是 `Map`、`List` 是 `java.util.List`、FHIR 資源仍是 `ClassInstance`（顯示用 `CqlValues.describe` → `FHIR.Patient/123`，不要 `toString()` 整棵樹）
+- 本機建置若 VS Code 的 Java 擴充同時開著，它會寫同一個 `backend/target/classes`，造成假的 `cannot find symbol` / `bad class file`；用 `git worktree` 在工作區外建置最省事
+
 ## 例外處理
 
 `GlobalExceptionHandler` 統一映射例外到 HTTP 回應：
@@ -49,6 +59,9 @@ public class XxxService {
 | `ResourceNotFoundException` | 404 |
 | `DuplicateResourceException` | 409 |
 | `MeasureNotEvaluableException` | 409 `Measure Not Evaluable`（PAT-219：非 `active` 指標不得評估） |
+| `MeasureNotReadyException` | 409 `Measure Not Ready`（PAT-249：送審 / 核准被阻擋項擋住，`details` 列出） |
+| `ApprovalNotAllowedException` | 403 `Approval Not Allowed`（PAT-249 四眼：作者 / 送審者不得核准） |
+| `ResourceLockedException` | 409 `Locked`（PAT-253：指標 / 測試案例 / CQL 程式庫被他人的有效編輯鎖擋住，`details` 帶 `lockedBy` / `lockExpiresAt`） |
 | `ValidationException` | 400 (附 details list) |
 | `CqlTranslationException` | 400 (附 error list) |
 | `CqlGenerationException` | 422 (附 details) |
@@ -80,7 +93,7 @@ ecqm/        (1 file)              — standard-sde
 ## 資料庫
 
 - PostgreSQL (prod & dev) / H2 (test only)
-- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V69；V56 是 Java migration，在 `src/main/java/db/migration/`）
+- Schema 由 Flyway 管理：`src/main/resources/db/migration/`（V1~V79；V56 是 Java migration，在 `src/main/java/db/migration/`）
 - 手動 rollback 腳本：`src/main/resources/db/rollback/`（每個 V__ 對應一份；CI `migration-test` job 會數量比對，缺一個就紅）
 - JPA `ddl-auto=validate`（不會自動建表）
 - 新增表/欄位：建立 `V{N+1}__description.sql` 遷移檔 + 對應 `rollback_V{N+1}__description.sql`

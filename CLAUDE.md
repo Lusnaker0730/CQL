@@ -15,7 +15,7 @@
 | i18n | i18next + react-i18next | 25.8 / 16.5 |
 | DB | PostgreSQL 16 (prod & dev) / H2 (test only) | — |
 | Cache | Caffeine (in-process) | — |
-| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 4.8.0 / 8.8.1 |
+| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 5.3.0 / 8.12.0 |
 | Templates | FreeMarker (.ftl) | — |
 | Test | JUnit 5 + Mockito / Vitest + React Testing Library | — / 4.1 |
 
@@ -24,12 +24,12 @@
 ```
 backend/src/main/java/com/cqlplatform/
   config/          — Spring 配置 (Security, CORS, Cache, Async, Metrics)
-  controller/      — REST API (25 controllers)
-  entity/          — JPA 實體 (39 entities；17 個帶 tenant_id)
+  controller/      — REST API (26 controllers)
+  entity/          — JPA 實體 (40 entities；18 個帶 tenant_id)
   exception/       — 自訂例外 + GlobalExceptionHandler
   fhir/            — FHIR 相關基礎元件
   model/           — DTO / Request / Response
-  repository/      — Spring Data JPA (38 repositories)
+  repository/      — Spring Data JPA (39 repositories)
   security/        — JWT 認證、API Key、Token Version 即時撤銷、TenantContext、Rate limit
   service/
     ai/            — AI 修 CQL 建議 (Ollama / OpenAI-compatible cloud)
@@ -44,7 +44,7 @@ backend/src/main/java/com/cqlplatform/
 backend/src/main/java/db/migration/ — Java-based Flyway migration (V56)
 
 frontend/src/
-  api/             — Axios API 模組 (23 modules)
+  api/             — Axios API 模組 (24 modules)
   components/
     auth/          — 登入 / 密碼重設
     authoring/     — CDS Authoring 視覺化
@@ -67,7 +67,7 @@ frontend/src/
   contexts/        — React Context (7 providers)
   config/
     twcore/        — TW Core IG 假病人產生器設定 (5 JSON + types)
-  hooks/           — 自訂 Hooks (36 files)
+  hooks/           — 自訂 Hooks (37 files)
   locales/{en,zh-TW}/ — i18n JSON (14 namespaces)
   constants/       — 集中常數 (24 modules: timing, layout, queryConstants 等)
   pages/           — 路由頁面 (26 pages, 全部 lazy-loaded)
@@ -81,11 +81,11 @@ backend/src/main/resources/
     modifiers/     — 23 modifier templates
     elements/      — 3 element templates
     fragments/     — cds-card, error-statement
-  db/migration/    — Flyway forward migrations (V1~V69；V56 為 Java migration)
+  db/migration/    — Flyway forward migrations (V1~V79；V56 為 Java migration)
   db/rollback/     — 手動 rollback SQL（每個 V__ 對應一份，非 Flyway 管理；CI 會檢查數量相符）
   application.yml  — 主配置
 
-scripts/smoke/     — 本機 / CI 整合 smoke harness (31 scenarios)
+scripts/smoke/     — 本機 / CI 整合 smoke harness (40 scenarios)
 ```
 
 ## 開發指令
@@ -117,7 +117,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-220 / BUG-143
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-255 / BUG-149
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -135,12 +135,15 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - CDS 服務有 in-memory registry（`CdsHooksService.serviceConfigs`），任何改 DB 的路徑都必須同步 put / remove，否則 `invokeService` 讀舊值到重啟為止（BUG-142）
 
 ### Backend 模式
+- **量耗時用 `util/Stopwatch`（`System.nanoTime()`），不要 `System.currentTimeMillis()` 相減**（BUG-145）：牆上時鐘在執行期間會被 NTP / VM 校時往回調，相減會得到負值。`measure_report.evaluation_duration_ms` 有 CHECK `>= 0`，負值曾讓整份評估報表被資料庫拒絕，而評估 API 照樣回 200。會被**儲存**的耗時尤其要用單調時鐘
+- **附屬資訊不得拖垮紀錄**：`MeasureReportService.saveReport` 對無法成立的耗時存 NULL（未知），不存 0、不讓 insert 失敗
 - Controller → Service → Repository 分層架構
 - Service 層**禁止使用** HTTP 概念 (`HttpServletRequest`, `@ResponseStatus`)
 - 使用 `@RequiredArgsConstructor` + `final` 欄位做依賴注入，不用 `@Autowired`
 - 多步驟變更必須加 `@Transactional`
 - 拋出領域例外（`ResourceNotFoundException`, `ValidationException`, `MeasureNotEvaluableException` 等），GlobalExceptionHandler 統一處理（對照表見 `backend/CLAUDE.md`）
 - CQL 產生：`CqlArtifactBuilder` 組裝 context Map → 呼叫 FreeMarker 模板
+- **指標邏輯只能在 draft 改（BUG-147）**：`MeasureLogic.changed`（CQL + group definitions 經 `PublishedContent.hash` 正規化比對、scoring、composite、components、cqlLibraryId）——`update()` 對非 draft 的邏輯變更丟 `MeasureLogicLockedException`（409 `Measure Logic Locked`），說明類 metadata 照常可改。eCQM **publish 從不把指標設 active**：第一次發布建 draft；draft 就地更新；已核准 / 退役的邏輯有變 → `MeasureDefinitionService.createVersionAs` 建新 draft 版本（版本號遞增、artifact 版本跟著改、以新版本重新驗證 CQL），舊版本照常運作；審核中的邏輯有變 → 409。`approveMeasure` 會把同名其他 active 版本退役（稽核 `SUPERSEDE`）並把排程改指新版本。smoke `save-and-publish.sh` 斷言發布為 draft 後走 `approve-measure.sh`
 - **儲存指標的評估一律經 `MeasureEvaluationService.evaluateMeasure(request, id, def)`**（3-arg overload）：`MeasureStatusGuard` 在此只放行 `active`（PAT-219）。新增評估路徑不要繞過這個 overload，否則守門會漏
 
 ### CQL 執行（BUG-107 規範）
@@ -154,6 +157,31 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 - **禁止**直接 `CqlTranslator.fromText(cql, libraryManager)` 後就 `engine.evaluate()`，否則引擎會走 `DatabaseLibrarySourceProvider` 撈 `cql_library` 表同名同版本舊版 CQL 執行，而不是你剛翻譯的文字
 - helper 內部同時 (1) `put` 入 `libraryManager.compiledLibraries` cache，(2) 對 `statements.def` 按 name 排序（engine 的 `Libraries.resolveExpressionRef` 用 binarySearch，不排會爆 `Could not resolve expression reference`）
 - Regression 測試：`CqlExecutionIntegrationTest.LibraryResolutionRegressionTest` 鎖住此不變式
+
+### 術語 / value set（PAT-230）
+- 解析順序：**平台自有 value set**（`value_set` 表，租戶範圍）→ 內建 TW Core IG → VSAC（URL 含 `cts.nlm.nih.gov`）→ 遠端術語伺服器
+- `FhirTerminologyService` 的 Caffeine 快取（`valueSets` / `codeValidation` / `codeLookup`…）以 **URL 為 key、全程序共用、不分租戶**。任何租戶範圍的術語資料都**不可**放進這些 `@Cacheable` 方法，要在 controller 或呼叫端先查（`FhirController` 的 `$expand` / 搜尋 / `$validate-code` 就是這樣接的）
+- 引擎的 `TerminologyProvider` 一律由 `FhirTerminologyService.createTerminologyProvider()` 取得：它每次回傳一個綁定**當下租戶**的 `PlatformTerminologyProvider`，要在 request thread（或 `TenantContext.callWith` 內）呼叫，每次評估呼叫一次
+- value set 啟用（active）後代碼即凍結，改代碼 = 建立新版本；CQL 可用 `version '…'` 釘選。Builder 產生的宣告是 `valueset "<name>": '<oid 欄位的 URL>'`——artifact JSON 的 `oid` 才是 URL，`name` 只是識別名稱
+
+### CQL 引擎值模型（PAT-231，cql-engine 5.x）
+- 5.x 起引擎的每個值都是 `org.opencds.cqf.cql.engine.runtime.Value`（`runtime.Boolean` 不是 `java.lang.Boolean`；FHIR 資源是 `ClassInstance` 樹，不是 HAPI 物件）。`Object v = result.getValue()` 照樣**編得過**，但 `v instanceof Boolean` 會是 false——母群會靜默清空
+- **平台自己的程式一律走純 Java**：引擎結果只能經 `service/cql/CqlValues.unwrap` 取出（`CqlExecutionService` 四個取值點已接）；給引擎的 FHIR 資源經 `CqlValues.fromFhir`、參數經 `CqlValues.wrap`。不要在別處 import `runtime.*` 型別做判斷；`CqlValues` 是唯一同時認識兩邊的地方
+- `RetrieveProvider.retrieve` 回傳 `Iterable<Value>`、context 參數是 `String`；自寫的 provider 產生 HAPI 資源時要 `fromFhir`
+- Maven 座標：`engine-fhir-jvm`（5.x 的 `engine-fhir` 是 0 class 空殼）
+- 4.x 的 `ComparableR4FhirModelResolver` 兩個 override（Encounter.class、BUG-106 Enumeration 歧義）在 5.x 沒有掛點也不需要：`toCqlValue` 走 HAPI runtime definition 轉換。`CqlValuesTest` 與 golden 測試鎖住
+- **分層（PAT-233）**：`StratifierEvaluator` 一向以 `String.valueOf(value)` 當 stratum key，所以 define 回什麼值就分什麼層——`kind=criteria` 是 `true`/`false`，`kind=value`（builder 的 `gender` / `ageBands` 來源）是值本身；key 規則在 `StratifierEvaluator.stratumKey`（Code map → `code (display)`、空/`null` → 不屬任何層）。`toSerializable` 把 FHIR primitive `ClassInstance`（只有 `value` 元素，含 `FHIR.AdministrativeGender` 這種綁定型）轉成它的值、`Code`/`Concept` 轉成小 map；**別讓 stratifier define 回整個資源**。分層分數依 scoring type（CV 分層沒有分數，observation 值沒有逐層收集）。eCQM workspace 的 artifact 層級 stratifier 在 publish 時套到每個 group
+- **builder ↔ 指標雙向（PAT-238）**：publish 在 artifact 記 `published_at` 與 `published_content_hash`（V76；`service/ecqm/PublishedContent.hash` = CQL + group definitions 正規化後的 SHA-256：換行統一、去尾端空白、刪 null / 空陣列 / 空物件、key 排序——**要能撐過 JSON 欄位的 DB 往返**，`EcqmPublishRoundTripIntegrationTest` 以 flush + clear 鎖住）。再次 publish 時指標目前內容 hash 不同 = 在指標頁被改過 → `PublishConflictException`（409，`error: "Publish Conflict"`），什麼都不寫；`POST /ecqm/artifacts/{id}/publish?force=true` 才覆寫並重設基準。沒有基準（V76 之前發布的）不擋。`GET /api/measures/{id}/builder-source`（204 = 不是 builder 建的）回 artifact 與兩邊的漂移（`measureEditedSincePublish` / `builderChangedSincePublish`，無基準為 null）；前端 `measure/BuilderSourceBanner`、`/ecqm?artifact=<id>` 與 `/measures?measure=<id>` deep link、builder header 的「已發布——開啟指標」chip、`ecqm/PublishConflictDialog`（兩個 publish 入口共用，`utils/publishConflict.isPublishConflict`）。**builder 不會從指標反推**——在指標頁改的邏輯要手動帶回 builder
+- **程式庫函式呼叫（PAT-237）**：builder 元素 `externalCqlFunctionCall`（`ExpressionCqlEngine.emitFunctionCall`）產生 `"Lib"."Fn"(arg, …)`，欄位 `library_name` / `library_version` / `alias?` / `function_name` / `arguments[]`；每個引數 `mode` = `element`（基礎元素 uniqueId）/ `parameter` / `literal`（`literal_type` 白名單 Integer / Decimal / String / Boolean / Date / DateTime / Quantity，形狀各只有一種）/ `patient` / `measurementPeriod`（只有 eCQM）。**任一引數解不開 → 整個呼叫是 `null` + 警告**，不會少一個引數照樣產生。include 的 `called` 名 = alias 或消毒過的程式庫名，呼叫用同一個限定詞。ELM metadata（`CqlTranslationResponse.ExpressionInfo.kind` / `operands`，`CqlTranslationService.expressionInfo`）現在分辨 `FunctionDef`——以前函式被當普通 define 列出、引用產生沒括號的 `"Lib"."Fn"` 到 publish 才爆；`GET /api/cql/libraries/{id}/expressions` 給共用程式庫用。前端 `utils/libraryFunctions.ts` 的驗證規則與後端一對一，`contexts/ArtifactScopeContext` 提供樹裡的元素可引用的基礎元素 / 參數 / 是否有 Measurement Period（CDS 與 eCQM workspace 各提供一次）
+- **多元件分層（PAT-235）**：`StratifierDefinition.components[]`（每元件自己的 define `Stratifier <id> <code>`，stratifier 本身 `criteriaExpression` 為 null）。評估器把各元件值以 ASCII 分隔字元（`\u001E` code / `\u001F` 元件）編成自描述的內部 key 放進同一個累積 map，`buildStratifierResults` 解回 `StratifierResult.components` 並把 `strataValue` 顯示成 `female | 65+`；`ValueKeys.of` 會剝掉這兩個字元，值偽造不了元件邊界。任一元件無值 → 不屬任何層。報表 `measure_report_stratifier.component_values`（V74，JSON），FHIR MeasureReport `stratum.component[]`、CQFM `stratifier.component[]`（匯入會讀回）。測試案例期望值仍是字串（寫 `female | 65+`）；smoke `assert.sh` 也仍以 `strataValue` 比對，另可斷言 `components`
+- **標準 metadata（PAT-236）**：`MeasureDefinition` 與 `EcqmArtifact` 都帶 `measureTypes[]`（FHIR measure-type 代碼，最多 5）、`definitionTerms[] {term, definition}`、`clinicalRecommendationStatement`、`effectiveStart` / `effectiveEnd` / `approvalDate` / `lastReviewDate`、`experimental`（V75，兩張表各 8 欄）。CQFM 匯出寫成 R4 元素（`type[].coding`、`definition[]` markdown `**term**: definition`、`effectivePeriod`、`approvalDate`…，`CqfmMeasureBuilder.addStandardMetadata`），匯入 `FhirMeasureService.definitionTerm` 解回；作者填的值優先，匯入基底只補空缺（`passThrough`）。publish 只在 artifact **有值**時覆蓋指標（重新發布不清掉指標頁填的內容）。**eCQM artifact 的 PUT 是部分更新**（缺鍵 = 保留）：四個日期在 `EcqmArtifactRequest` 是字串，`""` = 清除、缺鍵 = 保留、ISO 日期 = 設定——前端 `utils/measureMetadata.clearedDatesAsEmpty` 把共用欄位元件的 `null` 換成 `""`；經 HTTP converter 的 `Optional` 缺鍵也會變 `Optional.empty()`，分不出來，別改回去。生效迄日早於起日兩個 service 都以 `MeasureMetadataRules` 擋成 400
+- **補充資料 / 風險校正因子（PAT-234）**：指標宣告的 `supplementalData` / `riskAdjustments` define 由 `SupplementalDataEvaluator` 逐病人以 `ValueKeys.of`（與分層同一條 key 規則）分桶成「值 → 病人數」分布（`MeasureEvaluationResult.supplementalDataResults`），持久化在 `measure_report_supplemental_data`（V73，一列一值、null 值列 = 無值病人數，RLS 經 `measure_report`），`NormalizedMeasureReportReader` 會重建；FHIR MeasureReport 匯出以平台 extension（`<canonical base>/StructureDefinition/measurereport-supplemental-data`）攜帶——summary 報表沒有標準元素放 SDE 分布。舊的 `supplementalData` 計數 map（`aggregateCustomExpressions`，字串會被丟掉）仍在，只是 UI 有分布時不再顯示它。eCQM workspace 的 SDE 元素在 publish 時依 `usage` 映進 `MeasureDefinition`（以前一個都沒映）；RAF define 名應以 `RAF` 開頭（QM IG 3.19，builder 只警告不擋）。**這不是風險模型**：IG 只帶變數，不算校正後的率
+- **Episode 計數（PAT-243）**：`GroupDefinition.populationBasis` 不是 `boolean` 的群組以 **episode** 計數——`PopulationEvaluator.contribute` 把母群階層做成集合代數：IP define 回的資源清單（序列化後是 `FHIR.Encounter/<id>` 字串，`EpisodeKeys`）是全集，子母群回清單就取交集、回布林就「全留 / 全不留」上層的 episode；CV 的觀測值依 Measure Population 清單的位置對齊，只留未被排除的 episode。IP 沒回可識別的 episode 清單（布林、無 id）→ 該病人退回病人計數並在 `MeasureEvaluationResult.warnings` 說明（`MeasureValidationService` 也會警告）。**分層自此累積有效貢獻**（以前分層重讀原始 define，被分母排除的病人仍算在分層分子）。`EcqmCqlBuilder` 對 episode-based 群組的**每個**母群都以 `EPISODE_LIST` 模式產生清單（以前只有 CV 的 Measure Population），observation wrapper 對清單用 `exists`；沒有 basis 元素的 IP 退回布林並警告。測試案例的 `evaluateSinglePatient` 走同一條 `contributeToGroup`，期望值是 episode 計數；trace 多 `memberCount`。**既有 episode-based proportion / ratio artifact 要重新 publish** 才會拿到清單式 CQL（內容指紋會顯示 builder 已變）
+- **指標集與編輯鎖（PAT-253，對照 MADiE measure set）**：`measure_set`（V79）是版本的血統——`measure_definition.measure_set_id`（PG NOT NULL、V79 依 (tenant_id, name) 回填；JPA 映射保持 nullable 讓 H2 測試能不帶 set 建列）。`MeasureDefinitionService.create` 開新 set（`MeasureSetService.createFor`，body 給的 `measureSetId` 忽略）、`createVersionAs` 沿用、eCQM 第一次 publish 開、`DataInitializer` 示範指標也開；改名（`update` / builder 重發布）只改 set 的 `name`。**history（`getHistory(MeasureDefinition)`）、版本號唯一（`versionTaken` / `nextFreeMinorVersion(entity)`）、核准時退役舊 active 版都以 set 為準**（沒 set 的列才退回名稱）；分享 / 取消分享 / 轉移擁有者 / 存取層級經 `applyAcrossSet` 套到整個 set。**編輯鎖**：`util/EditLock` 是指標、測試案例、CQL 程式庫共用的唯一規則（`lockedBy` + `lockedAt`，逾 `measure.locking.timeout-minutes` 視同沒鎖；DTO 只回報有效的鎖並附 `lockExpiresAt`）。非持有者寫入 → `ResourceLockedException`（409 `Locked`，`details` = `lockedBy: …` / `lockExpiresAt: …`）；指標 `update` / `lockMeasure` 以前丟 400，現在同樣 409。測試案例：`POST …/test-cases/{id}/lock|unlock`，`update` / `delete` / `shiftDates` / `shiftAllDates`（先全部檢查再平移）帶 currentUser；程式庫：`POST /api/cql/libraries/{id}/lock|unlock`，`saveLibrary` 落在同名同版本、`updateLibrary`、`deleteLibrary` 帶 currentUser（舊的無使用者 overload = 匿名，被任何有效鎖擋）；持有者改 header 換 id 時鎖跟著搬。解鎖限持有者或擁有者（測試案例看父指標擁有者）。**慢路徑不得 save 載入前的 entity**（CI smoke 抓到的 race）：背景驗證在 executor 上以 `this` 呼叫 `validateNow`、沒有交易，entity 是 detached，`save` = merge 會把舊快照（鎖 = null、舊標題）整個蓋回去 → 驗證結果走 `TestCaseRepository.storeValidation`（針對性 UPDATE、`clearAutomatically`）；交易內的慢路徑（執行結果）靠 `TestCaseEntity` 的 `@DynamicUpdate` 只寫有變的欄位。新增「載入 → 慢工作 → 寫回」的路徑一律比照。經 API 建立的程式庫以建立者為擁有者（以前沒有擁有者，非管理員連自己建的都不能改）。前端 `TestCasesTab` 列的鎖圖示 / chip、`TestCaseEditor` `lockedByOther` 橫幅、`CqlLibraryWorkspace` 鎖 / 解鎖按鈕 + chip + 唯讀
+- **審核門檻與四眼（PAT-249）**：`service/measure/ApprovalReadinessService`（刻意不依賴 `MeasureDefinitionService` / `MeasureValidationService`，只讀 entity + `test_case` + `measure_audit`）。`check()` 回 `ApprovalReadiness { ready, blockers[], warnings[], testCases 計數, fourEyes }`；**blockers**（CQL 缺 / 翻譯錯誤、測試案例 FHIR invalid、驗證 pending、任一測試案例不是 `pass`）讓 `submitForReview` 與 `approveMeasure` 丟 `MeasureNotReadyException`（409 `Measure Not Ready`，`details` 列阻擋項）；**warnings**（沒有測試案例、從未驗證、驗證器 error、通過但上次執行早於指標 `updatedAt`、CQL warning）不擋。**四眼**：`measure.review.four-eyes`（`MEASURE_REVIEW_FOUR_EYES`，預設 true）下作者（owner，無 owner 則 createdBy）與最近一次 `SUBMIT_FOR_REVIEW` 的執行者不能核准 → `ApprovalNotAllowedException`（403 `Approval Not Allowed`）；`approveMeasure` 順序＝`checkReviewer` → 狀態轉移 → 四眼 → readiness → 寫入。`GET /api/measures/{id}/approval-readiness` 給 UI（`measure/ApprovalReadinessPanel`，送審 / 核准鈕跟著 `ready` / `fourEyes.selfApprovalBlocked` 停用）。smoke `approve-measure.sh` 自此以 admin 送審、斷言 admin 自核 403、分享給 `demo` 後由 demo 核准（所有 ecqm scenario 都走這條）；scenario 41 鎖整個門檻。eCQM publish 出來的指標沒有測試案例 → 只有 warning，照常可審
+- **測試案例工作流（PAT-245～248，對照 MADiE）**：(a) **FHIR 驗證（PAT-245）**——`TestCaseService.create` / bundle 有變的 `update` 把案例標 `validation_status = pending`（V78）並在交易 commit 後排進 `testCaseValidationExecutor`（單執行緒、`TenantContext.callWith` 帶呼叫者租戶）跑 HAPI 驗證，結果 valid / invalid（只有 error / fatal 算）/ error 存 `validation_summary`（issue ≤ 100）；`POST …/{id}/validate` 同步、`validate-all` 排入、`run?skipInvalid=true` 略過 invalid（pending / 未驗證仍跑）。**驗證狀態是資訊不是閘門**。(b) **複製（PAT-246）**——`MeasureDefinitionService.createVersionAs` 以 `TestCaseCopies.copyOf` 把全部案例帶到新版本（status pending、`lastRun*` 清空）；`POST …/test-cases/copy-to/{targetId}` 跨指標複製，期望值經目標 `validateExpectedValues` 不合者拿掉 + `warnings`。(c) **MADiE 交換（PAT-247）**——`TestCaseBundleService`：`GET …/test-cases/export?ids=` 回 zip，每案一個 collection Bundle + `test-case-cqfm` MeasureReport（`group.population.count` = 期望、`measure-observation` + `<canonical>/StructureDefinition/testcase-observation-value` `valueDecimal`、`stratifier`、`cqf-inputParameters` → contained `Parameters{subject}`）；`POST …/test-cases/import-bundles`（multipart，zip / bundle / 陣列）把 MeasureReport 讀成結構化期望值（群組 id 再位置、母群依 code）後**移出** bundle，標題 = Patient given、系列 = family；期望值被拒 → 仍匯入但拿掉 + warning。zip 上限 500 entries / 64 MB。前端 `utils/testCaseBundles.isTestCaseBundle` 決定走伺服器還是舊的前端解析 + 天數平移。(d) **整年平移 + Excel（PAT-248）**——`DateShiftService.shiftYears`（`Period` 位移，純 `YYYY` 也動；壞 JSON 丟例外，不像 `shiftDates(days)` 靜默回原文）；`POST …/{id}/shift-dates?years=` / `POST …/test-cases/shift-dates?years=`（±100、0 拒絕）一律把 status 設 pending、清 `lastRun*`、重排驗證——**平移後舊的「通過」不可留著**；`GET …/test-cases/export/excel`（`TestCaseExcelExportService`：KEY + 每群組一張、Expected / Actual 成對、不符 ROSE、工作表名去 `[]:*?/\` 截 31）。這四個 PAT 都沒有 migration 以外的 schema 變更，`test_case` 沒有 `tenant_id`——租戶閘是父指標（`requireMeasure` / `requireOwnedMeasure`）
+- **指標層級 Measurement Period（PAT-242）**：`MeasureDefinition` / `EcqmArtifact` 的 `measurementPeriodStart / End`（V77）。評估期間優先序：請求明示 → 指標期間 → `measure.reporting.default-period-*` → 當年曆年；測試案例以指標期間執行（沒有則當年曆年）並在 `TestCaseRunResult` 回報；builder 把 artifact 期間寫進 `parameter "Measurement Period"` 的 default（沒設維持 2025 預設，CQL 不變）；artifact PUT 沿用 `""` 清除契約；CQFM 匯出沒有生效期間時以測量期間填 `effectivePeriod`
+- **逐子句覆蓋率（PAT-232）**：`service/cql/ClauseCoverageCollector` 實作 5.x 的 `BreakpointHandler`，掛在 `engine.getState().setBreakpointHandler(...)`，引擎每個運算式節點都會呼叫——**只在** `CqlExecutionRequest.clauseCoverage=true` 時建立（`TestCaseService` 除錯模式與 `measureClauseCoverage`），`$evaluate-measure` 與一般測試案例執行不碰。分母是 `BaseElmLibraryVisitor` 靜態走訪 ELM（有 `localId` + `locator` 的節點），分子是 handler 的動態記錄，兩者必須來自同一次翻譯的 `Library`。引擎**不**對 `and` 短路、query 的 `where` 逐次迭代各記一次——測試鎖住的是引擎事實，別在前端套語言假設。覆蓋率不持久化（`persistRunResult` 抹掉）
 
 ### CQL 執行錯誤/警告曝露（PAT-066）
 `CqlExecutionResponse` 除 `results` 外另含：
@@ -197,7 +225,7 @@ scripts/smoke/run.sh          # 全部 scenarios，~60-120s（首次要 build im
 scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
-31 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門，走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+43 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層 + 程式庫函式呼叫 + episode 計數與指標層級測量期間 + 審核門檻與四眼 + 指標集血統與編輯鎖 + 合成病人世代（PAT-255：120 個由平台自己的 TW Core 產生器以固定種子產生的病人，`expected.json` 是 TypeScript 算的 oracle；改了產生器或 `config/twcore/*.json` 要在 `frontend/` 跑 `npm run gen:cohort` 重產 fixture，`syntheticCohort.test.ts` 會以 `fixtureSha256` 擋住漂移），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
 
 ## 關鍵檔案速查
 
@@ -212,6 +240,8 @@ scripts/smoke/run.sh --keep   # debug 時保留 stack
 | 例外處理 | `exception/GlobalExceptionHandler.java` |
 | 租戶上下文 / 平台操作員 | `security/TenantContext.java`, `security/PlatformOperatorGuard.java` |
 | JWT Token Version | `service/TokenVersionService.java` |
+| 平台自有 value set | `service/terminology/PlatformValueSetService.java` + `PlatformTerminologyProvider.java`；UI `components/terminology/PlatformValueSetTab.tsx` |
+| 指標交換封裝 (CQFM) | `service/measure/CqfmMeasureBuilder.java`, `CqfmLibraryBuilder.java`, `FhirMeasureBundleService.java` |
 | CQL Builder UI | `components/builder/` (27 元件) |
 | CDS Authoring UI | `components/authoring/` |
 | eCQM UI | `components/ecqm/` |
@@ -319,7 +349,7 @@ regulatory_docs/
 - Monaco Editor 整合: `useCqlEditor` hook 管理編輯器生命週期
 - 前端 dev server proxy: `/api/*` → `localhost:8080`
 - 前端時間/尺寸常數統一在 `constants/` 目錄，禁止在元件中寫 magic number
-- 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼
+- 假病人產生器: 純前端實作，臨床資料由 `config/twcore/*.json` 驅動，新增/修改病症只需改 JSON 不需改程式碼。**隨機來源一律走 `utils/random.ts`**（PAT-255：`setSeed` / `setReferenceDate` 讓結果可重現，`fhirPatientGenerator.resetIdSequence` 固定 id；smoke 43 的 fixture 靠這個）
 - `utils/random.ts` 提供共用隨機函數（`randomInt`, `randomElement`, `pickRandom`），禁止在其他檔案重複定義
 - Docker 部署: `docker/docker-compose.yml`（postgres, backend, frontend, hapi-fhir, monitoring stack）
 - 病人產生器上傳 Bundle 用 `PUT ResourceType/id` 保留 client-side ID（`GenerationResultPanel.tsx`）；不要改回 `POST ResourceType`，否則 HAPI 重配 ID 而前端搜尋原 id 會找不到

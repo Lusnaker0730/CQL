@@ -27,10 +27,14 @@ export interface DynamicEntry {
   /** Source category label */
   category: string
   /** Extra metadata to identify the source */
-  sourceType: 'baseElement' | 'parameter' | 'externalCql'
+  sourceType: 'baseElement' | 'parameter' | 'externalCql' | 'externalCqlFunction'
   sourceId: string
   /** For external CQL: library name */
   libraryName?: string
+  /** PAT-237, external CQL function: version, name and declared operands of the function */
+  libraryVersion?: string
+  functionName?: string
+  operands?: Array<{ name: string; type: string }>
 }
 
 interface ElementSelectDropdownProps {

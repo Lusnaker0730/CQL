@@ -12,6 +12,14 @@ import java.util.Map;
 
 @Entity
 @Table(name = "test_case")
+/*
+ * PAT-253: only the columns a transaction actually changed are written. The background FHIR
+ * validation (PAT-245) and a test case run both load the entity, do slow work (HAPI, the CQL
+ * engine) and then save it — Hibernate's default full-row UPDATE wrote every column back from
+ * that stale snapshot, so an edit lock taken (or a title edited) in the meantime was silently
+ * reverted. The CI smoke run caught it: the lock was wiped 30 ms after it was taken.
+ */
+@org.hibernate.annotations.DynamicUpdate
 @Data
 @Builder
 @NoArgsConstructor
@@ -43,6 +51,14 @@ public class TestCaseEntity {
     @Builder.Default
     private Map<String, Boolean> expectedPopulationMap = new LinkedHashMap<>();
 
+    /**
+     * Structured expectations as JSON ({@code TestCaseExpectedValues}); NULL = legacy boolean
+     * map only (V71, PAT-228). Kept as the raw string and (de)serialized by the service: a
+     * persistent field is dirty-checked, a transient object behind {@code @PreUpdate} is not.
+     */
+    @Column(name = "expected_values", columnDefinition = "TEXT")
+    private String expectedValues;
+
     @Column(name = "status", length = 20)
     @Builder.Default
     private String status = "pending";
@@ -73,6 +89,24 @@ public class TestCaseEntity {
     @Builder.Default
     private Integer sortOrder = 0;
 
+    /** PAT-245 (V78): pending | valid | invalid | error; null = never validated. */
+    @Column(name = "validation_status", length = 20)
+    private String validationStatus;
+
+    /** PAT-245 (V78): JSON {@code TestCaseValidation} — counts and the (capped) error issues. */
+    @Column(name = "validation_summary", columnDefinition = "TEXT")
+    private String validationSummary;
+
+    @Column(name = "validated_at")
+    private LocalDateTime validatedAt;
+
+    /** PAT-253 (V79): edit lock holder; null = unlocked. Expiry rule in {@code util.EditLock}. */
+    @Column(name = "locked_by", length = 100)
+    private String lockedBy;
+
+    @Column(name = "locked_at")
+    private LocalDateTime lockedAt;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -94,6 +128,23 @@ public class TestCaseEntity {
     private void serializeMaps() {
         expectedPopulations = serializeMap(expectedPopulationMap);
         lastRunActualPopulations = serializeMap(lastRunActualPopulationMap);
+    }
+
+    /**
+     * BUG-148: write the column at the same time as the transient map. Hibernate dirty-checks
+     * persistent fields only and fires {@code @PreUpdate} only for dirty entities, so a change to
+     * the map alone (a PUT that edits nothing but the expectation) used to be answered with the new
+     * value and never written. Setting the serialized column here makes the entity dirty.
+     */
+    public void setExpectedPopulationMap(Map<String, Boolean> map) {
+        this.expectedPopulationMap = map != null ? map : new LinkedHashMap<>();
+        this.expectedPopulations = serializeMap(this.expectedPopulationMap);
+    }
+
+    /** BUG-148: same as {@link #setExpectedPopulationMap} for the last run's actual populations. */
+    public void setLastRunActualPopulationMap(Map<String, Boolean> map) {
+        this.lastRunActualPopulationMap = map != null ? map : new LinkedHashMap<>();
+        this.lastRunActualPopulations = serializeMap(this.lastRunActualPopulationMap);
     }
 
     private void deserializeMaps() {

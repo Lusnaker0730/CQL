@@ -524,8 +524,17 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
               {t('library.importDialog.bundleSuccess', {
                 libraries: importBundleMutation.data.librariesImported,
                 skipped: importBundleMutation.data.librariesSkipped,
-                valueSets: importBundleMutation.data.valueSetsFound,
+                valueSets: importBundleMutation.data.valueSetsImported ?? 0,
+                valueSetsFound: importBundleMutation.data.valueSetsFound,
               })}
+            </Alert>
+          )}
+          {/* PAT-230: value sets that were kept as they are here, or came without codes — the author has to know. */}
+          {importBundleMutation.isSuccess && (importBundleMutation.data.warnings?.length ?? 0) > 0 && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                {importBundleMutation.data.warnings?.map((w) => <li key={w}>{w}</li>)}
+              </Box>
             </Alert>
           )}
         </DialogContent>

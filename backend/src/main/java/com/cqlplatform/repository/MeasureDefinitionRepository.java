@@ -64,6 +64,12 @@ public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefini
 
     boolean existsByTenantIdAndNameAndVersion(Long tenantId, String name, String version);
 
+    /** PAT-253: every version in a measure set (the lineage); the set belongs to one tenant. */
+    List<MeasureDefinitionEntity> findByTenantIdAndMeasureSetId(Long tenantId, Long measureSetId);
+
+    /** PAT-253: version numbers are unique within the set, not the (renameable) name. */
+    boolean existsByMeasureSetIdAndVersion(Long measureSetId, String version);
+
     @org.springframework.data.jpa.repository.Query(
         "SELECT m FROM MeasureDefinitionEntity m WHERE m.tenantId = :tenantId AND " +
         "(LOWER(m.name) LIKE LOWER(CONCAT('%', :search, '%')) " +

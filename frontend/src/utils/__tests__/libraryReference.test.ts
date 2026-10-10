@@ -36,6 +36,46 @@ describe('libraryReferenceToElement', () => {
     expect(element.fields.every((f) => f.static === true)).toBe(true)
   })
 
+  // PAT-237 — a function pick becomes a call element: one argument slot per operand, the
+  // alias as qualifier, scalar operands starting as typed literals and an Interval<DateTime>
+  // as the Measurement Period when the artifact has one.
+  it('turns a function reference into an externalCqlFunctionCall with argument slots', () => {
+    const element = libraryReferenceToElement({
+      ...sampleRef,
+      definitionName: 'Controlled',
+      kind: 'function',
+      resultType: 'Boolean',
+      operands: [
+        { name: 'observations', type: 'List<FHIR.Observation>' },
+        { name: 'period', type: 'Interval<DateTime>' },
+        { name: 'threshold', type: 'Decimal' },
+      ],
+    }, true)
+
+    expect(element.type).toBe('externalCqlFunctionCall')
+    expect(element.returnType).toBe('boolean')
+    const byId = Object.fromEntries(element.fields.map((f) => [f.id, f]))
+    expect(byId.library_name.value).toBe('SharedLogic')
+    expect(byId.library_version.value).toBe('1.2.0')
+    expect(byId.alias.value).toBe('shared')
+    expect(byId.function_name.value).toBe('Controlled')
+    expect(byId.function_name.static).toBe(true)
+    expect(byId.arguments.type).toBe('functionArguments')
+    expect(byId.arguments.value).toEqual([
+      { name: 'observations', type: 'List<FHIR.Observation>', mode: 'element' },
+      { name: 'period', type: 'Interval<DateTime>', mode: 'measurementPeriod' },
+      { name: 'threshold', type: 'Decimal', mode: 'literal', literal_type: 'Decimal', literal_value: '' },
+    ])
+  })
+
+  it('without a Measurement Period an Interval<DateTime> operand starts as a base-element reference', () => {
+    const element = libraryReferenceToElement({
+      ...sampleRef, kind: 'function', operands: [{ name: 'period', type: 'Interval<DateTime>' }],
+    })
+    const args = element.fields.find((f) => f.id === 'arguments')!.value as Array<{ mode: string }>
+    expect(args[0].mode).toBe('element')
+  })
+
   it('preserves reference values verbatim on field values', () => {
     const element = libraryReferenceToElement(sampleRef)
     const byId = Object.fromEntries(element.fields.map((f) => [f.id, f.value]))

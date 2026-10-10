@@ -2,6 +2,10 @@ package com.cqlplatform.service.measure;
 
 import com.cqlplatform.entity.TestCaseEntity;
 import com.cqlplatform.exception.BundleParseException;
+import com.cqlplatform.exception.ResourceLockedException;
+import com.cqlplatform.exception.ValidationException;
+import com.cqlplatform.util.EditLock;
+import org.springframework.beans.factory.annotation.Value;
 import com.cqlplatform.model.CqlExecutionRequest;
 import com.cqlplatform.model.CqlExecutionResponse;
 import com.cqlplatform.model.measure.*;
@@ -35,9 +39,19 @@ public class TestCaseService {
     private final DateShiftService dateShiftService;
     private final FhirContext fhirContext;
     private final PopulationEvaluator populationEvaluator;
+    private final StratifierEvaluator stratifierEvaluator;
+    /** PAT-245 */
+    private final TestCaseValidationService validationService;
+
+    /** PAT-253: edit-lock expiry, shared with measures and CQL libraries. */
+    @Value("${measure.locking.timeout-minutes:30}")
+    private int lockTimeoutMinutes;
 
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
+
+    /** Observation values are doubles out of the CQL engine; compare with a small tolerance. */
+    private static final double OBSERVATION_TOLERANCE = 1e-6;
 
     // ===== CRUD =====
 
@@ -57,38 +71,256 @@ public class TestCaseService {
     @Transactional
     public TestCase create(Long measureDefinitionId, TestCase testCase) {
         // Verify measure exists
-        definitionService.getById(measureDefinitionId)
+        MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+        validateExpectedValues(measure, testCase.getExpectedValues());
 
         TestCaseEntity entity = modelToEntity(testCase);
         entity.setMeasureDefinitionId(measureDefinitionId);
+        // PAT-245: every new bundle is validated in the background
+        validationService.markPending(entity);
         entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
         log.info("Created test case '{}' for measure {}", entity.getTitle(), measureDefinitionId);
         return entityToModel(entity);
     }
 
+    /** Anonymous update — refused while the case is locked by anyone; see {@link #update(Long, TestCase, String)}. */
     @Transactional
     public TestCase update(Long id, TestCase testCase) {
+        return update(id, testCase, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public TestCase update(Long id, TestCase testCase, String currentUser) {
         TestCaseEntity entity = repository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
 
+        if (testCase.getExpectedValues() != null && !testCase.getExpectedValues().isEmpty()) {
+            Long measureId = entity.getMeasureDefinitionId();
+            MeasureDefinition measure = definitionService.getById(measureId)
+                    .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureId));
+            validateExpectedValues(measure, testCase.getExpectedValues());
+        }
+
+        // PAT-245: a changed bundle (or one never validated) is validated again in the background
+        boolean bundleChanged = !Objects.equals(entity.getPatientBundleJson(), testCase.getPatientBundleJson())
+                || entity.getValidationStatus() == null;
         entity.setTitle(testCase.getTitle());
         entity.setDescription(testCase.getDescription());
         entity.setPatientBundleJson(testCase.getPatientBundleJson());
         entity.setExpectedPopulationMap(testCase.getExpectedPopulations() != null
                 ? testCase.getExpectedPopulations() : new LinkedHashMap<>());
+        entity.setExpectedValues(writeExpectedValues(testCase.getExpectedValues()));
         entity.setSeries(testCase.getSeries());
         entity.setSortOrder(testCase.getSortOrder() != null ? testCase.getSortOrder() : 0);
+        if (bundleChanged) validationService.markPending(entity);
 
         entity = repository.save(entity);
+        if (bundleChanged) validationService.scheduleValidation(entity.getId());
         log.info("Updated test case '{}'", entity.getTitle());
         return entityToModel(entity);
     }
 
+    /** PAT-248: the largest year shift accepted — anything bigger is a typo, not a plan. */
+    static final int MAX_SHIFT_YEARS = 100;
+
+    /**
+     * PAT-248: shifts every date in the test case's patient bundle by whole years (MADiE's
+     * "shift test case dates"), so a suite written for one Measurement Period can be reused
+     * for the next. The expectation stays (it describes the clinical story, not the dates);
+     * the last run is forgotten (it ran on the old dates) and the bundle is validated again.
+     */
+    @Transactional
+    public TestCase shiftDates(Long id, int years) {
+        return shiftDates(id, years, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public TestCase shiftDates(Long id, int years, String currentUser) {
+        requireShiftYears(years);
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
+        shiftEntity(entity, years);
+        entity = repository.save(entity);
+        validationService.scheduleValidation(entity.getId());
+        log.info("Shifted test case '{}' by {} year(s)", entity.getTitle(), years);
+        return entityToModel(entity);
+    }
+
+    /** PAT-248: {@link #shiftDates} for every test case of the measure; returns how many were shifted. */
+    @Transactional
+    public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years) {
+        return shiftAllDates(measureDefinitionId, years, null);
+    }
+
+    /** PAT-253: all or nothing — one case locked by someone else refuses the whole shift (409 Locked). */
+    @Transactional
+    public TestCaseDateShiftResult shiftAllDates(Long measureDefinitionId, int years, String currentUser) {
+        requireShiftYears(years);
+        List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        List<Long> shifted = new ArrayList<>();
+        List<TestCaseEntity> shiftable = entities.stream()
+                .filter(e -> e.getPatientBundleJson() != null && !e.getPatientBundleJson().isBlank())
+                .toList();
+        for (TestCaseEntity entity : shiftable) {
+            requireNotLockedByOther(entity, currentUser); // PAT-253: refuse before touching anything
+        }
+        for (TestCaseEntity entity : shiftable) {
+            shiftEntity(entity, years);
+            shifted.add(entity.getId());
+        }
+        repository.saveAll(entities);
+        for (Long id : shifted) validationService.scheduleValidation(id);
+        log.info("Shifted {} test case(s) of measure {} by {} year(s)", shifted.size(), measureDefinitionId, years);
+        return TestCaseDateShiftResult.builder()
+                .measureDefinitionId(measureDefinitionId)
+                .years(years)
+                .shifted(shifted.size())
+                .testCaseIds(shifted)
+                .build();
+    }
+
+    private void shiftEntity(TestCaseEntity entity, int years) {
+        try {
+            entity.setPatientBundleJson(dateShiftService.shiftYears(entity.getPatientBundleJson(), years));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Test case '" + entity.getTitle() + "': " + e.getMessage());
+        }
+        entity.setStatus("pending");
+        entity.setLastRunResultJson(null);
+        entity.setLastRunActualPopulationMap(new LinkedHashMap<>());
+        entity.setLastRunAt(null);
+        validationService.markPending(entity);
+    }
+
+    private static void requireShiftYears(int years) {
+        if (years == 0) throw new ValidationException("Shift by at least one year (positive = forward, negative = backward)");
+        if (Math.abs(years) > MAX_SHIFT_YEARS) throw new ValidationException("Shift at most " + MAX_SHIFT_YEARS + " years");
+    }
+
+    /** PAT-245: validates the test case now and returns it with the outcome. */
+    @Transactional
+    public TestCase validateNow(Long id) {
+        validationService.validateNow(id);
+        return repository.findById(id).map(this::entityToModel)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+    }
+
+    /** PAT-245: queues a validation of every test case of the measure; returns how many. */
+    @Transactional
+    public int validateAll(Long measureDefinitionId) {
+        return validationService.scheduleAll(measureDefinitionId);
+    }
+
     @Transactional
     public void delete(Long id) {
+        delete(id, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public void delete(Long id, String currentUser) {
+        repository.findById(id).ifPresent(entity -> requireNotLockedByOther(entity, currentUser));
         repository.deleteById(id);
         log.info("Deleted test case {}", id);
+    }
+
+    // ===== Edit lock (PAT-253) =====
+
+    /** Takes the edit lock for {@code currentUser} (or refreshes their own); 409 Locked while someone else holds one. */
+    @Transactional
+    public TestCase lock(Long id, String currentUser) {
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
+        entity.setLockedBy(currentUser);
+        entity.setLockedAt(java.time.LocalDateTime.now());
+        entity = repository.save(entity);
+        log.info("Test case {} locked by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    /** Releases the lock; only the holder or the measure's owner may release someone's active lock. */
+    @Transactional
+    public TestCase unlock(Long id, String currentUser) {
+        TestCaseEntity entity = repository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Test case not found: " + id));
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)
+                && !isMeasureOwner(entity.getMeasureDefinitionId(), currentUser)) {
+            throw new ResourceLockedException("Test case", id, entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes),
+                    "Test case " + id + " is locked by " + entity.getLockedBy()
+                            + "; only the lock holder or the measure owner can unlock it.");
+        }
+        String previousHolder = entity.getLockedBy();
+        entity.setLockedBy(null);
+        entity.setLockedAt(null);
+        entity = repository.save(entity);
+        if (previousHolder != null) log.info("Test case {} unlocked by {} (was locked by {})", id, currentUser, previousHolder);
+        return entityToModel(entity);
+    }
+
+    private void requireNotLockedByOther(TestCaseEntity entity, String currentUser) {
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)) {
+            throw new ResourceLockedException("Test case", entity.getId(), entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes));
+        }
+    }
+
+    private boolean isMeasureOwner(Long measureDefinitionId, String user) {
+        if (user == null) return false;
+        return definitionService.getById(measureDefinitionId)
+                .map(m -> m.getOwnerUsername() == null || m.getOwnerUsername().equals(user))
+                .orElse(false);
+    }
+
+    // ===== Copy to another measure (PAT-246) =====
+
+    /**
+     * Copies test cases of {@code sourceMeasureId} onto {@code targetMeasureId} (null / empty ids =
+     * all). A structured expectation that does not fit the target's groups is dropped from that copy
+     * — the copy still lands, with the legacy boolean map and a warning naming the test case — so a
+     * suite can move to a measure whose groups were renamed and be re-targeted there.
+     */
+    @Transactional
+    public TestCaseCopyResult copyTo(Long sourceMeasureId, Long targetMeasureId, List<Long> testCaseIds) {
+        if (sourceMeasureId.equals(targetMeasureId)) {
+            throw new ValidationException("Source and target measure are the same");
+        }
+        MeasureDefinition target = definitionService.getById(targetMeasureId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + targetMeasureId));
+        List<TestCaseEntity> sources = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(sourceMeasureId);
+        if (testCaseIds != null && !testCaseIds.isEmpty()) {
+            Set<Long> wanted = new HashSet<>(testCaseIds);
+            sources = sources.stream().filter(e -> wanted.contains(e.getId())).toList();
+        }
+
+        List<TestCase> copied = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
+        for (TestCaseEntity source : sources) {
+            TestCaseEntity copy = TestCaseCopies.copyOf(source, targetMeasureId);
+            TestCaseExpectedValues expected = readExpectedValues(source.getExpectedValues());
+            if (expected != null && !expected.isEmpty()) {
+                try {
+                    validateExpectedValues(target, expected);
+                } catch (ValidationException e) {
+                    copy.setExpectedValues(null);
+                    warnings.add(String.format("'%s': expected values dropped — %s", source.getTitle(),
+                            e.getDetails() != null && !e.getDetails().isEmpty() ? String.join("; ", e.getDetails()) : e.getMessage()));
+                }
+            }
+            copied.add(entityToModel(repository.save(copy)));
+        }
+        log.info("Copied {} test cases from measure {} to measure {} ({} expectations dropped)",
+                copied.size(), sourceMeasureId, targetMeasureId, warnings.size());
+        return TestCaseCopyResult.builder()
+                .sourceMeasureId(sourceMeasureId).targetMeasureId(targetMeasureId)
+                .copied(copied).warnings(warnings).build();
     }
 
     // ===== Batch Import =====
@@ -159,11 +391,24 @@ public class TestCaseService {
 
     @Transactional
     public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode) {
+        return runAllTestCases(measureDefinitionId, debugMode, false);
+    }
+
+    /**
+     * @param skipInvalid PAT-245: leave out test cases whose last FHIR validation found errors
+     *        (pending / never-validated ones still run). An invalid bundle usually still
+     *        executes, so this is the author's choice, not a gate.
+     */
+    @Transactional
+    public List<TestCaseRunResult> runAllTestCases(Long measureDefinitionId, boolean debugMode, boolean skipInvalid) {
         MeasureDefinition measure = definitionService.getById(measureDefinitionId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
 
         List<TestCaseEntity> entities = repository
                 .findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        if (skipInvalid) {
+            entities = entities.stream().filter(e -> !TestCaseValidationService.isInvalid(e)).toList();
+        }
 
         // Cap debug mode for large suites to avoid per-expression evaluation overhead
         boolean effectiveDebug = debugMode;
@@ -193,7 +438,7 @@ public class TestCaseService {
                 ? result.getActualPopulations() : new LinkedHashMap<>());
         try {
             TestCaseRunResult stored = result.toBuilder()
-                    .debugTrace(null).populationTrace(null).coverage(null).build();
+                    .debugTrace(null).populationTrace(null).coverage(null).clauseCoverage(null).build();
             entity.setLastRunResultJson(MAPPER.writeValueAsString(stored));
         } catch (Exception e) {
             entity.setLastRunResultJson("{}");
@@ -202,6 +447,38 @@ public class TestCaseService {
     }
 
     // ===== Coverage =====
+
+    /**
+     * PAT-232 — clause coverage of the measure's CQL across all its test cases: a clause counts
+     * as covered when ANY test case reached it. Runs every test case with coverage recording
+     * (single patient each, no debug traces) and merges. Run outcomes are persisted like a
+     * normal run-all, so the list's pass / fail badges stay current.
+     */
+    @Transactional
+    public MeasureClauseCoverage measureClauseCoverage(Long measureDefinitionId) {
+        MeasureDefinition measure = definitionService.getById(measureDefinitionId)
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureDefinitionId));
+        List<TestCaseEntity> entities = repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(measureDefinitionId);
+        List<ClauseCoverage> runs = new ArrayList<>();
+        int executed = 0;
+        int passed = 0;
+        for (TestCaseEntity entity : entities) {
+            TestCaseRunResult result = executeTestCase(entity, measure, false, true);
+            persistRunResult(entity, result);
+            if (result.getClauseCoverage() != null) {
+                executed++;
+                runs.add(result.getClauseCoverage());
+            }
+            if ("pass".equals(result.getStatus())) passed++;
+        }
+        return MeasureClauseCoverage.builder()
+                .measureId(measureDefinitionId)
+                .testCases(entities.size())
+                .executed(executed)
+                .passed(passed)
+                .coverage(ClauseCoverage.merge(runs))
+                .build();
+    }
 
     /**
      * Backward-compat endpoint. Delegates to {@link #runTestCase(Long, boolean)} with debugMode=true
@@ -227,6 +504,15 @@ public class TestCaseService {
     }
 
     private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure, boolean debugMode) {
+        return executeTestCase(entity, measure, debugMode, debugMode);
+    }
+
+    /**
+     * {@code clauseCoverage} is separate from {@code debugMode}: the measure-wide coverage run
+     * wants every test case's clause hits without the per-expression traces debug mode adds.
+     */
+    private TestCaseRunResult executeTestCase(TestCaseEntity entity, MeasureDefinition measure,
+                                              boolean debugMode, boolean clauseCoverage) {
         long startTime = System.currentTimeMillis();
 
         if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
@@ -248,8 +534,10 @@ public class TestCaseService {
             CqlExecutionRequest execRequest = new CqlExecutionRequest();
             execRequest.setCql(measure.getCqlContent());
             execRequest.setPatientId(patientId);
-            execRequest.setParameters(buildMeasurementPeriodParams(measure));
+            LocalDate[] period = measurementPeriod(measure);
+            execRequest.setParameters(buildMeasurementPeriodParams(period));
             execRequest.setDebugMode(debugMode);
+            execRequest.setClauseCoverage(clauseCoverage);
 
             CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
@@ -275,23 +563,48 @@ public class TestCaseService {
             currentPhase = "POPULATION_EVAL";
             Map<String, Boolean> actualPopulations = buildActualPopulations(execResponse, measure);
             Map<String, Boolean> expectedPopulations = entity.getExpectedPopulationMap();
-            List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
-                    expectedPopulations, actualPopulations);
-            boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
+            // Structured actual values are computed on every run (also for legacy test cases)
+            // so the editor can offer them as a starting point for a structured expectation.
+            TestCaseExpectedValues actualValues = buildActualValues(measure, execResponse);
+            // Strict on purpose: if a stored structured expectation cannot be read, the run is an
+            // ERROR. Quietly comparing the legacy boolean map instead would report a pass / fail
+            // for something the author is no longer testing.
+            TestCaseExpectedValues expectedValues = readExpectedValuesStrict(entity.getExpectedValues());
 
             TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
                     .testCaseId(entity.getId())
                     .testCaseTitle(entity.getTitle())
-                    .status(allMatch ? "pass" : "fail")
                     .expectedPopulations(expectedPopulations)
                     .actualPopulations(actualPopulations)
-                    .comparisons(comparisons)
-                    .executionTimeMs(System.currentTimeMillis() - startTime);
+                    .actualValues(actualValues)
+                    .measurementPeriodStart(period[0])
+                    .measurementPeriodEnd(period[1]);
+
+            if (expectedValues != null && !expectedValues.isEmpty()) {
+                // PAT-228: the structured expectation decides pass / fail; the flat boolean map
+                // is ignored because it cannot tell groups apart and sees raw define results.
+                List<TestCaseRunResult.ValueComparison> valueComparisons =
+                        compareValues(expectedValues, actualValues);
+                boolean allMatch = valueComparisons.stream().allMatch(TestCaseRunResult.ValueComparison::isMatch);
+                b.status(allMatch ? "pass" : "fail")
+                 .expectedValues(expectedValues)
+                 .valueComparisons(valueComparisons);
+            } else {
+                List<TestCaseRunResult.PopulationComparison> comparisons = buildComparisons(
+                        expectedPopulations, actualPopulations);
+                boolean allMatch = comparisons.stream().allMatch(TestCaseRunResult.PopulationComparison::isMatch);
+                b.status(allMatch ? "pass" : "fail")
+                 .comparisons(comparisons);
+            }
+            b.executionTimeMs(System.currentTimeMillis() - startTime);
 
             if (debugMode) {
                 b.debugTrace(execResponse.getDebugTrace())
                  .populationTrace(populationEvaluator.buildTestCaseTrace(measure, execResponse))
                  .coverage(computeCoverage(execResponse));
+            }
+            if (clauseCoverage) {
+                b.clauseCoverage(execResponse.getClauseCoverage());
             }
 
             return b.build();
@@ -417,6 +730,228 @@ public class TestCaseService {
         return comparisons;
     }
 
+    // ===== Structured expected values (PAT-228) =====
+
+    /** The id a group is addressed by; groups without one are numbered like the evaluation does. */
+    static String effectiveGroupId(GroupDefinition group, int index) {
+        return group.getGroupId() != null && !group.getGroupId().isBlank()
+                ? group.getGroupId() : "group-" + (index + 1);
+    }
+
+    /**
+     * Per group: what this patient contributes — effective population counts and observation
+     * values from {@link PopulationEvaluator#evaluateSinglePatient} (the production rules), plus
+     * the stratum the patient falls into for each stratifier. {@code null} when the measure has
+     * no group definitions (nothing structured to describe).
+     */
+    private TestCaseExpectedValues buildActualValues(MeasureDefinition measure, CqlExecutionResponse response) {
+        List<GroupDefinition> groups = measure.getGroupDefinitions();
+        Map<String, CqlExecutionResponse.ExpressionResult> results = response.getResults();
+        if (groups == null || groups.isEmpty() || results == null) return null;
+
+        List<TestCaseExpectedValues.GroupValues> out = new ArrayList<>();
+        for (int i = 0; i < groups.size(); i++) {
+            GroupDefinition group = groups.get(i);
+            TestCaseExpectedValues.GroupValues values =
+                    populationEvaluator.evaluateSinglePatient(measure.getScoringType(), groups, group, results);
+            if (values == null) continue;
+            values.setGroupId(effectiveGroupId(group, i));
+
+            if (group.getStratifiers() != null && !group.getStratifiers().isEmpty()) {
+                Map<String, String> strata = new LinkedHashMap<>();
+                for (StratifierDefinition stratifier : group.getStratifiers()) {
+                    if (stratifier.getStratifierId() == null) continue;
+                    String stratum = stratifierEvaluator.resolveStratumValue(stratifier, results);
+                    strata.put(stratifier.getStratifierId(), stratum != null ? stratum : "");
+                }
+                values.setStratifiers(strata);
+            }
+            out.add(values);
+        }
+        return TestCaseExpectedValues.builder().groups(out).build();
+    }
+
+    /**
+     * Compares every group the expectation lists. Within a group: all populations (one the
+     * expectation omits is expected to be 0), the observation values when asserted
+     * (order-insensitive), and only the stratifiers that are listed.
+     */
+    private List<TestCaseRunResult.ValueComparison> compareValues(TestCaseExpectedValues expected,
+                                                                  TestCaseExpectedValues actual) {
+        Map<String, TestCaseExpectedValues.GroupValues> actualByGroup = new LinkedHashMap<>();
+        if (actual != null && actual.getGroups() != null) {
+            for (TestCaseExpectedValues.GroupValues g : actual.getGroups()) {
+                actualByGroup.put(g.getGroupId(), g);
+            }
+        }
+
+        List<TestCaseRunResult.ValueComparison> comparisons = new ArrayList<>();
+        for (TestCaseExpectedValues.GroupValues exp : expected.getGroups()) {
+            String groupId = exp.getGroupId();
+            TestCaseExpectedValues.GroupValues act = actualByGroup.get(groupId);
+            if (act == null) {
+                // The measure changed after the expectation was saved — never a silent pass.
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_POPULATION)
+                        .key("*").expected("group exists").actual("group not in measure").match(false).build());
+                continue;
+            }
+
+            Map<String, Integer> expPops = exp.getPopulations() != null ? exp.getPopulations() : Map.of();
+            Map<String, Integer> actPops = act.getPopulations() != null ? act.getPopulations() : Map.of();
+            Set<String> popKeys = new LinkedHashSet<>(actPops.keySet());
+            popKeys.addAll(expPops.keySet());
+            for (String key : popKeys) {
+                int e = expPops.getOrDefault(key, 0) != null ? expPops.getOrDefault(key, 0) : 0;
+                int a = actPops.getOrDefault(key, 0) != null ? actPops.getOrDefault(key, 0) : 0;
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_POPULATION)
+                        .key(key).expected(String.valueOf(e)).actual(String.valueOf(a)).match(e == a).build());
+            }
+
+            if (exp.getObservations() != null) {
+                List<Double> e = sortedValues(exp.getObservations());
+                List<Double> a = sortedValues(act.getObservations());
+                comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                        .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_OBSERVATION)
+                        .key("values").expected(renderValues(e)).actual(renderValues(a))
+                        .match(sameValues(e, a)).build());
+            }
+
+            if (exp.getStratifiers() != null) {
+                Map<String, String> actStrata = act.getStratifiers() != null ? act.getStratifiers() : Map.of();
+                for (Map.Entry<String, String> entry : exp.getStratifiers().entrySet()) {
+                    String e = entry.getValue() != null ? entry.getValue().trim() : "";
+                    String a = actStrata.getOrDefault(entry.getKey(), "");
+                    comparisons.add(TestCaseRunResult.ValueComparison.builder()
+                            .groupId(groupId).kind(TestCaseRunResult.ValueComparison.KIND_STRATIFIER)
+                            .key(entry.getKey()).expected(e).actual(a).match(e.equalsIgnoreCase(a)).build());
+                }
+            }
+        }
+        return comparisons;
+    }
+
+    private List<Double> sortedValues(List<Double> values) {
+        if (values == null) return List.of();
+        return values.stream().filter(Objects::nonNull).sorted().toList();
+    }
+
+    private boolean sameValues(List<Double> expected, List<Double> actual) {
+        if (expected.size() != actual.size()) return false;
+        for (int i = 0; i < expected.size(); i++) {
+            if (Math.abs(expected.get(i) - actual.get(i)) > OBSERVATION_TOLERANCE) return false;
+        }
+        return true;
+    }
+
+    /** {@code [30, 45.5]} — integers without a trailing ".0" so the UI reads naturally. */
+    private String renderValues(List<Double> values) {
+        return values.stream()
+                .map(v -> v == Math.rint(v) && !Double.isInfinite(v) ? String.valueOf(v.longValue()) : String.valueOf(v))
+                .collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    /**
+     * Rejects an expectation that cannot match the measure — an unknown group, population or
+     * stratifier would otherwise produce a test that fails (or worse, passes) for a reason the
+     * author never sees. Checked on save; a measure edited afterwards is caught at run time.
+     */
+    private void validateExpectedValues(MeasureDefinition measure, TestCaseExpectedValues expected) {
+        if (expected == null || expected.isEmpty()) return;
+
+        List<GroupDefinition> groups = measure.getGroupDefinitions() != null
+                ? measure.getGroupDefinitions() : List.of();
+        Map<String, GroupDefinition> byId = new LinkedHashMap<>();
+        for (int i = 0; i < groups.size(); i++) {
+            byId.put(effectiveGroupId(groups.get(i), i), groups.get(i));
+        }
+
+        List<String> problems = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (TestCaseExpectedValues.GroupValues values : expected.getGroups()) {
+            String groupId = values.getGroupId();
+            GroupDefinition group = groupId != null ? byId.get(groupId) : null;
+            if (group == null) {
+                problems.add("Unknown population group '" + groupId + "' (measure has: " + byId.keySet() + ")");
+                continue;
+            }
+            if (!seen.add(groupId)) {
+                problems.add("Population group '" + groupId + "' is listed more than once");
+            }
+
+            Set<String> populationTypes = new HashSet<>();
+            if (group.getPopulations() != null) {
+                group.getPopulations().forEach(p -> populationTypes.add(p.getPopulationType()));
+            }
+            if (values.getPopulations() != null) {
+                values.getPopulations().forEach((type, count) -> {
+                    if (!populationTypes.contains(type)) {
+                        problems.add("Group '" + groupId + "' has no population '" + type + "'");
+                    } else if (count == null || count < 0) {
+                        problems.add("Group '" + groupId + "' population '" + type + "' needs a count of 0 or more");
+                    }
+                });
+            }
+
+            if (values.getObservations() != null) {
+                for (Double v : values.getObservations()) {
+                    if (v == null || v.isNaN() || v.isInfinite()) {
+                        problems.add("Group '" + groupId + "' has an observation value that is not a number");
+                        break;
+                    }
+                }
+            }
+
+            Set<String> stratifierIds = new HashSet<>();
+            if (group.getStratifiers() != null) {
+                group.getStratifiers().forEach(s -> stratifierIds.add(s.getStratifierId()));
+            }
+            if (values.getStratifiers() != null) {
+                for (String stratifierId : values.getStratifiers().keySet()) {
+                    if (!stratifierIds.contains(stratifierId)) {
+                        problems.add("Group '" + groupId + "' has no stratifier '" + stratifierId + "'");
+                    }
+                }
+            }
+        }
+
+        if (!problems.isEmpty()) {
+            throw new ValidationException("Expected values do not match the measure", problems);
+        }
+    }
+
+    /** Lenient read for listing / editing: an unreadable value shows up as "no structured expectation". */
+    private TestCaseExpectedValues readExpectedValues(String json) {
+        try {
+            return readExpectedValuesStrict(json);
+        } catch (IllegalStateException e) {
+            log.warn("Could not read structured expected values: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Strict read for runs — see the call site for why a run must not fall back silently. */
+    private TestCaseExpectedValues readExpectedValuesStrict(String json) {
+        if (json == null || json.isBlank()) return null;
+        try {
+            return MAPPER.readValue(json, TestCaseExpectedValues.class);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Stored expected values of this test case could not be read: " + e.getMessage(), e);
+        }
+    }
+
+    /** {@code null} (not "{}") when there is nothing structured, so the column stays NULL. */
+    private String writeExpectedValues(TestCaseExpectedValues values) {
+        if (values == null || values.isEmpty()) return null;
+        try {
+            return MAPPER.writeValueAsString(values);
+        } catch (Exception e) {
+            throw new ValidationException("Expected values could not be stored: " + e.getMessage());
+        }
+    }
+
     private List<Resource> parseBundleResources(String bundleJson) {
         List<Resource> resources = new ArrayList<>();
         if (bundleJson == null || bundleJson.isBlank()) return resources;
@@ -434,15 +969,26 @@ public class TestCaseService {
         return resources;
     }
 
-    private Map<String, Object> buildMeasurementPeriodParams(MeasureDefinition measure) {
-        // Use current year as default measurement period (Jan 1 – Dec 31)
+    /**
+     * PAT-242: the window a test case runs in — the measure's own Measurement Period when it has
+     * one, else the current calendar year (the pre-PAT-242 behaviour, kept so measures without a
+     * period run exactly as before). Reported on the run result so the author can see it.
+     */
+    static LocalDate[] measurementPeriod(MeasureDefinition measure) {
+        if (measure != null && measure.getMeasurementPeriodStart() != null && measure.getMeasurementPeriodEnd() != null) {
+            return new LocalDate[] {measure.getMeasurementPeriodStart(), measure.getMeasurementPeriodEnd()};
+        }
         int year = Year.now().getValue();
+        return new LocalDate[] {LocalDate.of(year, 1, 1), LocalDate.of(year, 12, 31)};
+    }
+
+    private Map<String, Object> buildMeasurementPeriodParams(LocalDate[] period) {
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",
                 new Interval(
-                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 1, 1), LocalTime.MIN, ZoneOffset.UTC)),
+                        new DateTime(OffsetDateTime.of(period[0], LocalTime.MIN, ZoneOffset.UTC)),
                         true,
-                        new DateTime(OffsetDateTime.of(LocalDate.of(year, 12, 31), LocalTime.MAX, ZoneOffset.UTC)),
+                        new DateTime(OffsetDateTime.of(period[1], LocalTime.MAX, ZoneOffset.UTC)),
                         true));
         return parameters;
     }
@@ -470,13 +1016,18 @@ public class TestCaseService {
     // ===== Entity ↔ Model Conversion =====
 
     private TestCase entityToModel(TestCaseEntity entity) {
+        boolean locked = EditLock.isActive(entity.getLockedBy(), entity.getLockedAt(), lockTimeoutMinutes);
         return TestCase.builder()
+                .lockedBy(locked ? entity.getLockedBy() : null)
+                .lockedAt(locked ? entity.getLockedAt() : null)
+                .lockExpiresAt(locked ? EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes) : null)
                 .id(entity.getId())
                 .measureDefinitionId(entity.getMeasureDefinitionId())
                 .title(entity.getTitle())
                 .description(entity.getDescription())
                 .patientBundleJson(entity.getPatientBundleJson())
                 .expectedPopulations(entity.getExpectedPopulationMap())
+                .expectedValues(readExpectedValues(entity.getExpectedValues()))
                 .status(entity.getStatus())
                 .lastRunResultJson(entity.getLastRunResultJson())
                 .lastRunActualPopulations(entity.getLastRunActualPopulationMap())
@@ -485,6 +1036,8 @@ public class TestCaseService {
                 .updatedAt(entity.getUpdatedAt())
                 .series(entity.getSeries())
                 .sortOrder(entity.getSortOrder())
+                .validationStatus(entity.getValidationStatus())
+                .validation(TestCaseValidationService.summaryFor(entity))
                 .build();
     }
 
@@ -495,6 +1048,7 @@ public class TestCaseService {
                 .patientBundleJson(model.getPatientBundleJson())
                 .expectedPopulationMap(model.getExpectedPopulations() != null
                         ? model.getExpectedPopulations() : new LinkedHashMap<>())
+                .expectedValues(writeExpectedValues(model.getExpectedValues()))
                 .status(model.getStatus() != null ? model.getStatus() : "pending")
                 .series(model.getSeries())
                 .sortOrder(model.getSortOrder() != null ? model.getSortOrder() : 0)

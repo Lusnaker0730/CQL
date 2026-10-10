@@ -5,6 +5,7 @@ import com.cqlplatform.model.ecqm.EcqmArtifactRequest;
 import com.cqlplatform.model.ecqm.EcqmArtifactResponse;
 import com.cqlplatform.model.ecqm.EcqmArtifactSummary;
 import com.cqlplatform.repository.EcqmArtifactRepository;
+import com.cqlplatform.service.measure.MeasureMetadataRules;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,8 @@ public class EcqmArtifactService {
     @Transactional
     public EcqmArtifactResponse create(EcqmArtifactRequest request, String ownerUsername) {
         EcqmArtifactEntity entity = requestToEntity(request);
+        MeasureMetadataRules.requireOrderedEffectivePeriod(entity.getEffectiveStart(), entity.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(entity.getMeasurementPeriodStart(), entity.getMeasurementPeriodEnd());
         entity.setOwnerUsername(ownerUsername);
         entity.setTenantId(effectiveTenantId()); // server-assigned tenant
         entity = repository.save(entity);
@@ -85,6 +88,21 @@ public class EcqmArtifactService {
         if (request.getSteward() != null) entity.setSteward(request.getSteward());
         if (request.getDisclaimer() != null) entity.setDisclaimer(request.getDisclaimer());
         if (request.getSupplementalDataGuidance() != null) entity.setSupplementalDataGuidance(request.getSupplementalDataGuidance());
+        // PAT-236 standard metadata (same partial-update convention as the fields above)
+        if (request.getMeasureTypes() != null) entity.setMeasureTypeList(request.getMeasureTypes());
+        if (request.getDefinitionTerms() != null) entity.setDefinitionTermList(request.getDefinitionTerms());
+        if (request.getClinicalRecommendationStatement() != null) entity.setClinicalRecommendationStatement(request.getClinicalRecommendationStatement());
+        // Dates: absent keeps, "" clears, an ISO date sets (see EcqmArtifactRequest).
+        if (request.getEffectiveStart() != null) entity.setEffectiveStart(date(request.getEffectiveStart()));
+        if (request.getEffectiveEnd() != null) entity.setEffectiveEnd(date(request.getEffectiveEnd()));
+        if (request.getApprovalDate() != null) entity.setApprovalDate(date(request.getApprovalDate()));
+        if (request.getLastReviewDate() != null) entity.setLastReviewDate(date(request.getLastReviewDate()));
+        if (request.getExperimental() != null) entity.setExperimental(request.getExperimental());
+        // PAT-242 measurement period: same absent / "" / date contract
+        if (request.getMeasurementPeriodStart() != null) entity.setMeasurementPeriodStart(date(request.getMeasurementPeriodStart()));
+        if (request.getMeasurementPeriodEnd() != null) entity.setMeasurementPeriodEnd(date(request.getMeasurementPeriodEnd()));
+        MeasureMetadataRules.requireOrderedEffectivePeriod(entity.getEffectiveStart(), entity.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(entity.getMeasurementPeriodStart(), entity.getMeasurementPeriodEnd());
 
         if (request.getPopulationGroups() != null) entity.setPopulationGroupsList(request.getPopulationGroups());
         if (request.getSupplementalData() != null) entity.setSupplementalDataList(request.getSupplementalData());
@@ -140,6 +158,16 @@ public class EcqmArtifactService {
                 .steward(original.getSteward())
                 .disclaimer(original.getDisclaimer())
                 .supplementalDataGuidance(original.getSupplementalDataGuidance())
+                .measureTypeList(new ArrayList<>(original.getMeasureTypeList()))
+                .definitionTermList(new ArrayList<>(original.getDefinitionTermList()))
+                .clinicalRecommendationStatement(original.getClinicalRecommendationStatement())
+                .effectiveStart(original.getEffectiveStart())
+                .effectiveEnd(original.getEffectiveEnd())
+                .approvalDate(original.getApprovalDate())
+                .lastReviewDate(original.getLastReviewDate())
+                .experimental(original.getExperimental())
+                .measurementPeriodStart(original.getMeasurementPeriodStart())
+                .measurementPeriodEnd(original.getMeasurementPeriodEnd())
                 .populationGroupsList(new ArrayList<>(original.getPopulationGroupsList()))
                 .supplementalDataList(new ArrayList<>(original.getSupplementalDataList()))
                 .stratifiersList(new ArrayList<>(original.getStratifiersList()))
@@ -183,12 +211,23 @@ public class EcqmArtifactService {
                 .steward(entity.getSteward())
                 .disclaimer(entity.getDisclaimer())
                 .supplementalDataGuidance(entity.getSupplementalDataGuidance())
+                .measureTypes(entity.getMeasureTypeList())
+                .definitionTerms(entity.getDefinitionTermList())
+                .clinicalRecommendationStatement(entity.getClinicalRecommendationStatement())
+                .effectiveStart(entity.getEffectiveStart())
+                .effectiveEnd(entity.getEffectiveEnd())
+                .approvalDate(entity.getApprovalDate())
+                .lastReviewDate(entity.getLastReviewDate())
+                .experimental(entity.getExperimental())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
                 .populationGroups(entity.getPopulationGroupsList())
                 .supplementalData(entity.getSupplementalDataList())
                 .stratifiers(entity.getStratifiersList())
                 .baseElements(entity.getBaseElementsList())
                 .parameters(entity.getParametersList())
                 .publishedMeasureId(entity.getPublishedMeasureId())
+                .publishedAt(entity.getPublishedAt())
                 .ownerUsername(entity.getOwnerUsername())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
@@ -209,6 +248,16 @@ public class EcqmArtifactService {
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
+    }
+
+    /** A request date as the entity's value: null / blank → none; otherwise a real calendar date. */
+    private static java.time.LocalDate date(String value) {
+        if (value == null || value.isBlank()) return null;
+        try {
+            return java.time.LocalDate.parse(value.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new com.cqlplatform.exception.ValidationException("Not a calendar date: " + value);
+        }
     }
 
     private EcqmArtifactEntity requestToEntity(EcqmArtifactRequest request) {
@@ -233,6 +282,16 @@ public class EcqmArtifactService {
                 .steward(request.getSteward())
                 .disclaimer(request.getDisclaimer())
                 .supplementalDataGuidance(request.getSupplementalDataGuidance())
+                .measureTypeList(request.getMeasureTypes() != null ? request.getMeasureTypes() : new ArrayList<>())
+                .definitionTermList(request.getDefinitionTerms() != null ? request.getDefinitionTerms() : new ArrayList<>())
+                .clinicalRecommendationStatement(request.getClinicalRecommendationStatement())
+                .effectiveStart(date(request.getEffectiveStart()))
+                .effectiveEnd(date(request.getEffectiveEnd()))
+                .approvalDate(date(request.getApprovalDate()))
+                .lastReviewDate(date(request.getLastReviewDate()))
+                .experimental(request.getExperimental())
+                .measurementPeriodStart(date(request.getMeasurementPeriodStart()))
+                .measurementPeriodEnd(date(request.getMeasurementPeriodEnd()))
                 .populationGroupsList(request.getPopulationGroups() != null ? request.getPopulationGroups() : new ArrayList<>())
                 .supplementalDataList(request.getSupplementalData() != null ? request.getSupplementalData() : new ArrayList<>())
                 .stratifiersList(request.getStratifiers() != null ? request.getStratifiers() : new ArrayList<>())

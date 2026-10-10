@@ -45,7 +45,6 @@ public class EcqmCqlBuilder {
     /**
      * Build eCQM CQL from population groups and related data.
      */
-    @SuppressWarnings("unchecked")
     public CqlBuildResult buildEcqmCql(
             String name, String version, String scoringType,
             String populationBasis,
@@ -55,6 +54,33 @@ public class EcqmCqlBuilder {
             List<Map<String, Object>> supplementalData,
             List<Map<String, Object>> stratifiers,
             String fhirVersion) {
+        return buildEcqmCql(name, version, scoringType, populationBasis, populationGroups, baseElements,
+                parameters, supplementalData, stratifiers, fhirVersion, null, null);
+    }
+
+    /** The default of the {@code "Measurement Period"} parameter when the artifact has no period of its own (unchanged since the template was written). */
+    static final java.time.LocalDate DEFAULT_PERIOD_START = java.time.LocalDate.of(2025, 1, 1);
+    static final java.time.LocalDate DEFAULT_PERIOD_END = java.time.LocalDate.of(2025, 12, 31);
+
+    /**
+     * Build eCQM CQL from population groups and related data.
+     *
+     * @param measurementPeriodStart PAT-242: the artifact's Measurement Period; it becomes the
+     *        default of the {@code "Measurement Period"} parameter so the library is
+     *        self-describing when exchanged. Null keeps the long-standing template default.
+     */
+    @SuppressWarnings("unchecked")
+    public CqlBuildResult buildEcqmCql(
+            String name, String version, String scoringType,
+            String populationBasis,
+            List<Map<String, Object>> populationGroups,
+            List<Map<String, Object>> baseElements,
+            List<Map<String, Object>> parameters,
+            List<Map<String, Object>> supplementalData,
+            List<Map<String, Object>> stratifiers,
+            String fhirVersion,
+            java.time.LocalDate measurementPeriodStart,
+            java.time.LocalDate measurementPeriodEnd) {
 
         BuildContext ctx = new BuildContext(baseElements, parameters);
         // eCQM artifacts always declare a "Measurement Period" parameter (emitted by the
@@ -91,14 +117,17 @@ public class EcqmCqlBuilder {
         dataModel.put("safeName", safeName);
         dataModel.put("version", engine.escapeCqlString(version != null ? version : AuthoringConstants.DEFAULT_VERSION));
         dataModel.put("fhirVersion", resolvedFhirVersion);
+        // PAT-242: ISO dates are safe to splice (LocalDate.toString is yyyy-MM-dd); the template adds the time parts.
+        dataModel.put("measurementPeriodStart",
+                (measurementPeriodStart != null ? measurementPeriodStart : DEFAULT_PERIOD_START).toString());
+        dataModel.put("measurementPeriodEnd",
+                (measurementPeriodEnd != null ? measurementPeriodEnd : DEFAULT_PERIOD_END).toString());
         dataModel.put("includes", includes);
 
         // Escape value set names for use in quoted identifiers and string literals in template
-        List<Map<String, String>> escapedValueSets = new ArrayList<>();
-        for (String vs : valueSets) {
-            escapedValueSets.add(Map.of("identifier", engine.escapeCqlIdentifier(vs), "uri", engine.escapeCqlString(vs)));
-        }
-        dataModel.put("valueSets", escapedValueSets);
+        // PAT-230: identifier, uri and optional version per value set — the uri is the URL the author
+        // picked, no longer a copy of the name.
+        dataModel.put("valueSets", engine.valueSetTemplateModel(valueSets));
 
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();
         for (var csEntry : codeSystems.entrySet()) {
@@ -153,6 +182,9 @@ public class EcqmCqlBuilder {
                 }
 
                 StringBuilder block = new StringBuilder();
+                // PAT-243: which population defines of this group came out as episode lists (vs a
+                // Boolean) — decides the observation wrapper's shape and the Initial Population warning.
+                Map<String, Boolean> listDefines = new HashMap<>();
 
                 // Dual IP (ratio only)
                 Map<String, Object> ipDenom = (Map<String, Object>) group.get("initialPopulationDenom");
@@ -161,12 +193,15 @@ public class EcqmCqlBuilder {
                         && ipDenom != null && ipNumer != null;
 
                 if (dualIp) {
-                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_1 + suffix, ipDenom, ctx);
-                    appendPopulationDefine(block, EcqmConstants.INITIAL_POPULATION_2 + suffix, ipNumer, ctx);
+                    for (var ip : List.of(Map.entry(EcqmConstants.INITIAL_POPULATION_1 + suffix, ipDenom),
+                                          Map.entry(EcqmConstants.INITIAL_POPULATION_2 + suffix, ipNumer))) {
+                        boolean isList = appendPopulationDefine(block, ip.getKey(), ip.getValue(), ctx, isEpisodeBased, populationBasis);
+                        listDefines.put(ip.getKey(), isList);
+                        if (isEpisodeBased && !isList) ctx.warn(episodeWarning(ip.getKey(), populationBasis));
+                    }
                 }
 
                 // Population defines in canonical order
-                boolean isCvEpisode = EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType) && isEpisodeBased;
                 List<String> requiredPops = EcqmConstants.REQUIRED_POPULATIONS.getOrDefault(scoringType, List.of());
                 for (String popKey : EcqmConstants.ALL_POPULATION_KEYS) {
                     if (dualIp && "initial-population".equals(popKey)) continue;
@@ -182,36 +217,39 @@ public class EcqmCqlBuilder {
                         if (parentDefine != null && requiredPops.contains(defineName)) {
                             block.append(String.format("define \"%s%s\":\n  \"%s%s\"\n\n",
                                     defineName, suffix, parentDefine, suffix));
+                            listDefines.put(defineName + suffix, listDefines.getOrDefault(parentDefine + suffix, false));
                         }
                         continue;
                     }
 
-                    // Episode-based CV: Measure Population should return resource list, not boolean
-                    if (isCvEpisode && "measure-population".equals(popKey)) {
-                        ctx.withRenderMode(
-                                ExpressionCqlEngine.RenderMode.CV_MEASURE_POPULATION,
-                                populationBasis,
-                                () -> {
-                                    appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
-                                    return null;
-                                });
-                    } else {
-                        appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx);
+                    // PAT-243: every population of an episode-based group returns the episode list
+                    // (before, only the continuous-variable Measure Population did and the rest were
+                    // Booleans, so proportion / ratio counts were patient counts). A population with no
+                    // episode element falls back to a Boolean, which the evaluation reads as "all / none
+                    // of the parent's episodes" — fine for a child, a problem for the Initial Population.
+                    boolean isList = appendPopulationDefine(block, defineName + suffix, (Map<String, Object>) popTree, ctx,
+                            isEpisodeBased, populationBasis);
+                    listDefines.put(defineName + suffix, isList);
+                    if (isEpisodeBased && !isList && EcqmConstants.INITIAL_POPULATION.equals(defineName)) {
+                        ctx.warn(episodeWarning(defineName + suffix, populationBasis));
                     }
                 }
 
                 // Observations
                 List<Map<String, Object>> observations = (List<Map<String, Object>>) group.get("observations");
                 if (observations != null) {
-                    // Ratio observations are always patient-based (calculating per-patient time)
+                    // Only a continuous-variable Measure Population that really is an episode list gets
+                    // an episode-typed observation function; ratio observations stay patient-based
+                    // (calculating per-patient time).
                     boolean obsEpisodeBased = isEpisodeBased
-                            && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType);
+                            && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)
+                            && listDefines.getOrDefault(EcqmConstants.MEASURE_POPULATION + suffix, false);
                     String obsBasis = obsEpisodeBased ? populationBasis : "boolean";
                     for (Map<String, Object> obs : observations) {
                         appendObservationFunction(block, obs, suffix, ctx, obsEpisodeBased, obsBasis);
                     }
                     if (!observations.isEmpty()) {
-                        appendObservationWrapper(block, suffix, isEpisodeBased, scoringType, observations);
+                        appendObservationWrapper(block, suffix, obsEpisodeBased, scoringType, observations, listDefines);
                     }
                 }
 
@@ -240,13 +278,13 @@ public class EcqmCqlBuilder {
             for (Map<String, Object> strat : stratifiers) {
                 String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
                 String desc = engine.getStr(strat, "description", "");
-                Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
-                if (criteria != null) {
-                    String stratExpr = engine.buildConjunctionExpression(criteria, ctx);
+                // PAT-235: a multi-component stratifier is one define per component,
+                // "Stratifier <id> <code>"; a plain stratifier is one define "Stratifier <id>".
+                for (Map.Entry<String, String> define : stratifierDefines(strat, stratId, ctx).entrySet()) {
                     Map<String, String> sm = new HashMap<>();
-                    sm.put("id", stratId);
+                    sm.put("id", define.getKey());
                     sm.put("description", engine.escapeCqlIdentifier(desc));
-                    sm.put("expression", stratExpr);
+                    sm.put("expression", define.getValue());
                     topStratModels.add(sm);
                 }
             }
@@ -260,18 +298,21 @@ public class EcqmCqlBuilder {
                 String sdeName = engine.getStr(sde, "name", null);
                 if (sdeName == null) continue;
                 String oid = EcqmConstants.SDE_VALUE_SET_OIDS.get(sdeName);
+                // PAT-234: QM IG 3.19 — a risk adjustment factor's define SHOULD be named "RAF …".
+                if ("risk-adjustment-factor".equals(sde.get("usage")) && !sdeName.startsWith("RAF")) {
+                    ctx.warn(String.format("Risk adjustment factor '%s': the define name should start with \"RAF\" (QM IG).", sdeName));
+                }
                 if (oid != null) {
                     // OID was already added to valueSets in collectAllDeclarations so the
                     // master template's `valueset` block emits the declaration.
                     supplementalDefines.add(buildStandardSde(sdeName, oid));
                 } else {
-                    Map<String, Object> criteria = (Map<String, Object>) sde.get("criteria");
-                    if (criteria != null) {
-                        String expr = engine.buildConjunctionExpression(criteria, ctx);
-                        if (!"null".equals(expr)) {
-                            supplementalDefines.add(String.format("define \"%s\":\n  %s\n",
-                                    engine.escapeCqlIdentifier(sdeName), expr));
-                        }
+                    // A custom element is either a boolean condition tree or, like a value
+                    // stratifier, a value expression (gender / age bands) — same builder (PAT-234).
+                    String expr = valueOrCriteriaExpression(sde, "SDE " + sdeName, ctx);
+                    if (expr != null && !"null".equals(expr)) {
+                        supplementalDefines.add(String.format("define \"%s\":\n  %s\n",
+                                engine.escapeCqlIdentifier(sdeName), expr));
                     }
                 }
             }
@@ -290,6 +331,32 @@ public class EcqmCqlBuilder {
         if (tree == null) return true;
         List<Map<String, Object>> children = (List<Map<String, Object>>) tree.get("childInstances");
         return children == null || children.isEmpty();
+    }
+
+    /**
+     * PAT-243 — renders one population define; in an episode-based group it is rendered in
+     * {@code EPISODE_LIST} mode and the return value says whether it came out as a list of
+     * episodes (true) or fell back to a Boolean (false, e.g. no element of the basis type).
+     */
+    private boolean appendPopulationDefine(StringBuilder block, String defineName,
+            Map<String, Object> tree, BuildContext ctx, boolean episodeBased, String populationBasis) {
+        if (!episodeBased) {
+            appendPopulationDefine(block, defineName, tree, ctx);
+            return false;
+        }
+        ctx.resetEpisodeListFlag();
+        ctx.withRenderMode(ExpressionCqlEngine.RenderMode.EPISODE_LIST, populationBasis, () -> {
+            appendPopulationDefine(block, defineName, tree, ctx);
+            return null;
+        });
+        return ctx.lastEpisodeRenderIsList();
+    }
+
+    private static String episodeWarning(String defineName, String populationBasis) {
+        return String.format("Population basis is %s but \"%s\" has no %s element and returns a Boolean: "
+                        + "the evaluation will count patients, not %s episodes. Put a %s element first in the "
+                        + "Initial Population to identify the episodes.",
+                populationBasis, defineName, populationBasis, populationBasis, populationBasis);
     }
 
     private void appendPopulationDefine(StringBuilder block, String defineName,
@@ -370,9 +437,16 @@ public class EcqmCqlBuilder {
         }
     }
 
+    /**
+     * @param obsEpisodeBased the observation function takes an episode (continuous-variable, and
+     *        the Measure Population really is an episode list); otherwise it takes the Patient
+     * @param listDefines     PAT-243: which population defines are episode lists — a list is tested
+     *        with {@code exists}, a Boolean directly
+     */
     @SuppressWarnings("unchecked")
     private void appendObservationWrapper(StringBuilder block, String suffix,
-            boolean isEpisodeBased, String scoringType, List<Map<String, Object>> observations) {
+            boolean obsEpisodeBased, String scoringType, List<Map<String, Object>> observations,
+            Map<String, Boolean> listDefines) {
         String funcName = EcqmConstants.MEASURE_OBSERVATION + suffix;
 
         // Determine the population to reference based on scoring type and observation config
@@ -390,31 +464,180 @@ public class EcqmCqlBuilder {
             refPopulation = (defineName != null ? defineName : EcqmConstants.DENOMINATOR) + suffix;
         }
 
-        if (isEpisodeBased && EcqmConstants.SCORING_CONTINUOUS_VARIABLE.equals(scoringType)) {
+        if (obsEpisodeBased) {
             block.append(String.format("define \"%s%s\":\n  (\"%s\") MP return \"%s\"(MP)\n\n",
                     "Measure Observation Values", suffix, refPopulation, funcName));
         } else {
-            block.append(String.format("define \"%s%s\":\n  if \"%s\" then \"%s\"(Patient) else null\n\n",
-                    "Measure Observation Value", suffix, refPopulation, funcName));
+            // A population that is an episode list (PAT-243) is tested with `exists`; a Boolean directly.
+            String condition = listDefines.getOrDefault(refPopulation, false)
+                    ? String.format("exists \"%s\"", refPopulation) : String.format("\"%s\"", refPopulation);
+            block.append(String.format("define \"%s%s\":\n  if %s then \"%s\"(Patient) else null\n\n",
+                    "Measure Observation Value", suffix, condition, funcName));
         }
     }
 
-    @SuppressWarnings("unchecked")
     private void appendStratifier(StringBuilder block, Map<String, Object> strat,
             String suffix, BuildContext ctx) {
         String stratId = engine.escapeCqlIdentifier(engine.getStr(strat, "stratifierId", "strat"));
         String desc = engine.getStr(strat, "description", "");
-        Map<String, Object> criteria = (Map<String, Object>) strat.get("criteria");
-        if (criteria != null) {
-            String expr = engine.buildConjunctionExpression(criteria, ctx);
-            if (!"null".equals(expr)) {
-                if (!desc.isEmpty()) {
-                    // Sanitize description for CQL comment: strip newlines to prevent injection
-                    String safeDesc = desc.replace("\n", " ").replace("\r", " ");
-                    block.append(String.format("// %s\n", safeDesc));
-                }
-                block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", stratId, suffix, expr));
+        boolean first = true;
+        for (Map.Entry<String, String> define : stratifierDefines(strat, stratId, ctx).entrySet()) {
+            if (first && !desc.isEmpty()) {
+                // Sanitize description for CQL comment: strip newlines to prevent injection
+                String safeDesc = desc.replace("\n", " ").replace("\r", " ");
+                block.append(String.format("// %s\n", safeDesc));
             }
+            first = false;
+            block.append(String.format("define \"Stratifier %s%s\":\n  %s\n\n", define.getKey(), suffix, define.getValue()));
+        }
+    }
+
+    /** Codes are part of a CQL identifier ({@code "Stratifier <id> <code>"}); keep them plain. */
+    private static final java.util.regex.Pattern COMPONENT_CODE = java.util.regex.Pattern.compile("^[A-Za-z0-9][A-Za-z0-9 _.-]{0,49}$");
+
+    /**
+     * PAT-235 — the defines one stratifier needs, keyed by the id part after {@code "Stratifier "}:
+     * {@code <id>} → expression for a plain stratifier, {@code <id> <code>} → expression per
+     * component for a multi-component one. A component that cannot be built (bad code,
+     * duplicate code, unbuildable expression) drops the whole stratifier with a warning — a
+     * stratum made of some of its components would be a different stratifier.
+     */
+    @SuppressWarnings("unchecked")
+    Map<String, String> stratifierDefines(Map<String, Object> strat, String escapedStratId, BuildContext ctx) {
+        Map<String, String> defines = new LinkedHashMap<>();
+        Object componentsObj = strat.get("components");
+        if (componentsObj instanceof List<?> components && !components.isEmpty()) {
+            String rawId = engine.getStr(strat, "stratifierId", "strat");
+            Set<String> codes = new HashSet<>();
+            for (Object componentObj : components) {
+                if (!(componentObj instanceof Map<?, ?> component)) {
+                    ctx.warn(String.format("Stratifier %s: malformed component. Skipping the stratifier.", rawId));
+                    return Map.of();
+                }
+                String code = String.valueOf(component.get("code")).trim();
+                if (!COMPONENT_CODE.matcher(code).matches() || !codes.add(code)) {
+                    ctx.warn(String.format("Stratifier %s: component code '%s' is invalid or duplicated "
+                            + "(letters, digits, space, _.- ; 1-50 chars; unique). Skipping the stratifier.", rawId, code));
+                    return Map.of();
+                }
+                String expr = valueOrCriteriaExpression((Map<String, Object>) component, "Stratifier " + rawId + "/" + code, ctx);
+                if (expr == null || "null".equals(expr)) {
+                    ctx.warn(String.format("Stratifier %s: component '%s' has no expression. Skipping the stratifier.", rawId, code));
+                    return Map.of();
+                }
+                defines.put(escapedStratId + " " + engine.escapeCqlIdentifier(code), expr);
+            }
+            return defines;
+        }
+        String expr = stratifierExpression(strat, ctx);
+        if (expr != null && !"null".equals(expr)) defines.put(escapedStratId, expr);
+        return defines;
+    }
+
+    // ------------------------------------------------------------------ stratifier expressions (PAT-233)
+
+    /**
+     * Age-band labels are CQL string literals the author typed; keep them to plain ASCII text
+     * (the CQL string escaper strips non-ASCII, which would fold two labels into one stratum).
+     */
+    private static final java.util.regex.Pattern BAND_LABEL = java.util.regex.Pattern.compile("^[A-Za-z0-9 _+\\-./:()]{1,40}$");
+    private static final int MAX_AGE_BANDS = 20;
+    private static final int MAX_AGE = 150;
+
+    /**
+     * The CQL for one stratifier, or {@code null} when it cannot be produced (nothing is
+     * emitted and the context carries a warning). Two kinds:
+     * <ul>
+     *   <li>{@code criteria} (default) — the boolean conjunction tree, as populations are built;
+     *       patients bucket into {@code true} / {@code false}.</li>
+     *   <li>{@code value} — an expression whose result IS the stratum (QM IG conformance 3.17):
+     *       {@code gender} → {@code Patient.gender.value}; {@code ageBands} → a {@code case}
+     *       over the measurement-period age returning the band label. Sources are structured,
+     *       not free CQL: the artifact is client-supplied JSON and a raw expression would be a
+     *       CQL injection sink.</li>
+     * </ul>
+     */
+    String stratifierExpression(Map<String, Object> strat, BuildContext ctx) {
+        return valueOrCriteriaExpression(strat, "Stratifier " + engine.getStr(strat, "stratifierId", "strat"), ctx);
+    }
+
+    /**
+     * The same two kinds for any element that carries {@code kind} / {@code criteria} /
+     * {@code value} — stratifiers (PAT-233) and custom supplemental data elements (PAT-234).
+     * {@code label} names the element in warnings ("Stratifier age", "SDE RAF Age Band").
+     */
+    @SuppressWarnings("unchecked")
+    String valueOrCriteriaExpression(Map<String, Object> element, String label, BuildContext ctx) {
+        if (!"value".equals(engine.getStr(element, "kind", "criteria"))) {
+            Map<String, Object> criteria = (Map<String, Object>) element.get("criteria");
+            return criteria == null ? null : engine.buildConjunctionExpression(criteria, ctx);
+        }
+        Map<String, Object> value = element.get("value") instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of();
+        String source = engine.getStr(value, "source", "");
+        switch (source) {
+            case "gender":
+                return "Patient.gender.value";
+            case "ageBands":
+                return ageBandsExpression(label, value.get("bands"), ctx);
+            default:
+                ctx.warn(String.format("%s: unknown value source '%s'. Skipping.", label, source));
+                return null;
+        }
+    }
+
+    /**
+     * {@code case when Age >= 18 and Age <= 49 then '18-49' … else null end}. Bounds are
+     * inclusive (as the AgeRange element's are) and the age is bound to the measurement
+     * period, so a patient's band does not drift with the wall clock.
+     */
+    private String ageBandsExpression(String label, Object bandsObj, BuildContext ctx) {
+        if (!(bandsObj instanceof List<?> bands) || bands.isEmpty()) {
+            ctx.warn(String.format("%s: age bands need at least one band. Skipping.", label));
+            return null;
+        }
+        if (bands.size() > MAX_AGE_BANDS) {
+            ctx.warn(String.format("%s: at most %d age bands. Skipping.", label, MAX_AGE_BANDS));
+            return null;
+        }
+        String age = engine.mapUnitToAgeFunction("years", ctx.hasMeasurementPeriod);
+        StringBuilder sb = new StringBuilder("case\n");
+        Set<String> labels = new HashSet<>();
+        for (Object bandObj : bands) {
+            if (!(bandObj instanceof Map<?, ?> band)) {
+                ctx.warn(String.format("%s: malformed age band. Skipping.", label));
+                return null;
+            }
+            String bandLabel = String.valueOf(band.get("label")).trim();
+            Integer min = ageBound(band.get("min"));
+            Integer max = ageBound(band.get("max"));
+            boolean hasMin = band.get("min") != null && !String.valueOf(band.get("min")).isBlank();
+            boolean hasMax = band.get("max") != null && !String.valueOf(band.get("max")).isBlank();
+            if (!BAND_LABEL.matcher(bandLabel).matches() || !labels.add(bandLabel)
+                    || (hasMin && min == null) || (hasMax && max == null) || (!hasMin && !hasMax)
+                    || (min != null && max != null && min > max)) {
+                ctx.warn(String.format("%s: age band '%s' is invalid (label: letters, digits and _+-./:() only; "
+                        + "bounds: whole years 0-%d, min <= max, at least one bound). Skipping.", label, bandLabel, MAX_AGE));
+                return null;
+            }
+            String cond = min != null && max != null ? String.format("%s >= %d and %s <= %d", age, min, age, max)
+                    : min != null ? String.format("%s >= %d", age, min)
+                    : String.format("%s <= %d", age, max);
+            sb.append(String.format("    when %s then '%s'\n", cond, engine.escapeCqlString(bandLabel)));
+        }
+        sb.append("    else null\n  end");
+        return sb.toString();
+    }
+
+    /** A whole number of years in {@code 0..MAX_AGE}, else {@code null}. */
+    private static Integer ageBound(Object raw) {
+        if (raw == null) return null;
+        try {
+            java.math.BigDecimal d = new java.math.BigDecimal(String.valueOf(raw).trim());
+            if (d.scale() > 0 && d.stripTrailingZeros().scale() > 0) return null;
+            int v = d.intValueExact();
+            return v < 0 || v > MAX_AGE ? null : v;
+        } catch (NumberFormatException | ArithmeticException e) {
+            return null;
         }
     }
 

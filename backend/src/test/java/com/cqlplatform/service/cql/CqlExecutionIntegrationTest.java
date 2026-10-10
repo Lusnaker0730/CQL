@@ -245,6 +245,30 @@ class CqlExecutionIntegrationTest {
             assertExpressionEquals(response, "IsNullCheck", true);
             assertExpressionEquals(response, "NullIsNull", true);
         }
+
+        // PAT-231 (cql-engine 5.x): results cross into the platform through CqlValues.unwrap.
+        // A Tuple used to reach the response as a Map; after unwrap it is a Map BEFORE
+        // toSerializable sees it, and toSerializable must keep it one (the CDS tuple-card path
+        // reads it as a map — a string here is a card with no fields). Lists of structured
+        // values become short "FHIR.Type/id" descriptions, never the whole tree.
+        @Test
+        @DisplayName("Tuples stay maps and lists stay lists in the response")
+        void responseShapes_tupleIsAMap_listIsAList() {
+            CqlExecutionResponse response = executeWithNoData("""
+                    library Shapes version '1.0.0'
+                    define "Card": Tuple { summary: 'HbA1c due', priority: 2, flags: { true, false } }
+                    define "Numbers": { 1, 2, 3 }
+                    """);
+
+            assertThat(response.isSuccess()).isTrue();
+            Object card = response.getResults().get("Card").getValue();
+            assertThat(card).isInstanceOf(Map.class);
+            @SuppressWarnings("unchecked") Map<String, Object> cardMap = (Map<String, Object>) card;
+            assertThat(cardMap).containsEntry("summary", "HbA1c due").containsEntry("priority", 2);
+            assertThat(cardMap.get("flags")).isEqualTo(List.of(true, false));
+            assertThat(response.getResults().get("Card").getValueType()).isEqualTo("Tuple");
+            assertThat(response.getResults().get("Numbers").getValue()).isEqualTo(List.of(1, 2, 3));
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -277,6 +301,11 @@ class CqlExecutionIntegrationTest {
             assertThat(response.isSuccess()).isTrue();
             assertExpressionEquals(response, "HasConditions", true);
             assertExpressionEquals(response, "ConditionCount", 1);
+            // PAT-231: a retrieved resource is described as "FHIR.Condition/<id>" in the
+            // response (4.x showed HAPI's Condition@hash) — one short line, never the whole tree.
+            Object all = response.getResults().get("AllConditions").getValue();
+            assertThat(all).isInstanceOf(List.class);
+            assertThat(((List<?>) all).get(0).toString()).matches("(FHIR[.])?Condition/.+").hasSizeLessThan(80);
         }
 
         @Test
@@ -623,6 +652,47 @@ class CqlExecutionIntegrationTest {
     // ═══════════════════════════════════════════════════════════════════════
     // 11. Pre-translated path runtime error harvesting (PAT-141)
     // ═══════════════════════════════════════════════════════════════════════
+
+    @Nested
+    @DisplayName("12. Value serialisation for strata / supplemental data (PAT-233)")
+    class ValueSerialisationTests {
+
+        // A value stratifier's define returns the stratum; whatever it returns must arrive as
+        // something a report can key on — not "FHIR.code" for a primitive, not the engine's
+        // toString() for a Code.
+        @Test
+        @DisplayName("FHIR primitives arrive as their value, Codes as a small map, a case as its label")
+        void stratumValues_areReadable() {
+            List<Resource> resources = loadBundle("golden/patient-diabetic-screened.json");
+            String cql = """
+                    library StratumValues version '1.0'
+                    using FHIR version '4.0.1'
+                    include FHIRHelpers version '4.0.1'
+                    codesystem "ICD10": 'http://hl7.org/fhir/sid/icd-10-cm'
+                    code "Diabetes": 'E11.9' from "ICD10" display 'Type 2 diabetes'
+                    context Patient
+                    define "GenderPrimitive": Patient.gender
+                    define "GenderString": Patient.gender.value
+                    define "AgeBand": case when AgeInYearsAt(@2024-12-31) >= 65 then '65+' else '18-64' end
+                    define "ACode": "Diabetes"
+                    define "Active": Patient.active
+                    """;
+            CqlExecutionResponse response = executeWithData(cql, "patient-001", resources);
+
+            assertThat(response.isSuccess()).as("errors: " + response.getErrors()).isTrue();
+            assertExpressionEquals(response, "GenderPrimitive", "male");
+            assertExpressionEquals(response, "GenderString", "male");
+            assertThat(response.getResults().get("AgeBand").getValue()).isIn("65+", "18-64");
+            Object code = response.getResults().get("ACode").getValue();
+            assertThat(code).isInstanceOf(Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> codeMap = (Map<String, Object>) code;
+            assertThat(codeMap).containsEntry("code", "E11.9").containsEntry("display", "Type 2 diabetes")
+                    .containsEntry("system", "http://hl7.org/fhir/sid/icd-10-cm");
+            // an absent primitive stays null, it does not become the string "FHIR.boolean"
+            assertThat(response.getResults().get("Active").getValue()).isNull();
+        }
+    }
 
     @Nested
     @DisplayName("11. Pre-translated path runtime error harvesting (PAT-141)")

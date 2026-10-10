@@ -23,7 +23,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
 import { useTranslation } from 'react-i18next'
-import type { MeasureEvaluationResult, PopulationResult, StratifierResult } from '../../types'
+import type { MeasureEvaluationResult, PopulationResult, StratifierResult, SupplementalDataResult } from '../../types'
 import { getScoreChipColor, getScoreHex } from '../../utils/scoreColors'
 
 interface EvaluationResultCardProps {
@@ -80,6 +80,14 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
         {result.status === 'error' && result.errorMessage && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {result.errorMessage}
+          </Alert>
+        )}
+        {/* PAT-243: e.g. an episode-based group whose Initial Population returned a Boolean */}
+        {result.warnings && result.warnings.length > 0 && (
+          <Alert severity="warning" sx={{ mb: 2 }} data-testid="evaluation-warnings">
+            {result.warnings.map((warning) => (
+              <Typography key={warning} variant="body2">{warning}</Typography>
+            ))}
           </Alert>
         )}
 
@@ -205,7 +213,11 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                 <TableHead>
                   <TableRow>
                     <TableCell scope="col">{t('evaluationResult.tableHeaders.population')}</TableCell>
-                    <TableCell scope="col" align="right">{t('evaluationResult.tableHeaders.count')}</TableCell>
+                    <TableCell scope="col" align="right">
+                      {group.populationBasis && group.populationBasis.toLowerCase() !== 'boolean'
+                        ? t('evaluationResult.tableHeaders.countEpisodes', { basis: group.populationBasis })
+                        : t('evaluationResult.tableHeaders.count')}
+                    </TableCell>
                     <TableCell scope="col">{t('evaluationResult.tableHeaders.subjects')}</TableCell>
                   </TableRow>
                 </TableHead>
@@ -278,7 +290,16 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Chip label={strat.strataValue} size="small" />
+                              {strat.components && strat.components.length > 0 ? (
+                                // PAT-235: a multi-component stratum shows one chip per component
+                                <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }} data-testid="stratum-components">
+                                  {strat.components.map((c) => (
+                                    <Chip key={c.code} size="small" label={`${c.code}: ${c.value}`} />
+                                  ))}
+                                </Stack>
+                              ) : (
+                                <Chip label={strat.strataValue} size="small" />
+                              )}
                             </TableCell>
                             <TableCell align="right">
                               {strat.measureScore != null && (
@@ -315,7 +336,70 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
           </Box>
         ))}
 
-        {result.supplementalData && Object.keys(result.supplementalData).length > 0 && (
+        {result.supplementalDataResults && result.supplementalDataResults.length > 0 && (
+          <Box sx={{ mt: 2 }} data-testid="supplemental-data-results">
+            <Typography variant="subtitle2" gutterBottom>
+              {t('evaluationResult.supplementalDataResults.title')}
+            </Typography>
+            <TableContainer>
+              <Table size="small" aria-label={t('evaluationResult.supplementalDataResults.title')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.definition')}</TableCell>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.usage')}</TableCell>
+                    <TableCell>{t('evaluationResult.supplementalDataResults.value')}</TableCell>
+                    <TableCell align="right">{t('evaluationResult.supplementalDataResults.patients')}</TableCell>
+                    <TableCell align="right">{t('evaluationResult.supplementalDataResults.share')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {result.supplementalDataResults.map((element: SupplementalDataResult) => {
+                    const total = element.values.reduce((sum, v) => sum + v.count, 0) + element.patientsWithoutValue
+                    const rows = [
+                      ...element.values.map((v) => ({ key: v.value, label: v.value, count: v.count, missing: false })),
+                      ...(element.patientsWithoutValue > 0
+                        ? [{ key: '__none__', label: t('evaluationResult.supplementalDataResults.noValue'), count: element.patientsWithoutValue, missing: true }]
+                        : []),
+                    ]
+                    if (rows.length === 0) {
+                      rows.push({ key: '__empty__', label: t('evaluationResult.supplementalDataResults.empty'), count: 0, missing: true })
+                    }
+                    return rows.map((row, ri) => (
+                      <TableRow key={`${element.definition}:${row.key}`}>
+                        {ri === 0 && (
+                          <>
+                            <TableCell rowSpan={rows.length}>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>{element.definition}</Typography>
+                              {element.description && (
+                                <Typography variant="caption" sx={{ color: 'text.secondary' }}>{element.description}</Typography>
+                              )}
+                            </TableCell>
+                            <TableCell rowSpan={rows.length}>
+                              <Chip
+                                size="small"
+                                color={element.usage === 'risk-adjustment-factor' ? 'secondary' : 'default'}
+                                label={t(element.usage === 'risk-adjustment-factor'
+                                  ? 'evaluationResult.supplementalDataResults.riskAdjustment'
+                                  : 'evaluationResult.supplementalDataResults.supplementalData')}
+                              />
+                            </TableCell>
+                          </>
+                        )}
+                        <TableCell sx={{ color: row.missing ? 'text.secondary' : 'text.primary', fontStyle: row.missing ? 'italic' : 'normal' }}>
+                          {row.label}
+                        </TableCell>
+                        <TableCell align="right">{row.count}</TableCell>
+                        <TableCell align="right">{total > 0 ? `${((row.count / total) * 100).toFixed(1)}%` : ''}</TableCell>
+                      </TableRow>
+                    ))
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
+        )}
+
+        {result.supplementalData && Object.keys(result.supplementalData).length > 0 && !result.supplementalDataResults?.length && (
           <Box sx={{
             mt: 2
           }}>

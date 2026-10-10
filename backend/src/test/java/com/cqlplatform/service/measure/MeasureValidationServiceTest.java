@@ -234,4 +234,25 @@ class MeasureValidationServiceTest {
 
         assertThat(report.getIssues().stream().filter(i -> "ERROR".equals(i.getSeverity())).toList()).anyMatch(e -> e.getMessage().contains("CQL content is required"));
     }
+
+    // PAT-243 — an episode-based group whose Initial Population returns Boolean is counted per
+    // patient; the validator says so before the author finds out from the numbers.
+    @Test
+    void validateFull_episodeBasisWithBooleanInitialPopulation_shouldWarn() {
+        MeasureDefinition measure = createMinimalMeasure();
+        measure.setGroupDefinitions(List.of(com.cqlplatform.model.measure.GroupDefinition.builder()
+                .groupId("group-1").populationBasis("Encounter")
+                .populations(List.of(com.cqlplatform.model.measure.PopulationDefinition.builder()
+                        .populationType("initial-population").criteriaExpression("IP").build()))
+                .build()));
+
+        when(definitionService.getById(1L)).thenReturn(Optional.of(measure));
+        when(translationService.translate(any())).thenReturn(createSuccessfulTranslation());
+        when(testCaseService.getTestCasesForMeasure(1L)).thenReturn(List.of());
+
+        ValidationReport report = service.validateFull(1L);
+
+        assertThat(report.getIssues().stream().filter(i -> "WARNING".equals(i.getSeverity())).toList())
+                .anyMatch(w -> w.getMessage().contains("count patients, not episodes"));
+    }
 }

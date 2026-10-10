@@ -3,6 +3,7 @@ package com.cqlplatform.service.ecqm;
 import com.cqlplatform.entity.EcqmArtifactEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.exception.CqlGenerationException;
+import com.cqlplatform.exception.PublishConflictException;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.CqlTranslationResponse;
 import com.cqlplatform.model.authoring.CqlBuildResult;
@@ -28,6 +29,9 @@ public class EcqmPublishService {
     private final EcqmCqlBuilder ecqmCqlBuilder;
     private final EcqmCqlGenerationService cqlGenerationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
+    private final com.cqlplatform.service.measure.MeasureDefinitionService measureDefinitionService;
+    /** PAT-253 */
+    private final com.cqlplatform.service.measure.MeasureSetService measureSetService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -40,9 +44,19 @@ public class EcqmPublishService {
                 .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
     }
 
-    @SuppressWarnings("unchecked")
     @Transactional
     public PublishResult publish(Long artifactId, String currentUser) {
+        return publish(artifactId, currentUser, false);
+    }
+
+    /**
+     * @param force PAT-238: overwrite a measure whose logic was edited on the measure page since
+     *              the last publish. Without it such a publish is refused (409) before anything
+     *              is written, so measure-page edits are never lost silently.
+     */
+    @SuppressWarnings("unchecked")
+    @Transactional
+    public PublishResult publish(Long artifactId, String currentUser, boolean force) {
         EcqmArtifactEntity ecqm = ecqmRepository.findByIdAndTenantId(artifactId, effectiveTenantId())
                 .orElseThrow(() -> new ResourceNotFoundException("eCQM Artifact", artifactId));
 
@@ -63,31 +77,68 @@ public class EcqmPublishService {
                     + " error(s):\n" + String.join("\n", errorMessages));
         }
 
-        // Generate CQL
-        CqlBuildResult buildResult = ecqmCqlBuilder.buildEcqmCql(
-                ecqm.getName(), ecqm.getVersion(), ecqm.getScoringType(),
-                ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
-                ecqm.getBaseElementsList(), ecqm.getParametersList(),
-                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4");
-
         // Build group definitions for MeasureDefinition
         List<GroupDefinition> groupDefs = buildGroupDefinitions(
-                ecqm.getScoringType(), ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList());
+                ecqm.getScoringType(), ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
+                ecqm.getStratifiersList());
 
-        // Create or update MeasureDefinition
+        // Generate CQL
+        CqlBuildResult buildResult = buildCql(ecqm, ecqm.getVersion());
+        String libraryId = ecqm.getName().replaceAll("[^a-zA-Z0-9_]", "_");
+
+        // BUG-147: which measure the logic lands on. Publish never makes anything `active` — that
+        // is the review workflow's job (PAT-222 / PAT-219). A first publish creates a draft; a draft
+        // is updated in place; approved / retired logic is immutable, so changed logic goes into a
+        // new draft version (the approved one keeps running until the new one is approved); a
+        // measure under review cannot take changed logic at all.
+        MeasureDefinitionEntity previous = ecqm.getPublishedMeasureId() == null ? null
+                : measureRepository.findByIdAndTenantId(ecqm.getPublishedMeasureId(), effectiveTenantId()).orElse(null);
         MeasureDefinitionEntity measureDef;
-        if (ecqm.getPublishedMeasureId() != null) {
-            measureDef = measureRepository.findByIdAndTenantId(ecqm.getPublishedMeasureId(), effectiveTenantId())
-                    .orElse(newMeasureDefinition(ecqm, currentUser));
-        } else {
+        boolean newVersion = false;
+        if (previous == null) {
             measureDef = newMeasureDefinition(ecqm, currentUser);
+        } else if (MeasureStatusConstants.DRAFT.equals(previous.getStatus())) {
+            // PAT-238: refuse to overwrite logic edited on the measure page since the last publish
+            if (!force && measureEditedSincePublish(ecqm, previous)) {
+                throw new PublishConflictException(previous.getId());
+            }
+            measureDef = previous;
+        } else {
+            boolean sameVersion = Objects.equals(ecqm.getVersion(), previous.getVersion());
+            boolean logicChanged = !sameVersion || com.cqlplatform.service.measure.MeasureLogic.changed(previous,
+                    buildResult.cql(), groupDefs, ecqm.getScoringType(), previous.getCompositeScoring(),
+                    previous.getComponentMeasureIdList(), libraryId);
+            if (!logicChanged) {
+                measureDef = previous; // descriptive metadata only; status untouched
+            } else if (MeasureStatusConstants.IN_REVIEW.equals(previous.getStatus())) {
+                throw new com.cqlplatform.exception.MeasureLogicLockedException(previous.getId(), previous.getStatus());
+            } else {
+                String version = sameVersion
+                        || measureDefinitionService.versionTaken(previous, ecqm.getVersion()) // PAT-253: within the set
+                        ? measureDefinitionService.nextFreeMinorVersion(previous)
+                        : ecqm.getVersion();
+                Long newId = measureDefinitionService.createVersionAs(previous.getId(), version).getId();
+                measureDef = measureRepository.findByIdAndTenantId(newId, effectiveTenantId())
+                        .orElseThrow(() -> new IllegalStateException("New version " + newId + " not found"));
+                if (!version.equals(ecqm.getVersion())) {
+                    ecqm.setVersion(version);               // the artifact follows the measure's version…
+                    buildResult = buildCql(ecqm, version);  // …and so does the CQL library header
+                    validation = cqlGenerationService.validateCql(artifactId); // ELM for the new header
+                    if (!validation.isSuccess()) {
+                        throw new CqlGenerationException("Cannot publish: CQL for version " + version + " failed validation");
+                    }
+                }
+                newVersion = true;
+            }
         }
 
         measureDef.setName(ecqm.getName());
+        measureSetService.rename(measureDef.getMeasureSetId(), measureDef.getTenantId(), ecqm.getName()); // PAT-253: the set follows a rename
         measureDef.setVersion(ecqm.getVersion());
         measureDef.setTitle(ecqm.getName());
         measureDef.setDescription(ecqm.getDescription());
-        measureDef.setStatus("active");
+        // BUG-147: never set the status here — a new measure is created as draft, an existing
+        // one keeps its status (draft stays draft; approved logic was not changed in place).
         measureDef.setScoringType(ecqm.getScoringType());
         measureDef.setCqlContent(buildResult.cql());
         // Persist the compiled ELM alongside the CQL so MeasureReportService can
@@ -95,7 +146,7 @@ public class EcqmPublishService {
         // leave elm_json null on measure_definition → report.elm_hash null →
         // audit can't verify semantic equivalence of the measure actually run.
         measureDef.setElmJson(validation.getElmJson());
-        measureDef.setCqlLibraryId(ecqm.getName().replaceAll("[^a-zA-Z0-9_]", "_"));
+        measureDef.setCqlLibraryId(libraryId);
         measureDef.setGroupDefinitionList(groupDefs);
         measureDef.setImprovementNotation(ecqm.getImprovementNotation());
         measureDef.setRationale(ecqm.getRationale());
@@ -107,11 +158,35 @@ public class EcqmPublishService {
         measureDef.setNqfNumber(ecqm.getNqfNumber());
         measureDef.setCmsMeasureId(ecqm.getCmsMeasureId());
         measureDef.setSupplementalDataGuidance(ecqm.getSupplementalDataGuidance());
+        // PAT-236 standard metadata: copied only when the artifact has them, so a value the
+        // author entered on the published measure survives a re-publish.
+        if (ecqm.getMeasureTypeList() != null && !ecqm.getMeasureTypeList().isEmpty()) measureDef.setMeasureTypeList(new ArrayList<>(ecqm.getMeasureTypeList()));
+        if (ecqm.getDefinitionTermList() != null && !ecqm.getDefinitionTermList().isEmpty()) measureDef.setDefinitionTermList(definitionTerms(ecqm.getDefinitionTermList()));
+        if (ecqm.getClinicalRecommendationStatement() != null) measureDef.setClinicalRecommendationStatement(ecqm.getClinicalRecommendationStatement());
+        if (ecqm.getEffectiveStart() != null) measureDef.setEffectiveStart(ecqm.getEffectiveStart());
+        if (ecqm.getEffectiveEnd() != null) measureDef.setEffectiveEnd(ecqm.getEffectiveEnd());
+        if (ecqm.getApprovalDate() != null) measureDef.setApprovalDate(ecqm.getApprovalDate());
+        if (ecqm.getLastReviewDate() != null) measureDef.setLastReviewDate(ecqm.getLastReviewDate());
+        if (ecqm.getExperimental() != null) measureDef.setExperimental(ecqm.getExperimental());
+        // PAT-242: the artifact's Measurement Period (also the generated CQL's parameter default) becomes
+        // the measure's, so test case runs and default evaluations use the window the author built for.
+        if (ecqm.getMeasurementPeriodStart() != null) measureDef.setMeasurementPeriodStart(ecqm.getMeasurementPeriodStart());
+        if (ecqm.getMeasurementPeriodEnd() != null) measureDef.setMeasurementPeriodEnd(ecqm.getMeasurementPeriodEnd());
+        // PAT-234: the workspace's SDE elements become the measure's declared supplemental
+        // data / risk adjustment factors (by usage) — what the evaluation distributes and the
+        // exchange package lists. Before, publish carried none of them.
+        List<MeasureDefinition.SupplementalDataDef> sdeDefs = new ArrayList<>();
+        List<MeasureDefinition.RiskAdjustmentDef> rafDefs = new ArrayList<>();
+        splitSupplementalData(ecqm.getSupplementalDataList(), sdeDefs, rafDefs);
+        measureDef.setSupplementalDataList(sdeDefs);
+        measureDef.setRiskAdjustmentList(rafDefs);
 
         measureDef = measureRepository.save(measureDef);
 
-        // Update ecqm artifact with published measure id
+        // Update ecqm artifact with published measure id + what was published (PAT-238)
         ecqm.setPublishedMeasureId(measureDef.getId());
+        ecqm.setPublishedAt(java.time.LocalDateTime.now());
+        ecqm.setPublishedContentHash(PublishedContent.hash(buildResult.cql(), groupDefs));
         ecqm.setStatus("active");
         ecqmRepository.save(ecqm);
 
@@ -120,23 +195,86 @@ public class EcqmPublishService {
         return PublishResult.builder()
                 .measureDefinitionId(measureDef.getId())
                 .measureName(measureDef.getName())
+                .measureVersion(measureDef.getVersion())
+                .measureStatus(measureDef.getStatus())
+                .newVersion(newVersion)
+                .supersedesMeasureId(newVersion ? previous.getId() : null)
                 .cql(buildResult.cql())
-                .message("eCQM artifact published successfully")
+                .message(newVersion
+                        ? "Published as new draft version " + measureDef.getVersion() + "; the approved version keeps running until this one is approved"
+                        : MeasureStatusConstants.DRAFT.equals(measureDef.getStatus())
+                            ? "Published as draft; submit it for review and approve it before it can be evaluated"
+                            : "eCQM artifact published successfully")
                 .build();
+    }
+
+    /**
+     * PAT-238 — the measure's current CQL + group definitions no longer hash to what this artifact
+     * last published. False when there is no baseline (never published, or published before V76).
+     */
+    static boolean measureEditedSincePublish(EcqmArtifactEntity ecqm, MeasureDefinitionEntity measure) {
+        if (ecqm.getPublishedContentHash() == null || measure == null) return false;
+        return !ecqm.getPublishedContentHash().equals(
+                PublishedContent.hash(measure.getCqlContent(), measure.getGroupDefinitionList()));
+    }
+
+    /**
+     * PAT-238 — the builder artifact a measure came from and how far both sides drifted since the
+     * last publish; empty when the measure was not published from the builder (in this tenant).
+     */
+    @Transactional(readOnly = true)
+    public Optional<com.cqlplatform.model.ecqm.BuilderSource> builderSourceOf(Long measureId) {
+        Long tenantId = effectiveTenantId();
+        return ecqmRepository.findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(tenantId, measureId)
+                .map(ecqm -> {
+                    MeasureDefinitionEntity measure = measureRepository.findByIdAndTenantId(measureId, tenantId).orElse(null);
+                    boolean baseline = ecqm.getPublishedContentHash() != null && ecqm.getPublishedAt() != null;
+                    return com.cqlplatform.model.ecqm.BuilderSource.builder()
+                            .artifactId(ecqm.getId())
+                            .artifactName(ecqm.getName())
+                            .artifactVersion(ecqm.getVersion())
+                            .ownerUsername(ecqm.getOwnerUsername())
+                            .publishedAt(ecqm.getPublishedAt())
+                            .artifactUpdatedAt(ecqm.getUpdatedAt())
+                            .measureEditedSincePublish(baseline ? measureEditedSincePublish(ecqm, measure) : null)
+                            // publish itself saves the artifact a moment after publishedAt; allow a second
+                            .builderChangedSincePublish(baseline && ecqm.getUpdatedAt() != null
+                                    ? ecqm.getUpdatedAt().isAfter(ecqm.getPublishedAt().plusSeconds(1)) : null)
+                            .build();
+                });
+    }
+
+    private CqlBuildResult buildCql(EcqmArtifactEntity ecqm, String version) {
+        return ecqmCqlBuilder.buildEcqmCql(
+                ecqm.getName(), version, ecqm.getScoringType(),
+                ecqm.getPopulationBasis(), ecqm.getPopulationGroupsList(),
+                ecqm.getBaseElementsList(), ecqm.getParametersList(),
+                ecqm.getSupplementalDataList(), ecqm.getStratifiersList(), "R4",
+                ecqm.getMeasurementPeriodStart(), ecqm.getMeasurementPeriodEnd());
     }
 
     private MeasureDefinitionEntity newMeasureDefinition(EcqmArtifactEntity ecqm, String currentUser) {
         return MeasureDefinitionEntity.builder()
+                .status(MeasureStatusConstants.DRAFT) // BUG-147: approval is the review workflow's job
                 .createdBy(currentUser)
                 .ownerUsername(currentUser)
                 .tenantId(ecqm.getTenantId()) // published measure inherits the artifact's tenant
+                .measureSetId(measureSetService.createFor(ecqm.getTenantId(), ecqm.getName())) // PAT-253: first publish opens the lineage
                 .build();
     }
 
+    /**
+     * @param artifactStratifiers the artifact-level stratifiers (the eCQM workspace's
+     *        "Stratifiers" tab). PAT-233: they apply to every group. Before, only group-level
+     *        stratifiers were mapped — and no UI edits those — so a stratifier built in the
+     *        workspace got its CQL define but never reached evaluation, reports or the
+     *        exchange package.
+     */
     @SuppressWarnings("unchecked")
     private List<GroupDefinition> buildGroupDefinitions(
             String scoringType, String populationBasis,
-            List<Map<String, Object>> populationGroups) {
+            List<Map<String, Object>> populationGroups,
+            List<Map<String, Object>> artifactStratifiers) {
         List<GroupDefinition> result = new ArrayList<>();
         if (populationGroups == null) return result;
 
@@ -201,17 +339,21 @@ public class EcqmPublishService {
                 }
             }
 
-            // Stratifiers
+            // Stratifiers: group-level defines are suffixed per group ("Stratifier gender 1"),
+            // artifact-level ones are emitted once, unsuffixed, and shared by every group.
+            // Same dual-IP rule as the CQL builder, which skips both kinds.
             List<StratifierDefinition> stratDefs = new ArrayList<>();
-            List<Map<String, Object>> groupStratifiers = (List<Map<String, Object>>) group.get("stratifiers");
-            if (groupStratifiers != null && !dualIp) {
-                for (Map<String, Object> strat : groupStratifiers) {
-                    String stratId = strat.get("stratifierId") != null
-                            ? strat.get("stratifierId").toString() : "strat";
-                    stratDefs.add(StratifierDefinition.builder()
-                            .stratifierId(stratId)
-                            .criteriaExpression("Stratifier " + stratId + suffix)
-                            .build());
+            if (!dualIp) {
+                List<Map<String, Object>> groupStratifiers = (List<Map<String, Object>>) group.get("stratifiers");
+                if (groupStratifiers != null) {
+                    for (Map<String, Object> strat : groupStratifiers) {
+                        stratDefs.add(stratifierDefinition(strat, suffix));
+                    }
+                }
+                if (artifactStratifiers != null) {
+                    for (Map<String, Object> strat : artifactStratifiers) {
+                        stratDefs.add(stratifierDefinition(strat, ""));
+                    }
                 }
             }
 
@@ -233,5 +375,75 @@ public class EcqmPublishService {
         }
 
         return result;
+    }
+
+    /**
+     * PAT-234 — each SDE element of the artifact by its {@code usage}: {@code risk-adjustment-factor}
+     * elements become risk adjustment factors, everything else supplemental data. The define
+     * name is the element's name, as the CQL builder emits it.
+     */
+    static void splitSupplementalData(List<Map<String, Object>> elements,
+                                      List<MeasureDefinition.SupplementalDataDef> sdeDefs,
+                                      List<MeasureDefinition.RiskAdjustmentDef> rafDefs) {
+        if (elements == null) return;
+        for (Map<String, Object> element : elements) {
+            Object name = element.get("name");
+            if (name == null || name.toString().isBlank()) continue;
+            Object description = element.get("description");
+            String desc = description != null && !description.toString().isBlank() ? description.toString() : null;
+            if (com.cqlplatform.model.fhir.CqfmConstants.USAGE_RISK_ADJUSTMENT_FACTOR.equals(element.get("usage"))) {
+                rafDefs.add(MeasureDefinition.RiskAdjustmentDef.builder().definition(name.toString().trim()).description(desc).build());
+            } else {
+                sdeDefs.add(MeasureDefinition.SupplementalDataDef.builder().definition(name.toString().trim()).description(desc).build());
+            }
+        }
+    }
+
+    /** PAT-236 — the artifact's {@code [{term, definition}]} maps as typed definition terms; blank terms are dropped. */
+    static List<MeasureDefinition.DefinitionTerm> definitionTerms(List<Map<String, Object>> raw) {
+        List<MeasureDefinition.DefinitionTerm> out = new ArrayList<>();
+        for (Map<String, Object> entry : raw) {
+            Object term = entry.get("term");
+            Object definition = entry.get("definition");
+            if ((term == null || term.toString().isBlank()) && (definition == null || definition.toString().isBlank())) continue;
+            out.add(MeasureDefinition.DefinitionTerm.builder()
+                    .term(term != null ? term.toString().trim() : null)
+                    .definition(definition != null ? definition.toString().trim() : null)
+                    .build());
+        }
+        return out;
+    }
+
+    /** The define the CQL builder emits for this stratifier, plus what the report needs to label it. */
+    @SuppressWarnings("unchecked")
+    private static StratifierDefinition stratifierDefinition(Map<String, Object> strat, String suffix) {
+        String stratId = strat.get("stratifierId") != null ? strat.get("stratifierId").toString() : "strat";
+        String kind = "value".equals(strat.get("kind")) ? StratifierDefinition.KIND_VALUE : StratifierDefinition.KIND_CRITERIA;
+        Object description = strat.get("description");
+        // PAT-235: a multi-component stratifier points at one define per component,
+        // "Stratifier <id> <code><suffix>", the names the CQL builder emits.
+        List<StratifierDefinition.Component> components = null;
+        if (strat.get("components") instanceof List<?> list && !list.isEmpty()) {
+            components = new ArrayList<>();
+            for (Object o : list) {
+                if (!(o instanceof Map<?, ?> component) || component.get("code") == null) continue;
+                String code = component.get("code").toString().trim();
+                Object componentDescription = component.get("description");
+                components.add(StratifierDefinition.Component.builder()
+                        .code(code)
+                        .criteriaExpression("Stratifier " + stratId + " " + code + suffix)
+                        .kind("value".equals(component.get("kind")) ? StratifierDefinition.KIND_VALUE : StratifierDefinition.KIND_CRITERIA)
+                        .description(componentDescription != null && !componentDescription.toString().isBlank()
+                                ? componentDescription.toString() : null)
+                        .build());
+            }
+        }
+        return StratifierDefinition.builder()
+                .stratifierId(stratId)
+                .criteriaExpression(components != null ? null : "Stratifier " + stratId + suffix)
+                .description(description != null && !description.toString().isBlank() ? description.toString() : null)
+                .kind(kind)
+                .components(components)
+                .build();
     }
 }

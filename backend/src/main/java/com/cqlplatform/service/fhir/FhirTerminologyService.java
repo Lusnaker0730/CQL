@@ -57,22 +57,33 @@ public class FhirTerminologyService {
     private final CacheManager cacheManager;
     private final FhirImplementationGuideService igService;
     private final VsacService vsacService;
+    /** PAT-230: this installation's own value sets. Absent in slices that do not load it. */
+    private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
     private final RestTemplate restTemplate = createRestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${fhir.terminology.url:https://tx.fhir.org/r4}")
     private String defaultTerminologyServerUrl;
 
+    public FhirTerminologyService(FhirContext fhirContext, CacheManager cacheManager,
+                                   FhirImplementationGuideService igService, VsacService vsacService) {
+        this(fhirContext, cacheManager, igService, vsacService, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
     public FhirTerminologyService(FhirContext fhirContext,
                                    CacheManager cacheManager,
                                    @org.springframework.beans.factory.annotation.Autowired(required = false)
                                    FhirImplementationGuideService igService,
                                    @org.springframework.beans.factory.annotation.Autowired(required = false)
-                                   VsacService vsacService) {
+                                   VsacService vsacService,
+                                   @org.springframework.beans.factory.annotation.Autowired(required = false)
+                                   com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets) {
         this.fhirContext = fhirContext;
         this.cacheManager = cacheManager;
         this.igService = igService;
         this.vsacService = vsacService;
+        this.platformValueSets = platformValueSets;
     }
 
     private static RestTemplate createRestTemplate() {
@@ -85,7 +96,22 @@ public class FhirTerminologyService {
     private final ConcurrentHashMap<String, TerminologyProvider> terminologyProviderCache =
             new ConcurrentHashMap<>();
 
+    /**
+     * The provider for ONE evaluation. The IG / VSAC / remote chain underneath is shared and cached
+     * per server; PAT-230 puts a fresh, tenant-bound view of the platform's own value sets in front
+     * of it, so call this on the request thread (where the tenant is known), once per evaluation.
+     */
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
+        TerminologyProvider shared = sharedTerminologyProvider(terminologyServerUrl);
+        if (platformValueSets == null) return shared;
+        // No tenant can be determined (unseeded database): there are no platform value sets to consult.
+        return platformValueSets.lookupTenantId()
+                .<TerminologyProvider>map(tenantId -> new com.cqlplatform.service.terminology.PlatformTerminologyProvider(
+                        tenantId, platformValueSets, shared))
+                .orElse(shared);
+    }
+
+    private TerminologyProvider sharedTerminologyProvider(String terminologyServerUrl) {
         String serverUrl = terminologyServerUrl != null ? terminologyServerUrl : defaultTerminologyServerUrl;
         return terminologyProviderCache.computeIfAbsent(serverUrl, url -> {
             IGenericClient client = fhirContext.newRestfulGenericClient(url);

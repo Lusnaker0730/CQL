@@ -536,6 +536,65 @@ class CqlArtifactBuilderEdgeCaseTest {
             assertThat(result.cql()).contains("valueset \"Diabetes Mellitus\"");
         }
 
+        // PAT-230 — the header used to declare `valueset "<name>": '<name>'`: the URL the author picked
+        // (`oid` in the artifact JSON) was dropped, so no terminology source could resolve it.
+        private CqlBuildResult buildWithValueSets(List<Map<String, Object>> valueSets) {
+            Map<String, Object> child = new LinkedHashMap<>();
+            child.put("type", "GenericCondition_vsac");
+            child.put("name", "Diabetes");
+            child.put("returnType", "list_of_conditions");
+            child.put("fields", List.of(
+                    Map.of("id", "element_name", "value", "Diabetes"),
+                    new LinkedHashMap<>(Map.of("id", "condition", "type", "condition_vsac", "valueSets", valueSets))));
+            Map<String, Object> existsMod = new LinkedHashMap<>();
+            existsMod.put("id", "BooleanExists");
+            existsMod.put("cqlTemplate", "BooleanExists");
+            existsMod.put("returnType", "boolean");
+            child.put("modifiers", List.of(existsMod));
+            Map<String, Object> tree = emptyTree();
+            ((List<Object>) tree.get("childInstances")).add(child);
+            return build(tree, emptyTree(), List.of(), List.of(), List.of(), null, List.of());
+        }
+
+        @Test
+        void valueSetUrl_isDeclaredAsTheUri_andTheNameStaysTheIdentifier() {
+            String cql = buildWithValueSets(List.of(Map.of("name", "Diabetes Mellitus",
+                    "oid", "https://hospital.example.tw/fhir/ValueSet/DiabetesDx"))).cql();
+
+            assertThat(cql).contains("valueset \"Diabetes Mellitus\": 'https://hospital.example.tw/fhir/ValueSet/DiabetesDx'");
+            assertThat(cql).doesNotContain("'Diabetes Mellitus'");
+            // The retrieve keeps referring to the identifier.
+            assertThat(cql).contains("[Condition: \"Diabetes Mellitus\"]");
+        }
+
+        @Test
+        void pinnedVersion_isDeclared() {
+            String cql = buildWithValueSets(List.of(Map.of("name", "Diabetes Mellitus",
+                    "oid", "https://hospital.example.tw/fhir/ValueSet/DiabetesDx", "version", "1.2.0"))).cql();
+
+            assertThat(cql).contains("valueset \"Diabetes Mellitus\": 'https://hospital.example.tw/fhir/ValueSet/DiabetesDx' version '1.2.0'");
+        }
+
+        @Test
+        void bareOid_becomesAUrnOid_andAnElementWithoutOidKeepsTheOldDeclaration() {
+            String cql = buildWithValueSets(List.of(
+                    Map.of("name", "Diabetes VSAC", "oid", "2.16.840.1.113883.3.464.1003.103.12.1001"),
+                    Map.of("name", "Legacy Name Only"))).cql();
+
+            assertThat(cql).contains("valueset \"Diabetes VSAC\": 'urn:oid:2.16.840.1.113883.3.464.1003.103.12.1001'");
+            assertThat(cql).contains("valueset \"Legacy Name Only\": 'Legacy Name Only'");
+        }
+
+        @Test
+        void sameNameTwice_isDeclaredOnce_andTheOneThatKnowsItsUrlWins() {
+            String cql = buildWithValueSets(List.of(
+                    Map.of("name", "Diabetes Mellitus"),
+                    Map.of("name", "Diabetes Mellitus", "oid", "https://hospital.example.tw/fhir/ValueSet/DiabetesDx"))).cql();
+
+            assertThat(cql.split("valueset \"Diabetes Mellitus\"", -1)).hasSize(2);
+            assertThat(cql).contains("valueset \"Diabetes Mellitus\": 'https://hospital.example.tw/fhir/ValueSet/DiabetesDx'");
+        }
+
         @Test
         void codeSystemsInTree_shouldAppearInHeader() {
             Map<String, Object> codeSystem = Map.of("id", "http://snomed.info/sct", "name", "SNOMED CT");

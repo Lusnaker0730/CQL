@@ -13,6 +13,7 @@ import com.cqlplatform.service.cql.CqlTranslationService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -31,6 +32,9 @@ import static org.mockito.Mockito.*;
 class MeasureDefinitionServiceTest {
 
     @Mock
+    private com.cqlplatform.repository.TestCaseRepository testCaseRepository;
+
+    @Mock
     private MeasureDefinitionRepository repository;
 
     @Mock
@@ -47,6 +51,17 @@ class MeasureDefinitionServiceTest {
 
     @Mock
     private com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+
+    @Mock
+    private com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
+
+    /** PAT-249: void gates — a plain mock lets every existing workflow test through. */
+    @Mock
+    private ApprovalReadinessService readinessService;
+
+    /** PAT-253: opens / renames measure sets; unstubbed createFor returns 0L, which is fine for create tests. */
+    @Mock
+    private MeasureSetService measureSetService;
 
     @InjectMocks
     private MeasureDefinitionService service;
@@ -226,8 +241,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.lockMeasure(1L, "user1"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("already locked");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("is locked by otherUser");
     }
 
     @Test
@@ -265,8 +280,8 @@ class MeasureDefinitionServiceTest {
         when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
 
         assertThatThrownBy(() -> service.unlockMeasure(1L, "wrongUser"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Only the lock holder or owner");
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
+                .hasMessageContaining("only the lock holder or the owner");
     }
 
     // ===== Sharing =====
@@ -335,6 +350,56 @@ class MeasureDefinitionServiceTest {
 
         MeasureDefinition result = service.approveMeasure(1L, "owner");
         assertThat(result.getStatus()).isEqualTo("active");
+        // PAT-249: four-eyes is checked before readiness, both before anything is written
+        InOrder gates = inOrder(readinessService, repository);
+        gates.verify(readinessService).requireFourEyes(entity, "owner");
+        gates.verify(readinessService).requireReady(entity, "be approved");
+        gates.verify(repository).save(any());
+    }
+
+    // ===== PAT-249: approval gates =====
+
+    @Test
+    void submitForReview_refusedWhileTheMeasureHasBlockers_writesNothing() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        doThrow(new com.cqlplatform.exception.MeasureNotReadyException("not ready", List.of("2 test case(s) do not pass")))
+                .when(readinessService).requireReady(entity, "be submitted for review");
+
+        assertThatThrownBy(() -> service.submitForReview(1L, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.MeasureNotReadyException.class)
+                .hasMessageContaining("not ready");
+        assertThat(entity.getStatus()).isEqualTo("draft");
+        verify(repository, never()).save(any());
+        verify(auditRepository, never()).save(any());
+        verify(notificationService, never()).notifyMeasureSubmitted(any(), any(), any(), any());
+    }
+
+    @Test
+    void approveMeasure_refusedByFourEyes_writesNothing_andReadinessIsNotEvenChecked() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        entity.setStatus("in-review");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        doThrow(new com.cqlplatform.exception.ApprovalNotAllowedException("Four-eyes principle: its author (owner) may not approve"))
+                .when(readinessService).requireFourEyes(entity, "owner");
+
+        assertThatThrownBy(() -> service.approveMeasure(1L, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ApprovalNotAllowedException.class)
+                .hasMessageContaining("Four-eyes");
+        assertThat(entity.getStatus()).isEqualTo("in-review");
+        verify(readinessService, never()).requireReady(any(), any());
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void getApprovalReadiness_delegatesForTheTenantsMeasure() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        com.cqlplatform.model.measure.ApprovalReadiness readiness = com.cqlplatform.model.measure.ApprovalReadiness.builder().measureId(1L).ready(true).build();
+        when(readinessService.check(entity, "bob")).thenReturn(readiness);
+
+        assertThat(service.getApprovalReadiness(1L, "bob")).isSameAs(readiness);
+        assertThatThrownBy(() -> service.getApprovalReadiness(99L, "bob")).isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
@@ -592,6 +657,75 @@ class MeasureDefinitionServiceTest {
         assertThat(result.getStatus()).isEqualTo("draft");
     }
 
+    // PAT-236 — the standard metadata survives create (model → entity) and update → read back
+    // (entity → model); clearing a field on update really clears it.
+    @Test
+    void standardMetadata_roundTripsThroughCreateAndUpdate() {
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("Meta").version("1.0.0")
+                .measureTypes(List.of("process", "outcome"))
+                .definitionTerms(List.of(MeasureDefinition.DefinitionTerm.builder().term("HbA1c control").definition("< 7%").build()))
+                .clinicalRecommendationStatement("ADA 2026")
+                .effectiveStart(java.time.LocalDate.of(2026, 1, 1)).effectiveEnd(java.time.LocalDate.of(2026, 12, 31))
+                .approvalDate(java.time.LocalDate.of(2025, 11, 20)).lastReviewDate(java.time.LocalDate.of(2026, 6, 15))
+                .experimental(Boolean.TRUE)
+                .build();
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "Meta", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("owner");
+        java.util.concurrent.atomic.AtomicReference<MeasureDefinitionEntity> stored = new java.util.concurrent.atomic.AtomicReference<>();
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            stored.set(e);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition created = service.create(definition);
+
+        assertThat(created.getMeasureTypes()).containsExactly("process", "outcome");
+        assertThat(created.getDefinitionTerms()).extracting(MeasureDefinition.DefinitionTerm::getTerm).containsExactly("HbA1c control");
+        assertThat(created.getClinicalRecommendationStatement()).isEqualTo("ADA 2026");
+        assertThat(created.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
+        assertThat(created.getEffectiveEnd()).isEqualTo(java.time.LocalDate.of(2026, 12, 31));
+        assertThat(created.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 11, 20));
+        assertThat(created.getLastReviewDate()).isEqualTo(java.time.LocalDate.of(2026, 6, 15));
+        assertThat(created.getExperimental()).isTrue();
+
+        // update with the dates and the statement cleared, one type, experimental off
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(stored.get()));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("Meta").version("1.0.0").status("draft")
+                .measureTypes(List.of("outcome"))
+                .experimental(Boolean.FALSE)
+                .build();
+
+        MeasureDefinition updated = service.update(1L, body, "owner");
+
+        assertThat(updated.getMeasureTypes()).containsExactly("outcome");
+        assertThat(updated.getDefinitionTerms()).isEmpty();
+        assertThat(updated.getClinicalRecommendationStatement()).isNull();
+        assertThat(updated.getEffectiveStart()).isNull();
+        assertThat(updated.getApprovalDate()).isNull();
+        assertThat(updated.getExperimental()).isFalse();
+    }
+
+    @Test
+    void update_effectivePeriodEndingBeforeStart_isRejectedBeforeAnythingIsSaved() {
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("M").version("1.0.0").status("draft")
+                .effectiveStart(java.time.LocalDate.of(2026, 6, 1)).effectiveEnd(java.time.LocalDate.of(2026, 1, 1))
+                .build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("before it starts");
+        verify(repository, never()).save(any());
+        verify(auditRepository, never()).save(any());
+    }
+
     @Test
     void update_lockedByAnother_shouldJudgeTheAuthenticatedCallerNotTheBodyOwner() {
         MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
@@ -602,7 +736,7 @@ class MeasureDefinitionServiceTest {
         MeasureDefinition body = MeasureDefinition.builder().name("M").version("1.0.0").ownerUsername("bob").build();
 
         assertThatThrownBy(() -> service.update(1L, body, "alice"))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(com.cqlplatform.exception.ResourceLockedException.class)
                 .hasMessageContaining("locked by bob");
     }
 
@@ -623,5 +757,155 @@ class MeasureDefinitionServiceTest {
         // Creating a version used to force the SOURCE to active — a silent approval.
         assertThat(entity.getStatus()).isEqualTo("draft");
         verify(repository, times(1)).save(any());   // only the new copy is written
+    }
+
+    // ===== BUG-147: approved logic is immutable; approving a new version supersedes the old =====
+
+    private MeasureDefinitionEntity approved() {
+        MeasureDefinitionEntity e = createEntity(1L, "M", "1.0.0");
+        e.setStatus("active");
+        e.setCqlContent("library M version '1.0.0'\ndefine \"Numerator\": true\n");
+        e.setScoringType("proportion");
+        return e;
+    }
+
+    private MeasureDefinition bodyOf(MeasureDefinitionEntity e) {
+        return MeasureDefinition.builder().name(e.getName()).version(e.getVersion()).status(e.getStatus())
+                .scoringType(e.getScoringType()).cqlContent(e.getCqlContent()).groupDefinitions(e.getGroupDefinitionList())
+                .build();
+    }
+
+    @Test
+    void update_changingTheLogicOfAnApprovedMeasure_isRefused_andNothingIsSaved() {
+        MeasureDefinitionEntity entity = approved();
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+
+        MeasureDefinition cqlChange = bodyOf(entity);
+        cqlChange.setCqlContent(entity.getCqlContent().replace("true", "false"));
+        MeasureDefinition scoringChange = bodyOf(entity);
+        scoringChange.setScoringType("cohort");
+
+        for (MeasureDefinition body : List.of(cqlChange, scoringChange)) {
+            assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                    .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class)
+                    .hasMessageContaining("Create a new version");
+        }
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void update_metadataOnlyOrCosmeticCqlOnAnApprovedMeasure_isAllowed() {
+        MeasureDefinitionEntity entity = approved();
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition body = bodyOf(entity);
+        body.setTitle("Better title");
+        body.setRationale("Why it matters");
+        body.setCqlContent(entity.getCqlContent().replace("\n", "\r\n") + "   "); // editor line endings
+        when(cqlTranslationService.translate(any())).thenReturn(CqlTranslationResponse.builder().success(true).elmJson("{}").build());
+
+        MeasureDefinition result = service.update(1L, body, "owner");
+
+        assertThat(result.getTitle()).isEqualTo("Better title");
+        assertThat(result.getStatus()).isEqualTo("active");
+    }
+
+    @Test
+    void approve_retiresTheOtherApprovedVersion_andMovesItsSchedules() {
+        MeasureDefinitionEntity old = approved();
+        MeasureDefinitionEntity next = createEntity(2L, "M", "1.1.0");
+        next.setStatus("in-review");
+        old.setTenantId(7L);
+        next.setTenantId(7L);
+        MeasureDefinitionEntity otherName = createEntity(3L, "Other", "1.0.0");
+        otherName.setStatus("active");
+        com.cqlplatform.entity.MeasureScheduleEntity schedule = new com.cqlplatform.entity.MeasureScheduleEntity();
+        schedule.setMeasureDefinitionId(1L);
+        when(repository.findByIdAndTenantId(2L, 7L)).thenReturn(Optional.of(next));
+        when(repository.findByTenantIdAndName(7L, "M")).thenReturn(List.of(old, next));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+        when(scheduleRepository.findByMeasureDefinitionId(1L)).thenReturn(List.of(schedule));
+
+        service.approveMeasure(2L, "owner");
+
+        assertThat(next.getStatus()).isEqualTo("active");
+        assertThat(old.getStatus()).isEqualTo("retired");
+        assertThat(otherName.getStatus()).isEqualTo("active");
+        assertThat(schedule.getMeasureDefinitionId()).isEqualTo(2L);
+        verify(scheduleRepository).save(schedule);
+        verify(auditRepository).save(argThat(a -> "SUPERSEDE".equals(a.getAction()) && a.getMeasureId() == 1L));
+    }
+
+    // PAT-242 — the Measurement Period round-trips through create, and an inverted one is refused
+    // on update before anything is saved.
+    @Test
+    void measurementPeriod_roundTrips_andAnInvertedOneIsRejected() {
+        MeasureDefinition definition = MeasureDefinition.builder()
+                .name("MP").version("1.0.0")
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 1, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31))
+                .build();
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "MP", "1.0.0")).thenReturn(false);
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("owner");
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition created = service.create(definition);
+
+        assertThat(created.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(created.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+
+        MeasureDefinitionEntity entity = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        MeasureDefinition body = MeasureDefinition.builder()
+                .name("M").version("1.0.0").status("draft")
+                .measurementPeriodStart(java.time.LocalDate.of(2024, 6, 1)).measurementPeriodEnd(java.time.LocalDate.of(2024, 1, 1))
+                .build();
+
+        assertThatThrownBy(() -> service.update(1L, body, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("Measurement period ends");
+    }
+
+    // PAT-246 — a new version starts with the previous version's test cases (run state reset).
+    @Test
+    void createVersionAs_copiesTheTestCases_withRunStateReset() {
+        MeasureDefinitionEntity existing = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(existing));
+        when(repository.existsByTenantIdAndNameAndVersion(7L, "M", "1.1.0")).thenReturn(false);
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(2L);
+            return e;
+        });
+        com.cqlplatform.entity.TestCaseEntity tc = com.cqlplatform.entity.TestCaseEntity.builder()
+                .id(11L).measureDefinitionId(1L).title("TC").series("s").sortOrder(3)
+                .patientBundleJson("{\"resourceType\":\"Bundle\"}").expectedValues("{\"groups\":[]}")
+                .validationStatus("valid").status("pass").lastRunResultJson("{}").build();
+        when(testCaseRepository.findByMeasureDefinitionIdOrderByCreatedAtAsc(1L)).thenReturn(List.of(tc));
+
+        service.createVersionAs(1L, "1.1.0");
+
+        @SuppressWarnings("unchecked")
+        org.mockito.ArgumentCaptor<List<com.cqlplatform.entity.TestCaseEntity>> saved =
+                org.mockito.ArgumentCaptor.forClass(List.class);
+        verify(testCaseRepository).saveAll(saved.capture());
+        assertThat(saved.getValue()).hasSize(1);
+        com.cqlplatform.entity.TestCaseEntity copy = saved.getValue().get(0);
+        assertThat(copy.getId()).isNull();
+        assertThat(copy.getMeasureDefinitionId()).isEqualTo(2L);
+        assertThat(copy.getTitle()).isEqualTo("TC");
+        assertThat(copy.getSeries()).isEqualTo("s");
+        assertThat(copy.getPatientBundleJson()).isEqualTo(tc.getPatientBundleJson());
+        assertThat(copy.getExpectedValues()).isEqualTo(tc.getExpectedValues());
+        assertThat(copy.getValidationStatus()).isEqualTo("valid");
+        assertThat(copy.getStatus()).isEqualTo("pending");
+        assertThat(copy.getLastRunResultJson()).isNull();
     }
 }

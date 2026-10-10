@@ -3,6 +3,7 @@ package com.cqlplatform.model.measure;
 import com.cqlplatform.security.NoXss;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -37,6 +38,15 @@ public class TestCase {
     /** Expected population membership: e.g. {"initial-population": true, "denominator": true, "numerator": false} */
     private Map<String, Boolean> expectedPopulations;
 
+    /**
+     * Structured expectations per population group — effective population counts, measure
+     * observation values and stratifier values (PAT-228). When present (non-empty) it is what
+     * a run compares against and {@link #expectedPopulations} is ignored; when absent the
+     * test case keeps the legacy flat boolean behaviour.
+     */
+    @Valid
+    private TestCaseExpectedValues expectedValues;
+
     /** Status: pass, fail, error, pending */
     @Builder.Default
     @Pattern(regexp = "pass|fail|error|pending")
@@ -60,4 +70,15 @@ public class TestCase {
     /** Sort order within series */
     @Builder.Default
     private Integer sortOrder = 0;
+
+    /** PAT-245: pending | valid | invalid | error; null = never validated. Read-only (set by the validator). */
+    private String validationStatus;
+
+    /** PAT-245: counts and error issues of the last validation; null when none yet. Read-only. */
+    private TestCaseValidation validation;
+
+    /** PAT-253: active edit lock (holder, taken at, lapses at); all null when unlocked. */
+    private String lockedBy;
+    private LocalDateTime lockedAt;
+    private LocalDateTime lockExpiresAt;
 }

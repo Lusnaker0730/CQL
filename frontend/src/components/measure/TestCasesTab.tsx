@@ -17,6 +17,11 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  FormControlLabel,
+  Switch,
+  Menu,
+  MenuItem,
+  ListItemText,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -32,6 +37,9 @@ import {
   Calculate as CalcIcon,
   FileDownload as ExportIcon,
   FileUpload as ImportIcon,
+  EventRepeat as ShiftDatesIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import DebugModeSwitch from '../common/DebugModeSwitch'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -41,15 +49,21 @@ import { extractApiError } from '../../utils/errorUtils'
 import GradientButton from '../common/GradientButton'
 import HelpTooltip from '../common/HelpTooltip'
 import { helpContent } from '../../constants/helpContent'
-import type { MeasureDefinition, TestCase, TestCaseRunResult } from '../../types'
+import type { MeasureDefinition, TestCase, TestCaseRunResult, MeasureClauseCoverage } from '../../types'
+import { episodeBasisByGroup } from '../../utils/testCaseExpectedValues'
 import TestCaseEditor from './TestCaseEditor'
 import TestCaseResultComponent from './TestCaseResult'
 import DateCalculatorDialog from './DateCalculatorDialog'
 import TestCaseCoverage from './TestCaseCoverage'
+import ClauseCoverageView from './ClauseCoverageView'
 import TestCaseImportDialog from './TestCaseImportDialog'
+import TestCaseValidationBadge from './TestCaseValidationBadge'
+import TestCaseCopyDialog from './TestCaseCopyDialog'
+import TestCaseShiftDatesDialog from './TestCaseShiftDatesDialog'
 import PopulationTracePanel from './PopulationTracePanel'
 import DebugPanel from '../execution/DebugPanel'
 import { saveEditingState, loadEditingState, clearEditingState } from '../../hooks/useTestCaseDraft'
+import { getStoredUsername } from '../../utils/validation'
 
 interface TestCasesTabProps {
   measure: MeasureDefinition
@@ -72,12 +86,30 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
   const [runResults, setRunResults] = useState<TestCaseRunResult[]>([])
   const [dateCalcOpen, setDateCalcOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  // PAT-246: copy test cases to another measure / version
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  // PAT-247: "Export" offers the platform JSON and the MADiE-compatible zip of FHIR bundles
+  const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  // PAT-248: shift the dates of one test case or of all of them by whole years
+  const [shiftTarget, setShiftTarget] = useState<TestCase | 'all' | null>(null)
   const [debugMode, setDebugMode] = useState(false)
+  // PAT-245: "Run all" can leave out test cases whose FHIR validation found errors.
+  const [skipInvalid, setSkipInvalid] = useState(false)
+  // PAT-243: episode-based groups report episode counts; the result rows must not read them as Yes / No.
+  const episodeGroups = useMemo(() => episodeBasisByGroup(measure), [measure])
+  // PAT-242: test cases run in the measure's Measurement Period when it has one, else the current year.
+  const measurePeriod = measure.measurementPeriodStart && measure.measurementPeriodEnd
+    ? { start: measure.measurementPeriodStart, end: measure.measurementPeriodEnd }
+    : null
+  const [measureCoverage, setMeasureCoverage] = useState<MeasureClauseCoverage | null>(null)
 
   const { data: testCases = [], isLoading } = useQuery({
     queryKey: ['test-cases', measure.id],
     queryFn: () => measureApi.getTestCases(measure.id!),
     enabled: !!measure.id,
+    // PAT-245: validation runs in the background after a save — poll while any case is pending.
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((tc) => tc.validationStatus === 'pending') ? 3000 : false,
   })
 
   // Wrap setEditing to persist to sessionStorage
@@ -116,6 +148,21 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     onError: (err) => showNotification(tCommon('mutationErrors.deleteFailed', { error: extractApiError(err) }), 'error'),
   })
 
+  // PAT-253: edit lock — only the holder may edit / delete / shift a locked case until the lock is
+  // released or expires; the server refuses everyone else with 409 Locked, the UI just mirrors it.
+  const currentUser = useMemo(() => getStoredUsername(), [])
+  const lockMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.lockTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(t('testCases.lock.lockFailed', { error: extractApiError(err) }), 'error'),
+  })
+  const unlockMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.unlockTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(t('testCases.lock.unlockFailed', { error: extractApiError(err) }), 'error'),
+  })
+  const lockedByOther = (tc: TestCase) => !!tc.lockedBy && tc.lockedBy !== currentUser
+
   const runOneMutation = useMutation({
     mutationFn: (testCaseId: number) => measureApi.runTestCase(measure.id!, testCaseId, debugMode),
     onSuccess: (result) => {
@@ -128,8 +175,33 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     onError: (err) => showNotification(tCommon('mutationErrors.runFailed', { error: extractApiError(err) }), 'error'),
   })
 
+  // PAT-232: clause coverage over ALL test cases (a clause counts when any test case reached it).
+  const coverageMutation = useMutation({
+    mutationFn: () => measureApi.getMeasureClauseCoverage(measure.id!),
+    onSuccess: (data) => {
+      setMeasureCoverage(data)
+      void queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+  })
+
+  // PAT-245: FHIR validation of the patient bundles
+  const validateAllMutation = useMutation({
+    mutationFn: () => measureApi.validateAllTestCases(measure.id!),
+    onSuccess: (data) => {
+      showNotification(t('testCases.validation.validateAllQueued', { count: data.scheduled }), 'info')
+      queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
+    },
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const revalidateMutation = useMutation({
+    mutationFn: (testCaseId: number) => measureApi.validateTestCase(measure.id!, testCaseId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] }),
+    onError: (err) => showNotification(extractApiError(err), 'error'),
+  })
+  const invalidCount = useMemo(() => testCases.filter((tc) => tc.validationStatus === 'invalid').length, [testCases])
+
   const runAllMutation = useMutation({
-    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode),
+    mutationFn: () => measureApi.runAllTestCases(measure.id!, debugMode, skipInvalid),
     onSuccess: (results) => {
       queryClient.invalidateQueries({ queryKey: ['test-cases', measure.id] })
       setRunResults(results)
@@ -160,6 +232,20 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
     )
     downloadBlob(blob, `${measure.name || 'measure'}-test-cases.json`)
   }
+
+  // PAT-247: the server builds the MADiE-compatible zip (bundle + test-case MeasureReport per case).
+  const exportZipMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesZip(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.zip`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
+
+  // PAT-248: the suite as a workbook (expected next to actual, mismatches highlighted).
+  const exportExcelMutation = useMutation({
+    mutationFn: () => measureApi.exportTestCasesExcel(measure.id!),
+    onSuccess: (blob) => downloadBlob(blob, `${measure.name || 'measure'}-test-cases.xlsx`),
+    onError: (err) => showNotification(t('testCases.exportMenu.zipFailed', { error: extractApiError(err) }), 'error'),
+  })
 
   const { passCount, failCount, totalCount } = useMemo(() => {
     let pass = 0, fail = 0
@@ -219,6 +305,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
               fontWeight: 500
             }}>{tc.title}</Typography>
             {tc.series && <Chip label={tc.series} size="small" sx={{ height: 18, fontSize: '0.6rem' }} />}
+            <TestCaseValidationBadge testCase={tc} compact />
             {tc.description && (
               <Typography
                 variant="caption"
@@ -247,14 +334,39 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             <Tooltip title={t('testCases.tooltips.exportJson')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.exportJson')} onClick={() => exportSingleTestCase(tc)}><ExportIcon fontSize="small" /></IconButton>
             </Tooltip>
+            {lockedByOther(tc) ? (
+              <Tooltip title={t('testCases.lock.lockedUntil', { user: tc.lockedBy, until: tc.lockExpiresAt ? new Date(tc.lockExpiresAt).toLocaleString() : '' })}>
+                <Chip icon={<LockIcon />} label={t('testCases.lock.lockedBy', { user: tc.lockedBy })} size="small" color="warning" variant="outlined" data-testid={`test-case-lock-${tc.id}`} />
+              </Tooltip>
+            ) : tc.lockedBy ? (
+              <Tooltip title={t('testCases.lock.unlock')}>
+                <IconButton size="small" aria-label={t('testCases.ariaLabels.unlock')} color="warning" onClick={() => unlockMutation.mutate(tc.id!)} disabled={unlockMutation.isPending}><LockOpenIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            ) : (
+              <Tooltip title={t('testCases.lock.lock')}>
+                <IconButton size="small" aria-label={t('testCases.ariaLabels.lock')} onClick={() => lockMutation.mutate(tc.id!)} disabled={readOnly || lockMutation.isPending}><LockIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            )}
+            <Tooltip title={t('testCases.tooltips.shiftDates')}>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.shiftDates')} onClick={() => setShiftTarget(tc)} disabled={readOnly || lockedByOther(tc)}><ShiftDatesIcon fontSize="small" /></IconButton>
+            </Tooltip>
             <Tooltip title={t('testCases.tooltips.edit')}>
               <IconButton size="small" aria-label={t('testCases.ariaLabels.edit')} onClick={() => setEditing(tc)}><EditIcon fontSize="small" /></IconButton>
             </Tooltip>
             <Tooltip title={t('testCases.tooltips.delete')}>
-              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)}><DeleteIcon fontSize="small" /></IconButton>
+              <IconButton size="small" aria-label={t('testCases.ariaLabels.delete')} color="error" onClick={() => deleteMutation.mutate(tc.id!)} disabled={lockedByOther(tc)}><DeleteIcon fontSize="small" /></IconButton>
             </Tooltip>
           </Stack>
         </Stack>
+        {(tc.validationStatus === 'invalid' || tc.validationStatus === 'error') && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <TestCaseValidationBadge
+              testCase={tc}
+              onRevalidate={() => revalidateMutation.mutate(tc.id!)}
+              revalidating={revalidateMutation.isPending && revalidateMutation.variables === tc.id}
+            />
+          </Box>
+        )}
         {result && (
           <>
             <Divider />
@@ -275,7 +387,7 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                   </Stack>
                 </Alert>
               )}
-              <TestCaseResultComponent result={result} />
+              <TestCaseResultComponent result={result} episodeBasisByGroup={episodeGroups} />
 
               {result.populationTrace && (
                 <Accordion defaultExpanded sx={{ mt: 1 }}>
@@ -303,6 +415,19 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
                   </AccordionSummary>
                   <AccordionDetails>
                     <TestCaseCoverage coverage={result.coverage} isLoading={false} />
+                  </AccordionDetails>
+                </Accordion>
+              )}
+
+              {result.clauseCoverage && (
+                <Accordion sx={{ mt: 0.5 }}>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {t('testCases.clauseCoverage.title')} · {result.clauseCoverage.percent.toFixed(1)}%
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    <ClauseCoverageView coverage={result.clauseCoverage} />
                   </AccordionDetails>
                 </Accordion>
               )}
@@ -335,7 +460,8 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         testCase={editing === 'new' ? null : editing}
         onClose={() => setEditing(null)}
         onSaved={() => setEditing(null)}
-        readOnly={readOnly}
+        readOnly={readOnly || (editing !== 'new' && lockedByOther(editing))}
+        lockedByOther={editing !== 'new' && lockedByOther(editing) ? editing.lockedBy : undefined}
       />
     )
   }
@@ -354,6 +480,11 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         }}>
           <Typography variant="h6">{t('testCases.title')}</Typography>
           <HelpTooltip text={helpContent.measures.testCases} />
+          <Typography variant="caption" data-testid="test-cases-measurement-period" sx={{ color: 'text.secondary' }}>
+            {measurePeriod
+              ? t('testCases.measurementPeriod.measure', measurePeriod)
+              : t('testCases.measurementPeriod.currentYear', { year: new Date().getFullYear() })}
+          </Typography>
           {totalCount > 0 && (
             <Stack direction="row" spacing={0.5}>
               <Chip
@@ -377,6 +508,22 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           alignItems: "center"
         }}>
           <DebugModeSwitch checked={debugMode} onChange={setDebugMode} label={t('testCases.debugMode')} />
+          <Tooltip title={t('testCases.validation.skipInvalidHint')}>
+            <FormControlLabel
+              sx={{ mr: 0 }}
+              control={<Switch size="small" checked={skipInvalid} onChange={(e) => setSkipInvalid(e.target.checked)} />}
+              label={<Typography variant="body2" color="text.secondary">{t('testCases.validation.skipInvalid', { count: invalidCount })}</Typography>}
+            />
+          </Tooltip>
+          <Button
+            size="small"
+            onClick={() => validateAllMutation.mutate()}
+            disabled={testCases.length === 0 || validateAllMutation.isPending || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.validation.validateAll')}
+          </Button>
           <Button
             size="small"
             startIcon={<CalcIcon />}
@@ -385,6 +532,16 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.dateCalculator')}
+          </Button>
+          <Button
+            size="small"
+            startIcon={<ShiftDatesIcon />}
+            onClick={() => setShiftTarget('all')}
+            disabled={testCases.length === 0 || readOnly}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
+          >
+            {t('testCases.shiftDates.button')}
           </Button>
           <Button
             size="small"
@@ -399,16 +556,42 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
           >
             {runAllMutation.isPending ? t('testCases.running') : t('testCases.runAll')}
           </Button>
+          <Tooltip title={t('testCases.clauseCoverage.tooltip')}>
+            <span>
+              <Button
+                size="small"
+                onClick={() => coverageMutation.mutate()}
+                disabled={testCases.length === 0 || coverageMutation.isPending}
+                sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+                variant="outlined"
+              >
+                {coverageMutation.isPending ? t('testCases.running') : t('testCases.clauseCoverage.button')}
+              </Button>
+            </span>
+          </Tooltip>
           <Button
             size="small"
             startIcon={<ExportIcon />}
-            onClick={exportAllTestCases}
-            disabled={testCases.length === 0}
+            endIcon={<ExpandMoreIcon fontSize="small" />}
+            onClick={(e) => setExportAnchor(e.currentTarget)}
+            disabled={testCases.length === 0 || exportZipMutation.isPending || exportExcelMutation.isPending}
             variant="outlined"
+            aria-haspopup="menu"
             sx={{ borderColor: (theme) => alpha(theme.palette.secondary.main, 0.3), color: 'secondary.main' }}
           >
             {t('testCases.exportAll')}
           </Button>
+          <Menu anchorEl={exportAnchor} open={Boolean(exportAnchor)} onClose={() => setExportAnchor(null)}>
+            <MenuItem onClick={() => { setExportAnchor(null); exportAllTestCases() }}>
+              <ListItemText primary={t('testCases.exportMenu.json')} secondary={t('testCases.exportMenu.jsonHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportZipMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.madie')} secondary={t('testCases.exportMenu.madieHint')} />
+            </MenuItem>
+            <MenuItem onClick={() => { setExportAnchor(null); exportExcelMutation.mutate() }}>
+              <ListItemText primary={t('testCases.exportMenu.excel')} secondary={t('testCases.exportMenu.excelHint')} />
+            </MenuItem>
+          </Menu>
           <Button
             size="small"
             startIcon={<ImportIcon />}
@@ -417,6 +600,15 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
             sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
           >
             {t('testCases.import')}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => setCopyDialogOpen(true)}
+            disabled={testCases.length === 0}
+            variant="outlined"
+            sx={{ borderColor: (theme) => alpha(theme.palette.primary.main, 0.4), color: 'primary.dark' }}
+          >
+            {t('testCases.copyDialog.button')}
           </Button>
           <GradientButton
             startIcon={<AddIcon />}
@@ -435,6 +627,37 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         <Alert severity="error" sx={{ mb: 2 }}>
           {extractApiError(runAllMutation.error)}
         </Alert>
+      )}
+      {coverageMutation.isError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {extractApiError(coverageMutation.error)}
+        </Alert>
+      )}
+      {measureCoverage && (
+        <Accordion defaultExpanded sx={{ mb: 2 }}>
+          <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {t('testCases.clauseCoverage.measureTitle')}
+              {measureCoverage.coverage ? ` · ${measureCoverage.coverage.percent.toFixed(1)}%` : ''}
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            {measureCoverage.coverage ? (
+              <ClauseCoverageView
+                coverage={measureCoverage.coverage}
+                subtitle={t('testCases.clauseCoverage.measureSubtitle', {
+                  executed: measureCoverage.executed,
+                  total: measureCoverage.testCases,
+                  passed: measureCoverage.passed,
+                })}
+              />
+            ) : (
+              <Alert severity="warning">
+                {t('testCases.clauseCoverage.noneExecuted', { total: measureCoverage.testCases })}
+              </Alert>
+            )}
+          </AccordionDetails>
+        </Accordion>
       )}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -484,11 +707,21 @@ export default function TestCasesTab({ measure, readOnly }: TestCasesTabProps) {
         </Stack>
       )}
       <DateCalculatorDialog open={dateCalcOpen} onClose={() => setDateCalcOpen(false)} />
+      <TestCaseShiftDatesDialog
+        open={shiftTarget !== null}
+        onClose={() => setShiftTarget(null)}
+        measure={measure}
+        target={shiftTarget}
+        count={testCases.length}
+      />
       <TestCaseImportDialog
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         measureId={measure.id!}
       />
+      {copyDialogOpen && (
+        <TestCaseCopyDialog open onClose={() => setCopyDialogOpen(false)} measure={measure} testCases={testCases} />
+      )}
     </Box>
   );
 }

@@ -10,4 +10,7 @@ import java.util.List;
 public interface MeasureAuditRepository extends JpaRepository<MeasureAuditEntity, Long> {
 
     List<MeasureAuditEntity> findByMeasureIdOrderByCreatedAtDesc(Long measureId);
+
+    /** PAT-249: the latest audit row of one action (e.g. who last submitted the measure for review). */
+    java.util.Optional<MeasureAuditEntity> findFirstByMeasureIdAndActionOrderByCreatedAtDesc(Long measureId, String action);
 }

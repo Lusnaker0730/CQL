@@ -41,6 +41,7 @@ public class MeasureEvaluationService {
     private final PopulationEvaluator populationEvaluator;
     private final StratifierEvaluator stratifierEvaluator;
     private final MeasureScoreCalculator scoreCalculator;
+    private final SupplementalDataEvaluator supplementalDataEvaluator;
     private final java.util.concurrent.ExecutorService measureExecutor;
 
     public MeasureEvaluationService(
@@ -51,6 +52,7 @@ public class MeasureEvaluationService {
             PopulationEvaluator populationEvaluator,
             StratifierEvaluator stratifierEvaluator,
             MeasureScoreCalculator scoreCalculator,
+            SupplementalDataEvaluator supplementalDataEvaluator,
             @org.springframework.beans.factory.annotation.Qualifier("cqlExecutionExecutor")
             java.util.concurrent.ExecutorService measureExecutor) {
         this.cqlExecutionService = cqlExecutionService;
@@ -60,6 +62,7 @@ public class MeasureEvaluationService {
         this.populationEvaluator = populationEvaluator;
         this.stratifierEvaluator = stratifierEvaluator;
         this.scoreCalculator = scoreCalculator;
+        this.supplementalDataEvaluator = supplementalDataEvaluator;
         this.measureExecutor = measureExecutor;
     }
 
@@ -110,7 +113,10 @@ public class MeasureEvaluationService {
         log.info("Evaluating measure: {} for patient: {}", request.getMeasureId(), request.getPatientId());
         if (measureEvaluationCounter != null) measureEvaluationCounter.increment();
         Timer.Sample sample = measureEvaluationTimer != null ? Timer.start() : null;
-        long startTime = System.currentTimeMillis();
+        // BUG-145: the duration is STORED (measure_report.evaluation_duration_ms, CHECK >= 0), so it is
+        // taken on the monotonic clock. As a wall-clock subtraction it went negative whenever the clock
+        // stepped back mid-evaluation, and the database then refused the whole report.
+        com.cqlplatform.util.Stopwatch evaluationTime = com.cqlplatform.util.Stopwatch.start();
 
         MeasureEvaluationContext context = buildContext(request, measureDefinitionId, measureDefinition);
 
@@ -118,12 +124,12 @@ public class MeasureEvaluationService {
             // 1. Pre-translate CQL once (MADiE pattern: translate once, reuse Java objects for all patients)
             CqlExecutionService.PreTranslatedContext preTranslated = null;
             if (context.getMeasureCql() != null) {
-                long translateStart = System.currentTimeMillis();
+                com.cqlplatform.util.Stopwatch translateTime = com.cqlplatform.util.Stopwatch.start();
                 try {
                     log.info("Starting CQL pre-translation ({} chars)", context.getMeasureCql().length());
                     preTranslated = cqlExecutionService.translateOnce(context.getMeasureCql());
                     log.info("Pre-translated CQL in {}ms (will reuse for all patients)",
-                            System.currentTimeMillis() - translateStart);
+                            translateTime.elapsedMs());
                 } catch (Throwable e) {
                     log.error("CQL pre-translation failed: {} ({}), will translate per patient",
                             e.getMessage(), e.getClass().getName(), e);
@@ -143,7 +149,7 @@ public class MeasureEvaluationService {
             // 3. Bulk-fetch all patient resources in one batch (instead of per-patient HTTP requests)
             java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bulkData = null;
             if (preTranslated != null) {
-                long bulkStart = System.currentTimeMillis();
+                com.cqlplatform.util.Stopwatch bulkTime = com.cqlplatform.util.Stopwatch.start();
                 try {
                     Set<String> retrieveTypes = cqlExecutionService.extractRetrieveTypesFromLibrary(
                             preTranslated.elmLibrary(), preTranslated.libraryManager());
@@ -151,7 +157,7 @@ public class MeasureEvaluationService {
                     bulkData = fhirDataProviderService.bulkFetchAllPatients(
                             context.getFhirServerUrl(), patients, retrieveTypes);
                     log.info("Bulk data fetch: {} patients in {}ms",
-                            patients.size(), System.currentTimeMillis() - bulkStart);
+                            patients.size(), bulkTime.elapsedMs());
                 } catch (FhirServerUnavailableException e) {
                     // PAT-112a: upstream FHIR is down — don't fall back to per-patient
                     // (which hits the same server). Fail loud so the caller gets a
@@ -210,7 +216,7 @@ public class MeasureEvaluationService {
             stopTimer(sample);
 
             // 5. Auto-save report
-            long durationMs = System.currentTimeMillis() - startTime;
+            long durationMs = evaluationTime.elapsedMs();
             autoSaveReport(result, measureDefinitionId, context.getFhirServerUrl(), durationMs);
 
             return result;
@@ -226,14 +232,20 @@ public class MeasureEvaluationService {
     private MeasureEvaluationContext buildContext(MeasureEvaluationRequest request,
                                                   Long measureDefinitionId,
                                                   MeasureDefinition measureDefinition) {
+        // PAT-242 precedence: the caller's explicit period, then the measure's own Measurement
+        // Period, then the configured default, then the current calendar year.
         int currentYear = LocalDate.now().getYear();
+        LocalDate measureStart = measureDefinition != null ? measureDefinition.getMeasurementPeriodStart() : null;
+        LocalDate measureEnd = measureDefinition != null ? measureDefinition.getMeasurementPeriodEnd() : null;
         LocalDate periodStart = request.getPeriodStart() != null
                 ? request.getPeriodStart()
+                : measureStart != null ? measureStart
                 : (defaultPeriodStart != null && !defaultPeriodStart.isBlank()
                         ? LocalDate.parse(defaultPeriodStart)
                         : LocalDate.of(currentYear, 1, 1));
         LocalDate periodEnd = request.getPeriodEnd() != null
                 ? request.getPeriodEnd()
+                : measureEnd != null ? measureEnd
                 : (defaultPeriodEnd != null && !defaultPeriodEnd.isBlank()
                         ? LocalDate.parse(defaultPeriodEnd)
                         : LocalDate.of(currentYear, 12, 31));
@@ -294,12 +306,18 @@ public class MeasureEvaluationService {
         standardNames.add("Measure Observation Values");
         standardNames.add("Measure Observation Value");
         Map<String, Object> customExpressions = new LinkedHashMap<>();
+        // PAT-234: the declared SDEs / risk adjustment factors as value distributions.
+        List<SupplementalDataEvaluator.Declared> declaredSde =
+                supplementalDataEvaluator.declared(context.getMeasureDefinition());
+        Map<String, SupplementalDataEvaluator.Distribution> supplementalDistributions = new LinkedHashMap<>();
         // BUG #474 follow-up: stratification data is now per-group. Each group's stratifiers
         // accumulate into their own bucket so multi-group measures don't cross-contaminate
         // strata between groups. For single-group / no-GroupDefinition measures the outer
         // map has one entry keyed by DEFAULT_GROUP_ID (or the lone group's id).
         Map<String, Map<String, Map<String, Map<String, Integer>>>> perGroupStratData = new HashMap<>();
         List<Double> observationValues = Collections.synchronizedList(new ArrayList<>());
+        // PAT-243: evaluation-level notes for the author (e.g. an episode-based group counted per patient).
+        Set<String> warnings = new LinkedHashSet<>();
         // Issue #539: per-group CV observation values. Each group's list is independently
         // synchronized so concurrent patient evaluations can append safely without contention
         // across groups. Single-group / legacy paths share DEFAULT_GROUP_ID.
@@ -386,53 +404,34 @@ public class MeasureEvaluationService {
                 for (GroupDefinition g : groupDefs) {
                     String gid = g.getGroupId() != null ? g.getGroupId() : DEFAULT_GROUP_ID;
                     Map<String, Integer> counts = perGroupCounts.get(gid);
-                    Map<String, CqlExecutionResponse.ExpressionResult> canonical =
-                            populationEvaluator.buildExpressionMap(g, results);
+                    // PAT-243: one basis-aware computation per group — the population hierarchy
+                    // over the patient (basis Boolean) or over the patient's episodes (basis
+                    // Encounter, …). The test case runner uses the same method (PAT-228), and the
+                    // CV observation names (issue #539) are resolved inside it.
+                    PopulationEvaluator.PatientContribution contribution =
+                            populationEvaluator.contributeToGroup(scoringType, groupDefs, g, results);
+                    addCounts(counts, contribution.counts());
                     if (isCv) {
-                        // Issue #539: compute this group's wrapper observation define names.
-                        // EcqmCqlBuilder.appendObservationWrapper emits ONE wrapper per group
-                        // named "Measure Observation Value{suffix}" (patient-based) or
-                        // "Measure Observation Values{suffix}" (episode-based). The suffix is
-                        // " N" for multi-group (1-indexed) or "" for single-group.
-                        // ObservationDefinition.criteriaExpression on the entity holds the
-                        // FUNCTION name ("Measure Observation N"), not the wrapper define —
-                        // CQL functions don't surface as standalone results, so we must look
-                        // up the wrapper instead.
-                        int groupIdx = groupDefs.indexOf(g);
-                        String suffix = groupDefs.size() > 1 ? " " + (groupIdx + 1) : "";
-                        List<String> obsExprNames = (g.getObservations() == null
-                                || g.getObservations().isEmpty())
-                                ? null
-                                : List.of(
-                                        "Measure Observation Values" + suffix,
-                                        "Measure Observation Value" + suffix);
                         // Per-group CV observations: write to the per-group bucket so
                         // buildMultiGroupResult can compute each group's score independently.
                         // Also mirror into the legacy global list so single-group builders that
                         // still read state.observationValues see the primary group's values.
-                        List<Double> groupObsValues = observationValuesByGroup
-                                .computeIfAbsent(gid, k -> Collections.synchronizedList(new ArrayList<>()));
-                        int sizeBefore = groupObsValues.size();
-                        populationEvaluator.aggregateCvPatientResults(
-                                counts, canonical, results, obsExprNames, groupObsValues);
-                        // Newly-added entries this patient contributed — also append to global.
-                        if (groupObsValues.size() > sizeBefore) {
-                            observationValues.addAll(groupObsValues.subList(sizeBefore, groupObsValues.size()));
-                        }
-                    } else if (isRatio) {
-                        populationEvaluator.aggregateRatioPatientResults(counts, canonical);
-                    } else {
-                        populationEvaluator.aggregatePatientResults(counts, canonical);
+                        observationValuesByGroup
+                                .computeIfAbsent(gid, k -> Collections.synchronizedList(new ArrayList<>()))
+                                .addAll(contribution.observations());
+                        observationValues.addAll(contribution.observations());
                     }
-                    // Per-group stratifiers: evaluate this group's stratifiers using the raw
-                    // results (for the suffixed Stratifier expression itself) plus canonical
-                    // results (for population lookup inside each stratum). Stratification data
-                    // accumulates into the group-local bucket so groups don't share strata.
+                    if (contribution.fellBackToPatient()) {
+                        warnings.add(episodeFallbackWarning(g, gid));
+                    }
+                    // Per-group stratifiers: the stratifier expression is resolved from the raw
+                    // results (suffixed define names); the stratum then receives this patient's
+                    // effective contribution (PAT-243), so strata add up to the group's counts.
                     if (g.getStratifiers() != null && !g.getStratifiers().isEmpty()) {
                         Map<String, Map<String, Map<String, Integer>>> groupStratData =
                                 perGroupStratData.computeIfAbsent(gid, k -> new HashMap<>());
                         stratifierEvaluator.evaluatePatientStratifiers(
-                                g.getStratifiers(), results, canonical, groupStratData);
+                                g.getStratifiers(), results, contribution, groupStratData);
                     }
                 }
             }
@@ -455,6 +454,7 @@ public class MeasureEvaluationService {
                 observationValues.addAll(patientObs);
             }
             populationEvaluator.aggregateCustomExpressions(customExpressions, results, standardNames);
+            supplementalDataEvaluator.accumulate(declaredSde, results, supplementalDistributions);
 
             // Legacy single-group stratifier path: when no GroupDefinition is wired, fall back
             // to the global stratifier list so existing ad-hoc evaluation flows continue to work.
@@ -464,13 +464,38 @@ public class MeasureEvaluationService {
                 if (!legacy.isEmpty()) {
                     Map<String, Map<String, Map<String, Integer>>> stratData =
                             perGroupStratData.computeIfAbsent(DEFAULT_GROUP_ID, k -> new HashMap<>());
-                    stratifierEvaluator.evaluatePatientStratifiers(legacy, results, stratData);
+                    // PAT-243: the stratum receives the effective (hierarchy-applied) contribution.
+                    stratifierEvaluator.evaluatePatientStratifiers(legacy, results,
+                            populationEvaluator.contribute(scoringType, null, results, results, null), stratData);
                 }
             }
         }
 
         return new AggregationState(perGroupCounts, customExpressions, perGroupStratData,
-                errorCount, observationValues, observationValuesByGroup, fhirOutageError);
+                errorCount, observationValues, observationValuesByGroup, fhirOutageError,
+                supplementalDataEvaluator.build(declaredSde, supplementalDistributions),
+                List.copyOf(warnings));
+    }
+
+    /** Adds one patient's per-population contribution to a group's running counts. */
+    private static void addCounts(Map<String, Integer> counts, Map<String, Integer> contribution) {
+        for (Map.Entry<String, Integer> entry : contribution.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 0) {
+                counts.merge(entry.getKey(), entry.getValue(), Integer::sum);
+            }
+        }
+    }
+
+    /** PAT-243: the one warning an episode-based group gets when its Initial Population is not an episode list. */
+    private static String episodeFallbackWarning(GroupDefinition group, String groupId) {
+        String ipExpression = group.getPopulations() == null ? null : group.getPopulations().stream()
+                .filter(pop -> "initial-population".equalsIgnoreCase(pop.getPopulationType()))
+                .map(PopulationDefinition::getCriteriaExpression)
+                .filter(Objects::nonNull)
+                .findFirst().orElse("Initial Population");
+        return String.format("Group %s: population basis is %s but \"%s\" did not return a list of %s resources — "
+                        + "this group was counted per patient, not per episode. Make the Initial Population return the %s list.",
+                groupId, group.getPopulationBasis(), ipExpression, group.getPopulationBasis(), group.getPopulationBasis());
     }
 
     private CqlExecutionResponse executeForPatient(MeasureEvaluationContext context, String patientId,
@@ -614,11 +639,12 @@ public class MeasureEvaluationService {
                     counts.get("Denominator"), counts.get("Denominator Exclusions"), counts.get("Numerator"));
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), scoringType);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
                 .description("Primary measure group")
+                .populationBasis(primaryBasis(def))
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit(scoreUnit)
@@ -636,6 +662,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
+                .warnings(warningsOrNull(state))
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -657,11 +685,13 @@ public class MeasureEvaluationService {
 
         Double measureScore = scoreCalculator.calculateCohortScore(ipCount);
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), com.cqlplatform.model.measure.ScoringTypeConstants.COHORT);
 
+        MeasureDefinition def = context.getMeasureDefinition();
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
                 .description("Primary measure group")
+                .populationBasis(primaryBasis(def))
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit("count")
@@ -669,7 +699,6 @@ public class MeasureEvaluationService {
                 .totalPatients(totalPatients)
                 .build();
 
-        MeasureDefinition def = context.getMeasureDefinition();
         return MeasureEvaluationResult.builder()
                 .measureId(context.getMeasureId())
                 .measureName(def != null && def.getName() != null ? def.getName() : context.getMeasureId())
@@ -679,6 +708,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
+                .warnings(warningsOrNull(state))
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -716,11 +747,12 @@ public class MeasureEvaluationService {
             measureScore = obsStats.getAggregateValue();
         }
 
-        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state));
+        List<StratifierResult> stratifierResults = stratifierEvaluator.buildStratifierResults(primaryGroupStratData(state), com.cqlplatform.model.measure.ScoringTypeConstants.CONTINUOUS_VARIABLE);
 
         GroupResult groupResult = GroupResult.builder()
                 .groupId("group-1")
                 .description("Primary measure group")
+                .populationBasis(primaryBasis(def))
                 .populations(populations)
                 .measureScore(measureScore)
                 .measureScoreUnit(scoringUnit != null ? scoringUnit : "value")
@@ -739,6 +771,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(List.of(groupResult))
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
+                .warnings(warningsOrNull(state))
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -821,11 +855,12 @@ public class MeasureEvaluationService {
                     state.stratificationData.getOrDefault(gid, Map.of());
             List<StratifierResult> stratResults = stratData.isEmpty()
                     ? List.of()
-                    : stratifierEvaluator.buildStratifierResults(stratData);
+                    : stratifierEvaluator.buildStratifierResults(stratData, scoringType);
 
             groups.add(GroupResult.builder()
                     .groupId(groupDef.getGroupId())
                     .description(desc)
+                    .populationBasis(groupDef.getPopulationBasis())
                     .populations(populations)
                     .measureScore(score)
                     .measureScoreUnit(scoreUnit)
@@ -845,6 +880,8 @@ public class MeasureEvaluationService {
                 .reportType(context.getReportType())
                 .groups(groups)
                 .supplementalData(state.customExpressions.isEmpty() ? null : state.customExpressions)
+                .supplementalDataResults(state.supplementalDataResults.isEmpty() ? null : state.supplementalDataResults)
+                .warnings(warningsOrNull(state))
                 .errorCount(state.errorCount)
                 .evaluatedPatientCount(totalPatients)
                 .build();
@@ -948,8 +985,22 @@ public class MeasureEvaluationService {
             /** PAT-112a: non-null when any patient evaluation threw a FhirServerUnavailableException
              *  (in its cause chain). The caller aborts the whole measure evaluation rather than
              *  returning a partial denominator. */
-            Throwable fhirOutageError
+            Throwable fhirOutageError,
+            /** PAT-234: declared SDEs / risk adjustment factors as value distributions (never null). */
+            List<MeasureEvaluationResult.SupplementalDataResult> supplementalDataResults,
+            /** PAT-243: evaluation-level notes for the author (never null; empty = nothing to say). */
+            List<String> warnings
     ) {}
+
+    /** PAT-243: the basis of a single-group measure's group (what the primary-group builders report). */
+    private static String primaryBasis(MeasureDefinition def) {
+        if (def == null || def.getGroupDefinitions() == null || def.getGroupDefinitions().isEmpty()) return null;
+        return def.getGroupDefinitions().get(0).getPopulationBasis();
+    }
+
+    private static List<String> warningsOrNull(AggregationState state) {
+        return state.warnings == null || state.warnings.isEmpty() ? null : state.warnings;
+    }
 
     /** Synthetic group id used when a measure has no GroupDefinition wired (legacy path). */
     private static final String DEFAULT_GROUP_ID = "group-1";

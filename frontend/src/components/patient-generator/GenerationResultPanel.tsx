@@ -31,6 +31,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
+import { toTransactionBundle } from '../../utils/fhirPatientGenerator'
 import { fhirApi } from '../../api/fhirApi'
 import { ehrApi } from '../../api/ehrApi'
 import type { GeneratedPatientData } from '../../config/twcore'
@@ -114,27 +115,7 @@ export default function GenerationResultPanel({
 
       const patientData = results[i]
       const patientId = patientData.patient.id as string
-      const allResources = [
-        patientData.patient,
-        ...patientData.encounters,
-        ...patientData.conditions,
-        ...patientData.observations,
-        ...patientData.medications,
-        ...patientData.medication_requests,
-        ...patientData.allergies,
-      ]
-      const bundle = {
-        resourceType: 'Bundle',
-        type: 'transaction',
-        entry: allResources.map((resource) => {
-          const ref = `${resource.resourceType as string}/${resource.id as string}`
-          return {
-            fullUrl: ref,
-            resource,
-            request: { method: 'PUT', url: ref },
-          }
-        }),
-      }
+      const bundle = toTransactionBundle([patientData])
 
       try {
         // Per-patient try/catch lets one bad transaction fail without aborting

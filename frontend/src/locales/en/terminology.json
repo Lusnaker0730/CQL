@@ -7,7 +7,8 @@
     "title": "Terminology Browser",
     "tabValueSetSearch": "ValueSet Search",
     "tabCodeLookup": "Code Lookup",
-    "tabCodeValidation": "Code Validation"
+    "tabCodeValidation": "Code Validation",
+    "tabPlatformValueSets": "Our value sets"
   },
   "valueSet": {
     "searchLabel": "Search ValueSets by title",
@@ -33,7 +34,8 @@
     "colCode": "Code",
     "colDisplay": "Display",
     "noCodesFound": "No codes found.",
-    "previewTruncated": "showing first {{shown}} of {{total}}"
+    "previewTruncated": "showing first {{shown}} of {{total}}",
+    "chipPlatform": "Ours"
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG Code Systems",
@@ -90,5 +92,80 @@
     "validationFailed": "Validation failed: {{error}}",
     "codeValid": "Code \"{{code}}\" is valid in the specified ValueSet.",
     "codeInvalid": "Code \"{{code}}\" is NOT valid in the specified ValueSet."
+  },
+  "platform": {
+    "intro": "Value sets your organisation maintains itself: local order codes, a drug formulary, an in-house diagnosis grouping. Measures and CDS logic refer to them by URL, and they travel inside exported measure packages.",
+    "search": "Search name, title or URL",
+    "create": "New value set",
+    "importFhir": "Import FHIR ValueSet",
+    "loading": "Loading value sets",
+    "empty": "No value sets yet. Create one, or import a FHIR ValueSet JSON file.",
+    "noMatch": "No value set matches the search.",
+    "tableLabel": "Value sets of this organisation",
+    "originImported": "Imported",
+    "imported": "Imported \"{{name}}\" with {{count}} codes as a draft. Review it, then activate it.",
+    "notJson": "The file is not valid JSON.",
+    "actionsFor": "Actions for {{name}} version {{version}}",
+    "columns": {
+      "name": "Value set",
+      "version": "Version",
+      "status": "Status",
+      "codes": "Codes"
+    },
+    "status": {
+      "draft": "Draft",
+      "active": "Active",
+      "retired": "Retired"
+    },
+    "actions": {
+      "activate": "Activate (freeze the codes)",
+      "retire": "Retire",
+      "newVersion": "New version",
+      "copyCql": "Copy CQL declaration",
+      "copyCqlPinned": "Copy CQL declaration, pinned to this version",
+      "exportFhir": "Export FHIR ValueSet",
+      "delete": "Delete draft"
+    },
+    "dialog": {
+      "createTitle": "New value set",
+      "editTitle": "Edit draft value set",
+      "viewTitle": "Value set",
+      "frozen": "This version is {{status}}: its codes are frozen, because measures may have been approved against them. Use \"New version\" to change them."
+    },
+    "fields": {
+      "name": "Name",
+      "nameHelp": "Short, without spaces if possible; used for the URL and as the default CQL identifier.",
+      "title": "Title",
+      "url": "Canonical URL",
+      "urlHelp": "Leave empty to derive it from the name and this installation's canonical base.",
+      "urlFixed": "CQL refers to the value set by this URL, so it cannot be changed.",
+      "version": "Version",
+      "description": "Description",
+      "publisher": "Publisher"
+    },
+    "codes": {
+      "heading": "{{count}} codes from {{systems}} code system(s)",
+      "defaultSystem": "Code system for pasted lines that do not name one",
+      "defaultSystemHelp": "For example http://loinc.org, or the URL of a TW Core code system.",
+      "paste": "Paste codes",
+      "pastePlaceholder": "One per line: system, code, display  /  code, display  /  code. Tabs from a spreadsheet work too.",
+      "add": "Add pasted codes",
+      "skipped": "Could not read line(s) {{lines}}: a code and a code system are both needed. They are still in the box.",
+      "empty": "No codes yet. An empty value set cannot be activated.",
+      "tableLabel": "Codes of this value set",
+      "system": "Code system",
+      "code": "Code",
+      "display": "Display",
+      "remove": "Remove code {{code}}"
+    },
+    "newVersion": {
+      "title": "New version",
+      "explain": "Creates a draft with the same codes as version {{version}}. That version keeps meaning exactly what it means today.",
+      "confirm": "Create draft"
+    },
+    "delete": {
+      "title": "Delete draft value set",
+      "message": "Delete the draft \"{{name}}\" version {{version}}? Logic that refers to it will stop resolving these codes."
+    }
   }
 }

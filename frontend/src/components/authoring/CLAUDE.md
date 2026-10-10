@@ -92,6 +92,6 @@ Key 前綴：
 6. Recommendations（建議）
 7. Parameters（參數）
 8. Error Handling（錯誤處理）
-9. External CQL（外部程式庫）
+9. External CQL（外部程式庫）——PAT-237 起函式（`kind: 'function'`）在 palette 是「External CQL Functions」，選了產生 `externalCqlFunctionCall` 元素（`utils/libraryFunctions.functionCallElement`），元素卡片的 `arguments` 欄位由 `builder/FunctionArgumentsEditor` 編輯（來源：基礎元素 / 參數 / 字面值 / Patient / Measurement Period），引用的基礎元素與參數來自 `contexts/ArtifactScopeContext`；共用程式庫的 `LibraryDefinitionPicker` 改吃 `GET /cql/libraries/{id}/expressions`（regex 掃描 CQL 只剩 fallback）
 10. Review CQL（CQL 預覽）
 11. Testing（測試）

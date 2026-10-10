@@ -132,9 +132,13 @@ public class EcqmController {
     @Operation(summary = "Publish to MeasureDefinition",
             description = "Generate CQL and create/update MeasureDefinition for evaluation")
     public ResponseEntity<PublishResult> publish(
-            @PathVariable Long id, Authentication authentication) {
+            @PathVariable Long id,
+            @RequestParam(name = "force", defaultValue = "false") boolean force,
+            Authentication authentication) {
         verifyOwnership(id);
-        return ResponseEntity.ok(publishService.publish(id, authentication.getName()));
+        // PAT-238: 409 when the measure was edited on the measure page since the last publish,
+        // unless force=true (the author confirmed overwriting those edits)
+        return ResponseEntity.ok(publishService.publish(id, authentication.getName(), force));
     }
 
     // ===== Templates & Modifiers (delegated) =====

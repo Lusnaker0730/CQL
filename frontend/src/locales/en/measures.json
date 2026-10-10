@@ -137,7 +137,7 @@
       "measurePlaceholder": "Paste a FHIR Measure resource JSON here...",
       "importing": "Importing...",
       "import": "Import",
-      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped, {{valueSets}} value sets found.",
+      "bundleSuccess": "Bundle imported: {{libraries}} libraries imported, {{skipped}} skipped; {{valueSets}} of {{valueSetsFound}} value sets stored as draft value sets of your organisation.",
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
       "exportError": "Export failed: {{error}}",
@@ -182,7 +182,8 @@
       "cqlOnly": "CQL Only",
       "elmOnly": "ELM Only",
       "hqmfXml": "HQMF (XML)",
-      "humanReadable": "Human Readable (HTML)"
+      "humanReadable": "Human Readable (HTML)",
+      "packageCheck": "Exchange package check"
     },
     "versionMenu": {
       "createVersion": "Create Version",
@@ -201,6 +202,32 @@
       "unlockFailed": "Unlock failed",
       "exportFailed": "Export failed: {{error}}",
       "loadVersionFailed": "Failed to load measure version: {{error}}"
+    },
+    "logicLocked": {
+      "approved": "This version is approved (or retired): its logic — CQL, population mapping, scoring — can no longer change. Descriptive fields stay editable. To change the logic, create a new version; it starts as a draft and goes through review, and replaces this one when approved.",
+      "inReview": "This version is under review: its logic cannot change until the review finishes (a reviewer can reject it back to draft).",
+      "createVersion": "Create new version"
+    },
+    "readiness": {
+      "checking": "Checking approval readiness…",
+      "ready": "Ready for review and approval — CQL translates and every test case passes",
+      "notReady": "{{count}} blocker(s) stop submit / approve",
+      "refresh": "Re-check",
+      "testCaseTally": "Test cases {{passed}} / {{total}} passing · {{invalid}} invalid",
+      "fourEyesInfo": "Four-eyes: the author and whoever submits for review cannot approve; another reviewer the measure is shared with must.",
+      "fourEyesBlocked": "Four-eyes: you are the author ({{author}}) or the submitter, so you cannot approve this measure — share it with another reviewer.",
+      "codes": {
+        "CQL_MISSING": "The measure has no CQL",
+        "CQL_ERRORS": "CQL has {{count}} translation error(s)",
+        "TEST_CASE_INVALID": "{{count}} test case(s) have FHIR validation errors",
+        "TEST_CASE_VALIDATION_PENDING": "{{count}} test case(s) are still being validated — wait or re-validate",
+        "TEST_CASE_NOT_PASSING": "{{count}} test case(s) do not pass on the current logic (failed, errored or not run)",
+        "NO_TEST_CASES": "No test cases — nothing verifies the logic (allowed, but not recommended)",
+        "TEST_CASE_NEVER_VALIDATED": "{{count}} test case(s) were never FHIR-validated — run \"Validate all\"",
+        "TEST_CASE_VALIDATION_ERROR": "{{count}} test case(s) could not be validated (validator error) — re-validate",
+        "TEST_CASE_RUN_STALE": "{{count}} passing test case(s) last ran before the measure's last change — run them again",
+        "CQL_WARNINGS": "CQL translates with {{count}} warning(s)"
+      }
     }
   },
   "details": {
@@ -226,7 +253,8 @@
       "department": "Department",
       "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
-      "compositeScoring": "Composite Scoring"
+      "compositeScoring": "Composite Scoring",
+      "scoringTypeLocked": "Scoring is part of the logic — create a new version to change it"
     },
     "measureOverview": "Measure Overview",
     "overviewFields": {
@@ -258,7 +286,9 @@
     "legalFields": {
       "copyright": "Copyright",
       "disclaimer": "Disclaimer"
-    }
+    },
+    "standardMetadata": "Standard Metadata (FHIR Measure)",
+    "standardMetadataHint": "Measure type, definition terms, clinical recommendation statement, effective / approval / review dates and the experimental flag — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here."
   },
   "cql": {
     "translate": "Translate",
@@ -313,6 +343,7 @@
       "stratifierId": "Stratifier ID",
       "cqlExpression": "CQL Expression",
       "removeStratifier": "Remove stratifier",
+      "components": "Components: {{list}} — a patient's stratum is the combination of the component values.",
       "populationAssociations": "Population Associations",
       "addStratifier": "Add Stratifier",
       "description": "Description",
@@ -455,6 +486,15 @@
     "running": "Running...",
     "runAll": "Run All",
     "exportAll": "Export All",
+    "exportMenu": {
+      "json": "Platform JSON",
+      "jsonHint": "All test cases in one file; re-imports here with date shifting",
+      "madie": "MADiE-compatible zip",
+      "madieHint": "One FHIR Bundle per test case with a test-case MeasureReport; imports into MADiE or another CQL Platform",
+      "excel": "Excel (expected vs actual)",
+      "excelHint": "KEY sheet + one sheet per population group; a row per test case, mismatches highlighted",
+      "zipFailed": "Export failed: {{error}}"
+    },
     "importing": "Importing...",
     "import": "Import",
     "addTestCase": "Add Test Case",
@@ -468,20 +508,105 @@
     "debugPanelTitle": "CQL execution trace",
     "populationTraceTitle": "Population membership trace",
     "coverageTitle": "Expression coverage",
+    "clauseCoverage": {
+      "title": "Clause coverage",
+      "button": "Clause coverage",
+      "tooltip": "Run every test case and colour each clause of the CQL by whether any of them reached it (Bonnie / MADiE style).",
+      "measureTitle": "Clause coverage across all test cases",
+      "measureSubtitle": "{{executed}} of {{total}} test cases executed, {{passed}} passed",
+      "noneExecuted": "None of the {{total}} test cases could be executed, so there is no coverage to show. Open a test case in debug mode to see why.",
+      "overall": "Covered: {{value}}",
+      "onlyUncovered": "Only statements with gaps",
+      "legendCovered": "Evaluated by at least one run",
+      "legendUncovered": "Never evaluated",
+      "allCovered": "Every clause was evaluated.",
+      "byStatement": "By statement",
+      "sourceLabel": "CQL with clause coverage highlighting"
+    },
     "tooltips": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run this test case",
       "runTestCaseDebug": "Run with debug trace (population membership, execution, coverage)",
       "exportJson": "Export JSON",
       "edit": "Edit",
-      "delete": "Delete"
+      "delete": "Delete",
+      "shiftDates": "Shift dates by whole years"
     },
     "ariaLabels": {
       "runWithCoverage": "Run with coverage",
       "runTestCase": "Run test case",
       "exportJson": "Export test case JSON",
       "edit": "Edit test case",
-      "delete": "Delete test case"
+      "delete": "Delete test case",
+      "shiftDates": "Shift test case dates",
+      "lock": "Lock test case",
+      "unlock": "Unlock test case"
+    },
+    "measurementPeriod": {
+      "measure": "Test cases run in the measure's Measurement Period {{start}} – {{end}}.",
+      "currentYear": "Test cases run in the current calendar year ({{year}}) — set a Measurement Period in Details to pin the window."
+    },
+    "validation": {
+      "status": {
+        "valid": "Valid",
+        "invalid": "Invalid",
+        "pending": "Validating…",
+        "error": "Validation error",
+        "none": "Not validated"
+      },
+      "hint": {
+        "pending": "The FHIR validation of the patient bundle is running in the background.",
+        "none": "This test case was saved before validation existed. Use \"Validate all\" or re-save it.",
+        "valid": "Every resource of the patient bundle passed the FHIR validation.",
+        "invalid": "At least one resource has validation errors — click to see them.",
+        "error": "The validator could not run on this bundle — click to see why."
+      },
+      "summary": "{{resources}} resources, {{invalid}} invalid — {{errors}} errors, {{warnings}} warnings",
+      "revalidate": "Re-validate",
+      "validating": "Validating…",
+      "moreIssues": "… and {{count}} more error(s)",
+      "validateAll": "Validate all",
+      "validateAllQueued": "Queued FHIR validation of {{count}} test case(s); the list updates as they finish.",
+      "skipInvalid": "Skip invalid ({{count}})",
+      "skipInvalidHint": "\"Run all\" leaves out test cases whose FHIR validation found errors. Pending and never-validated cases still run."
+    },
+    "copyDialog": {
+      "button": "Copy to…",
+      "title": "Copy test cases to another measure",
+      "hint": "Copies the selected test cases (patient bundle, expectations, validation) onto another measure, typically another version of this one. An expectation that does not fit the target's population groups is dropped on that copy and reported below.",
+      "target": "Target measure",
+      "sameMeasure": "same measure",
+      "noTargets": "There is no other measure to copy to.",
+      "selectAll": "{{selected}} of {{total}} selected",
+      "copy": "Copy",
+      "copying": "Copying…",
+      "copied": "Copied {{count}} test case(s) to {{target}}.",
+      "warningsTitle": "Expected values dropped on these copies:",
+      "done": "Done",
+      "cancel": "Cancel"
+    },
+    "shiftDates": {
+      "button": "Shift dates…",
+      "titleOne": "Shift the dates of \"{{title}}\"",
+      "titleAll": "Shift the dates of all {{count}} test case(s)",
+      "hint": "Moves every date, dateTime and instant in the patient bundle(s) by whole years, keeping month and day — the way MADiE shifts test case dates — so a suite written for one Measurement Period can be reused for the next. Expectations stay as they are.",
+      "period": "This measure runs test cases in its Measurement Period {{start}} – {{end}}.",
+      "years": "Years",
+      "yearsHelp": "Positive = forward, negative = backward, at most ±{{max}}",
+      "resetsRuns": "The last run of each shifted test case is forgotten (it ran on the old dates) and the bundle is validated again.",
+      "confirm": "Shift by {{years}} year(s)",
+      "cancel": "Cancel",
+      "done": "Shifted {{count}} test case(s) by {{years}} year(s).",
+      "failed": "Shift failed: {{error}}"
+    },
+    "lock": {
+      "lock": "Lock for editing",
+      "unlock": "Release lock",
+      "lockedBy": "Locked by {{user}}",
+      "lockedUntil": "Locked by {{user}} until {{until}}",
+      "editorLocked": "Locked by {{user}} — read-only until the lock is released or expires.",
+      "lockFailed": "Lock failed: {{error}}",
+      "unlockFailed": "Unlock failed: {{error}}"
     }
   },
   "populationTrace": {
@@ -490,7 +615,8 @@
       "population": "Population",
       "raw": "CQL",
       "effective": "Effective",
-      "reason": "Reason"
+      "reason": "Reason",
+      "episodes": "Episodes"
     },
     "phases": {
       "BUNDLE_PARSE": "Bundle parse",
@@ -524,10 +650,11 @@
   },
   "importDialog": {
     "title": "Import Test Cases",
-    "dropHint": "Click or drag a JSON file here to import test cases",
-    "formatHint": "Supports: JSON array, single test case, MADiE format, or bare FHIR Bundle",
+    "dropHint": "Click or drag a JSON or zip file here to import test cases",
+    "formatHint": "Supports: JSON array, single test case, MADiE format, bare FHIR Bundle, or a zip of test case bundles (CQL Platform / MADiE export)",
     "noValidCases": "No valid test cases found in the file. Each item must contain a patient Bundle.",
     "parseError": "Failed to parse file: {{error}}",
+    "serverImport": "{{file}} holds test case bundles with a test-case MeasureReport (CQL Platform or MADiE export). The server reads each report as the expectation; a report that does not fit this measure is dropped and listed below. Dates can be shifted afterwards from the test case list.",
     "preview": "{{count}} test case(s) found in {{file}}",
     "removeFromImport": "Remove from import",
     "enableDateShift": "Enable date shifting (adjust all dates in patient bundles)",
@@ -535,11 +662,14 @@
     "shiftDaysHelp": "Positive = forward, negative = backward",
     "shiftExplanation": "All date, dateTime, and period fields in patient bundles will be shifted by the specified number of days. Useful for aligning historical data with the measurement period.",
     "importing": "Importing {{count}} test case(s)...",
+    "importingFile": "Importing {{file}} on the server...",
     "importError": "Import failed: {{error}}",
     "resultSummary": "{{success}} of {{total}} test case(s) imported successfully",
+    "warnings": "{{count}} note(s)",
     "done": "Done",
     "cancel": "Cancel",
-    "importCount": "Import {{count}} test case(s)"
+    "importCount": "Import {{count}} test case(s)",
+    "importFile": "Import file"
   },
   "testCaseEditor": {
     "newTitle": "New Test Case",
@@ -579,7 +709,25 @@
       "invalidJson": "Invalid JSON"
     },
     "draftRestored": "Restored unsaved draft from a previous session.",
-    "discardDraft": "Discard Draft"
+    "discardDraft": "Discard Draft",
+    "structured": {
+      "toggle": "Per-group expectations (populations, observations, stratifiers)",
+      "toggleHint": "Compared with the same rules the measure evaluation applies to a patient, so a passing test means the report counts this patient the same way.",
+      "legacyWarning": "This measure has several population groups, measure observations or stratifiers. The simple switches below cannot tell groups apart and do not check observations or stratifiers — turn on per-group expectations to test them.",
+      "group": "Group {{id}}",
+      "populationsHint": "Set the membership you expect AFTER the population hierarchy — a patient removed by a denominator exclusion is not in the numerator.",
+      "patientBasedNote": "This group counts patients: each population is 0 or 1 for this test case.",
+      "assertObservations": "Check measure observation values",
+      "observations": "Expected observation values",
+      "observationsPlaceholder": "e.g. 30, 45",
+      "observationsHint": "One value per observation, in any order. Leave empty to expect none.",
+      "observationsInvalid": "Not a number: {{tokens}}",
+      "stratifiers": "Expected stratum",
+      "stratifierHint": "Leave empty to not check this stratifier",
+      "useActual": "Fill in from the last run's actual values",
+      "noGroups": "This measure has no population groups defined, so there is nothing to set per group.",
+      "episodeBasedNote": "This group counts {{basis}} episodes: enter how many of this patient's episodes each population should contain after the hierarchy."
+    }
   },
   "testCaseResult": {
     "pass": "Pass",
@@ -589,12 +737,20 @@
       "population": "Population",
       "expected": "Expected",
       "actual": "Actual",
-      "result": "Result"
+      "result": "Result",
+      "group": "Group",
+      "item": "Item"
     },
     "yes": "Yes",
     "no": "No",
     "na": "-",
-    "ms": "ms"
+    "ms": "ms",
+    "kinds": {
+      "observation": "Observation values",
+      "stratifier": "Stratifier {{id}}"
+    },
+    "structuredTable": "Per-group comparison",
+    "noStratum": "(no stratum)"
   },
   "evaluationResult": {
     "populationLabels": {
@@ -612,7 +768,8 @@
     "tableHeaders": {
       "population": "Population",
       "count": "Count",
-      "subjects": "Subjects"
+      "subjects": "Subjects",
+      "countEpisodes": "Count ({{basis}} episodes)"
     },
     "na": "N/A",
     "toggleStratification": "Toggle stratification details",
@@ -624,6 +781,18 @@
       "populations": "Populations"
     },
     "supplementalData": "Supplemental Data",
+    "supplementalDataResults": {
+      "title": "Supplemental data and risk adjustment factors",
+      "definition": "Definition",
+      "usage": "Usage",
+      "value": "Value",
+      "patients": "Patients",
+      "share": "Share",
+      "noValue": "(no value)",
+      "supplementalData": "Supplemental data",
+      "riskAdjustment": "Risk adjustment factor",
+      "empty": "No patient had a value."
+    },
     "groupLabel": "Group: {{groupId}}",
     "aggregateMethods": {
       "average": "Average",
@@ -1021,8 +1190,8 @@
       "text": "text",
       "start": "start",
       "end": "end",
-      "emptyOption": "\u2014",
-      "selectOption": "\u2014 Select \u2014",
+      "emptyOption": "—",
+      "selectOption": "— Select —",
       "autoGenerated": "Auto-generated if left empty",
       "boundTo": "Bound to: {{url}}",
       "searchTerminology": "Search Terminology",
@@ -1058,5 +1227,66 @@
       "type": "Type",
       "noChoices": "No choice types available for this element."
     }
+  },
+  "exportConformance": {
+    "title": "Exchange package check",
+    "loading": "Checking the package",
+    "ready": "The package can be run by another installation.",
+    "notReady": "The package has errors: another installation could not run this measure from it.",
+    "measureProfiles": "Profiles the Measure claims",
+    "libraryProfiles": "Profiles the primary Library claims",
+    "noProfiles": "No profile is claimed yet. See the findings below for what is missing.",
+    "valueSets": "Value sets",
+    "valueSetName": "Value set",
+    "valueSetPackaged": "In the package",
+    "valueSetIncluded": "Full definition ({{source}})",
+    "valueSetNameOnly": "URL only",
+    "issues": "Findings",
+    "noIssues": "Nothing to fix.",
+    "severity": {
+      "error": "Error",
+      "warning": "Warning",
+      "info": "Note"
+    },
+    "canonicalBaseHint": "Canonical URLs use a placeholder. Ask an administrator to set FHIR_CANONICAL_BASE to a domain your organisation owns before sharing packages."
+  },
+  "standardMetadata": {
+    "measureTypes": "Measure type",
+    "measureTypesHelper": "FHIR Measure.type — one or more (up to 5)",
+    "types": {
+      "process": "Process",
+      "outcome": "Outcome",
+      "structure": "Structure",
+      "patient-reported-outcome": "Patient-reported outcome",
+      "composite": "Composite"
+    },
+    "experimental": "Experimental",
+    "experimentalHelper": "For testing only, not for real-world use",
+    "effectiveStart": "Effective from",
+    "effectiveEnd": "Effective until",
+    "effectivePeriodInverted": "The effective period ends before it starts.",
+    "approvalDate": "Approval date",
+    "lastReviewDate": "Last review date",
+    "clinicalRecommendationStatement": "Clinical recommendation statement",
+    "clinicalRecommendationStatementPlaceholder": "Summary of the clinical guideline or recommendation this measure is based on, e.g. \"ADA recommends an HbA1c goal below 7% for most non-pregnant adults.\"",
+    "definitionTerms": "Definition terms",
+    "definitionTermsHelper": "Terms used in the measure and what they mean here (FHIR Measure.definition). Up to 50.",
+    "term": "Term",
+    "definition": "Definition",
+    "addTerm": "Add term",
+    "removeTerm": "Remove term"
+  },
+  "measurementPeriod": {
+    "measurementPeriodStart": "Measurement period start",
+    "measurementPeriodEnd": "Measurement period end",
+    "hint": "The window of data the measure looks at: the default of the CQL \"Measurement Period\" parameter. Test case runs and evaluations that do not choose a period use it; leave empty to keep using the current calendar year.",
+    "inverted": "The measurement period ends before it starts."
+  },
+  "builderSource": {
+    "builtIn": "Built in the eCQM builder: {{name}} (owner {{owner}}).",
+    "publishedAt": "Last published {{at}}.",
+    "openInBuilder": "Open in builder",
+    "measureEdited": "The logic or population mapping was edited here since that publish. Publishing again from the builder will ask before overwriting these edits — bring them into the builder to keep them.",
+    "builderChanged": "The builder has changes that are not on this measure yet — publish from the builder to apply them."
   }
 }

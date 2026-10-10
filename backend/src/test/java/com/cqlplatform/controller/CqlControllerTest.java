@@ -136,6 +136,46 @@ class CqlControllerTest {
                 .andExpect(jsonPath("$.name").value("Test"));
     }
 
+    // PAT-237: the builder reads a stored library's defines AND functions (with operand
+    // signatures) from this endpoint instead of regex-scraping the CQL text.
+    @Test
+    @WithMockUser
+    void getLibraryExpressions_returnsDefinesAndFunctionSignatures() throws Exception {
+        CqlLibrary lib = CqlLibrary.builder()
+                .id("Fn-1.0").name("Fn").version("1.0").cqlContent("library Fn version '1.0'").build();
+        when(libraryService.getLibrary("Fn-1.0")).thenReturn(Optional.of(lib));
+        when(translationService.translate(any())).thenReturn(CqlTranslationResponse.builder()
+                .success(true).errors(List.of()).warnings(List.of())
+                .metadata(TranslationMetadata.builder().expressions(List.of(
+                        CqlTranslationResponse.ExpressionInfo.builder().name("Adult").kind("expression").resultType("Boolean").build(),
+                        CqlTranslationResponse.ExpressionInfo.builder().name("AtLeast").kind("function").resultType("Boolean")
+                                .operands(List.of(new CqlTranslationResponse.OperandInfo("value", "Integer"),
+                                        new CqlTranslationResponse.OperandInfo("threshold", "Integer"))).build()))
+                        .build())
+                .build());
+
+        mockMvc.perform(get("/api/cql/libraries/Fn-1.0/expressions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].name").value("Adult"))
+                .andExpect(jsonPath("$[0].kind").value("expression"))
+                .andExpect(jsonPath("$[1].kind").value("function"))
+                .andExpect(jsonPath("$[1].operands[1].name").value("threshold"))
+                .andExpect(jsonPath("$[1].operands[1].type").value("Integer"));
+    }
+
+    @Test
+    @WithMockUser
+    void getLibraryExpressions_notFound_shouldReturn404_andEmptyCqlIsEmptyList() throws Exception {
+        when(libraryService.getLibrary("nonexistent")).thenReturn(Optional.empty());
+        when(libraryService.getLibrary("Empty-1.0")).thenReturn(Optional.of(
+                CqlLibrary.builder().id("Empty-1.0").name("Empty").version("1.0").cqlContent("  ").build()));
+
+        mockMvc.perform(get("/api/cql/libraries/nonexistent/expressions")).andExpect(status().isNotFound());
+        mockMvc.perform(get("/api/cql/libraries/Empty-1.0/expressions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
     @Test
     @WithMockUser
     void getLibrary_notFound_shouldReturn404() throws Exception {
@@ -150,7 +190,7 @@ class CqlControllerTest {
     void createLibrary_shouldReturn200() throws Exception {
         CqlLibrary lib = CqlLibrary.builder()
                 .id("Test-1.0").name("Test").version("1.0").build();
-        when(libraryService.saveLibrary(any(), any())).thenReturn(lib);
+        when(libraryService.saveLibrary(any(), any(), any())).thenReturn(lib);
 
         mockMvc.perform(post("/api/cql/libraries")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -164,7 +204,7 @@ class CqlControllerTest {
     void updateLibrary_shouldReturn200() throws Exception {
         CqlLibrary lib = CqlLibrary.builder()
                 .id("Test-1.0").name("Test").version("1.0").build();
-        when(libraryService.updateLibrary(eq("Test-1.0"), any(), any())).thenReturn(lib);
+        when(libraryService.updateLibrary(eq("Test-1.0"), any(), any(), any())).thenReturn(lib);
 
         mockMvc.perform(put("/api/cql/libraries/Test-1.0")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -178,7 +218,7 @@ class CqlControllerTest {
         mockMvc.perform(delete("/api/cql/libraries/Test-1.0"))
                 .andExpect(status().isNoContent());
 
-        verify(libraryService).deleteLibrary("Test-1.0");
+        verify(libraryService).deleteLibrary(eq("Test-1.0"), any());
     }
 
     @Test

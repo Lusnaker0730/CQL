@@ -60,7 +60,7 @@ public class CqlExecutionService {
     private final CqlLibraryRepository libraryRepository;
 
     /** Shared model resolver — expensive to create (~2.5s), thread-safe after init. */
-    private static final ComparableR4FhirModelResolver SHARED_MODEL_RESOLVER = new ComparableR4FhirModelResolver();
+    private static final ComparableR4FhirModelResolver SHARED_MODEL_RESOLVER = CqlValues.resolver();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer cqlExecutionTimer;
@@ -401,6 +401,13 @@ public class CqlExecutionService {
                     new org.opencds.cqf.cql.engine.debug.DebugMap();
             debugMap.setLoggingEnabled(true);
             engine.getState().setDebugMap(debugMap);
+            // PAT-232: clause coverage — the engine calls the collector for every expression
+            // node it evaluates (cql-engine 5.x BreakpointHandler). One collector per evaluation.
+            ClauseCoverageCollector clauseCoverage = null;
+            if (request.isClauseCoverage()) {
+                clauseCoverage = new ClauseCoverageCollector();
+                engine.getState().setBreakpointHandler(clauseCoverage);
+            }
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
 
@@ -473,12 +480,12 @@ public class CqlExecutionService {
                             if (singleResult != null && singleResult.getExpressionResults() != null) {
                                 org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
                                         singleResult.getExpressionResults().get(expressionName);
-                                value = exprResult != null ? exprResult.getValue() : null;
+                                value = exprResult != null ? CqlValues.unwrap(exprResult.getValue()) : null;
                             }
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))
-                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .valueType(CqlValues.typeName(value))
                                     .displayValue(formatDisplayValue(value))
                                     .build());
                         } catch (Exception e) {
@@ -505,12 +512,12 @@ public class CqlExecutionService {
                             if (evaluationResult.getExpressionResults() != null) {
                                 org.opencds.cqf.cql.engine.execution.ExpressionResult exprResult =
                                         evaluationResult.getExpressionResults().get(expressionName);
-                                value = exprResult != null ? exprResult.getValue() : null;
+                                value = exprResult != null ? CqlValues.unwrap(exprResult.getValue()) : null;
                             }
                             results.put(expressionName, ExpressionResult.builder()
                                     .name(expressionName)
                                     .value(toSerializable(value))
-                                    .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                    .valueType(CqlValues.typeName(value))
                                     .displayValue(formatDisplayValue(value))
                                     .build());
                         } catch (Exception e) {
@@ -595,6 +602,7 @@ public class CqlExecutionService {
                     .warnings(warnings.isEmpty() ? null : warnings)
                     .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
                     .debugTrace(debugTrace)
+                    .clauseCoverage(clauseCoverage != null ? clauseCoverage.report(elmLibrary, request.getCql()) : null)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .libraryId(libraryId != null ? libraryId.getId() : null)
@@ -623,11 +631,11 @@ public class CqlExecutionService {
         Map<VersionedIdentifier, List<EvaluationExpressionRef>> exprMap = new HashMap<>();
         exprMap.put(libraryId, exprRefs);
 
-        kotlin.Pair<String, Object> ctxParam = contextValue != null
+        kotlin.Pair<String, String> ctxParam = contextValue != null
                 ? new kotlin.Pair<>(contextType, contextValue)
                 : null;
 
-        EvaluationParams params = new EvaluationParams(exprMap, ctxParam, parameters, null, null);
+        EvaluationParams params = new EvaluationParams(exprMap, ctxParam, CqlValues.wrapAll(parameters), null, null);
         EvaluationResults results = engine.evaluate(params);
         RuntimeException engineException = results.getExceptionFor(libraryId);
         if (engineException != null) {
@@ -909,6 +917,13 @@ public class CqlExecutionService {
                     new org.opencds.cqf.cql.engine.debug.DebugMap();
             debugMap.setLoggingEnabled(true);
             engine.getState().setDebugMap(debugMap);
+            // PAT-232: clause coverage — the engine calls the collector for every expression
+            // node it evaluates (cql-engine 5.x BreakpointHandler). One collector per evaluation.
+            ClauseCoverageCollector clauseCoverage = null;
+            if (request.isClauseCoverage()) {
+                clauseCoverage = new ClauseCoverageCollector();
+                engine.getState().setBreakpointHandler(clauseCoverage);
+            }
             long t6 = System.currentTimeMillis();
 
             Set<String> expressions = determineExpressions(request, elmLibrary);
@@ -948,11 +963,11 @@ public class CqlExecutionService {
                         Object value = null;
                         if (singleResult != null && singleResult.getExpressionResults() != null) {
                             var exprResult = singleResult.getExpressionResults().get(expressionName);
-                            value = exprResult != null ? exprResult.getValue() : null;
+                            value = exprResult != null ? CqlValues.unwrap(exprResult.getValue()) : null;
                         }
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName).value(toSerializable(value))
-                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                .valueType(CqlValues.typeName(value))
                                 .displayValue(formatDisplayValue(value)).build());
                     } catch (Exception e) {
                         results.put(expressionName, ExpressionResult.builder()
@@ -966,11 +981,11 @@ public class CqlExecutionService {
                         Object value = null;
                         if (evaluationResult.getExpressionResults() != null) {
                             var exprResult = evaluationResult.getExpressionResults().get(expressionName);
-                            value = exprResult != null ? exprResult.getValue() : null;
+                            value = exprResult != null ? CqlValues.unwrap(exprResult.getValue()) : null;
                         }
                         results.put(expressionName, ExpressionResult.builder()
                                 .name(expressionName).value(toSerializable(value))
-                                .valueType(value != null ? value.getClass().getSimpleName() : "null")
+                                .valueType(CqlValues.typeName(value))
                                 .displayValue(formatDisplayValue(value)).build());
                     } catch (Exception e) {
                         results.put(expressionName, ExpressionResult.builder()
@@ -1004,6 +1019,7 @@ public class CqlExecutionService {
                     .patientId(request.getPatientId())
                     .results(results)
                     .errors(runtimeErrors.isEmpty() ? null : runtimeErrors)
+                    .clauseCoverage(clauseCoverage != null ? clauseCoverage.report(elmLibrary, ctx.cql()) : null)
                     .metadata(ExecutionMetadata.builder()
                             .executionTimeMs(executionTime)
                             .fhirServerUrl(fhirServerUrl)
@@ -1040,6 +1056,31 @@ public class CqlExecutionService {
         if (value == null) return null;
         if (value instanceof Boolean || value instanceof Number || value instanceof String) return value;
         if (value instanceof java.time.ZonedDateTime) return value.toString();
+        // cql-engine 5.x: a FHIR resource is a ClassInstance tree; serialise it the way the
+        // 4.x path did for HAPI objects — as a short display string, never the whole tree.
+        // A FHIR primitive (Patient.gender is a FHIR.code) serialises as its value (PAT-233).
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.ClassInstance ci) {
+            Object primitive = CqlValues.primitiveValue(ci);
+            return primitive != null ? toSerializable(primitive) : CqlValues.describe(ci);
+        }
+        // A CQL Code / Concept as a small map, not the engine's toString() (PAT-233: a value
+        // stratifier or supplemental datum may return one; the code is what identifies the stratum).
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Code code) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            map.put("code", code.getCode());
+            if (code.getSystem() != null) map.put("system", code.getSystem());
+            if (code.getDisplay() != null) map.put("display", code.getDisplay());
+            if (code.getVersion() != null) map.put("version", code.getVersion());
+            return map;
+        }
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.Concept concept) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            List<Object> codes = new ArrayList<>();
+            if (concept.getCodes() != null) for (org.opencds.cqf.cql.engine.runtime.Code c : concept.getCodes()) codes.add(toSerializable(c));
+            map.put("codes", codes);
+            if (concept.getDisplay() != null) map.put("display", concept.getDisplay());
+            return map;
+        }
         if (value instanceof java.time.LocalDate) return value.toString();
         if (value instanceof java.time.LocalDateTime) return value.toString();
         if (value instanceof org.opencds.cqf.cql.engine.runtime.Quantity q) {
@@ -1057,6 +1098,15 @@ public class CqlExecutionService {
             Map<String, Object> map = new java.util.LinkedHashMap<>();
             for (String key : t.getElements().keySet()) {
                 map.put(key, toSerializable(t.getElements().get(key)));
+            }
+            return map;
+        }
+        // cql-engine 5.x: CqlValues.unwrap has already turned a Tuple into a Map by the time it
+        // gets here — keep it a map (the CDS tuple-card path reads it as one), serialising each element.
+        if (value instanceof Map<?, ?> m) {
+            Map<String, Object> map = new java.util.LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                map.put(String.valueOf(e.getKey()), toSerializable(e.getValue()));
             }
             return map;
         }
@@ -1096,6 +1146,12 @@ public class CqlExecutionService {
         }
         if (value instanceof ZonedDateTime) {
             return ((ZonedDateTime) value).toString();
+        }
+        if (value instanceof org.opencds.cqf.cql.engine.runtime.ClassInstance ci) {
+            return CqlValues.describe(ci);
+        }
+        if (value instanceof Map) {
+            return "Tuple: " + value; // an unwrapped Tuple; keep the 4.x wording
         }
         return value.getClass().getSimpleName() + ": " + value.toString();
     }

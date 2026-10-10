@@ -7,7 +7,8 @@
     "title": "術語瀏覽器",
     "tabValueSetSearch": "值集搜尋",
     "tabCodeLookup": "代碼查詢",
-    "tabCodeValidation": "代碼驗證"
+    "tabCodeValidation": "代碼驗證",
+    "tabPlatformValueSets": "本單位 value set"
   },
   "valueSet": {
     "searchLabel": "依標題搜尋值集",
@@ -33,7 +34,8 @@
     "colCode": "代碼",
     "colDisplay": "顯示名稱",
     "noCodesFound": "找不到代碼。",
-    "previewTruncated": "顯示前 {{shown}} / 共 {{total}} 筆"
+    "previewTruncated": "顯示前 {{shown}} / 共 {{total}} 筆",
+    "chipPlatform": "本單位"
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG 代碼系統",
@@ -90,5 +92,80 @@
     "validationFailed": "驗證失敗：{{error}}",
     "codeValid": "代碼「{{code}}」在指定的值集中有效。",
     "codeInvalid": "代碼「{{code}}」在指定的值集中無效。"
+  },
+  "platform": {
+    "intro": "貴單位自行維護的 value set：院內醫令代碼、藥品處方集、自訂的診斷分組。指標與 CDS 邏輯以 URL 引用它們，匯出指標交換封裝時也會一併帶出。",
+    "search": "搜尋名稱、標題或 URL",
+    "create": "新增 value set",
+    "importFhir": "匯入 FHIR ValueSet",
+    "loading": "正在載入 value set",
+    "empty": "還沒有 value set。可以新增一個，或匯入 FHIR ValueSet JSON 檔。",
+    "noMatch": "沒有符合搜尋條件的 value set。",
+    "tableLabel": "本單位的 value set",
+    "originImported": "匯入",
+    "imported": "已將「{{name}}」（{{count}} 個代碼）匯入為草稿，請檢視後再啟用。",
+    "notJson": "檔案不是有效的 JSON。",
+    "actionsFor": "{{name}} 版本 {{version}} 的操作",
+    "columns": {
+      "name": "Value set",
+      "version": "版本",
+      "status": "狀態",
+      "codes": "代碼數"
+    },
+    "status": {
+      "draft": "草稿",
+      "active": "啟用",
+      "retired": "停用"
+    },
+    "actions": {
+      "activate": "啟用（凍結代碼）",
+      "retire": "停用",
+      "newVersion": "建立新版本",
+      "copyCql": "複製 CQL 宣告",
+      "copyCqlPinned": "複製 CQL 宣告（釘選此版本）",
+      "exportFhir": "匯出 FHIR ValueSet",
+      "delete": "刪除草稿"
+    },
+    "dialog": {
+      "createTitle": "新增 value set",
+      "editTitle": "編輯草稿 value set",
+      "viewTitle": "Value set",
+      "frozen": "此版本狀態為「{{status}}」，代碼已凍結，因為可能已有指標依據它通過審核。要修改代碼請使用「建立新版本」。"
+    },
+    "fields": {
+      "name": "名稱",
+      "nameHelp": "簡短、盡量不含空白；用來產生 URL，也是預設的 CQL 識別名稱。",
+      "title": "標題",
+      "url": "Canonical URL",
+      "urlHelp": "留空則由名稱與本系統的 canonical base 自動產生。",
+      "urlFixed": "CQL 以此 URL 引用這個 value set，因此不能修改。",
+      "version": "版本",
+      "description": "說明",
+      "publisher": "發布單位"
+    },
+    "codes": {
+      "heading": "共 {{count}} 個代碼，來自 {{systems}} 個代碼系統",
+      "defaultSystem": "貼上的資料未指定代碼系統時使用",
+      "defaultSystemHelp": "例如 http://loinc.org，或 TW Core 代碼系統的 URL。",
+      "paste": "貼上代碼",
+      "pastePlaceholder": "每行一筆：代碼系統, 代碼, 顯示名稱 ／ 代碼, 顯示名稱 ／ 代碼。也可直接從試算表貼上（Tab 分隔）。",
+      "add": "加入貼上的代碼",
+      "skipped": "第 {{lines}} 行無法讀取：需要同時有代碼與代碼系統。這些內容仍保留在輸入框中。",
+      "empty": "還沒有代碼。空的 value set 無法啟用。",
+      "tableLabel": "此 value set 的代碼",
+      "system": "代碼系統",
+      "code": "代碼",
+      "display": "顯示名稱",
+      "remove": "移除代碼 {{code}}"
+    },
+    "newVersion": {
+      "title": "建立新版本",
+      "explain": "以版本 {{version}} 的代碼建立一份草稿。原版本的內容維持不變。",
+      "confirm": "建立草稿"
+    },
+    "delete": {
+      "title": "刪除草稿 value set",
+      "message": "要刪除草稿「{{name}}」版本 {{version}} 嗎？引用它的邏輯將無法再解析這些代碼。"
+    }
   }
 }

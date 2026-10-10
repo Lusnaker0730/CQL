@@ -3,6 +3,8 @@
  * Replaces scattered magic strings across measure components.
  */
 
+import type { MeasureTypeCode } from '../types'
+
 // --- Measure Statuses ---
 
 export const MEASURE_STATUS = {
@@ -39,6 +41,15 @@ export const SCORING_TYPE_OPTIONS: { value: ScoringTypeValue; label: string }[] 
   { value: 'cohort', label: 'Cohort' },
   { value: 'composite', label: 'Composite' },
 ]
+
+// --- Measure types (PAT-236, FHIR measure-type code system; labels come from i18n `measures:standardMetadata.types.*`) ---
+export const MEASURE_TYPE_OPTIONS: readonly MeasureTypeCode[] = [
+  'process',
+  'outcome',
+  'structure',
+  'patient-reported-outcome',
+  'composite',
+] as const
 
 // --- Care Settings ---
 

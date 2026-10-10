@@ -17,8 +17,12 @@ import EcqmCqlPreviewTab from './EcqmCqlPreviewTab'
 import BaseElements from '../authoring/base-elements/BaseElements'
 import Parameters from '../authoring/parameters/Parameters'
 import EcqmExternalCql from './EcqmExternalCql'
+import PublishConflictDialog from './PublishConflictDialog'
+import { isPublishConflict } from '../../utils/publishConflict'
+import { publishOutcomeMessage } from '../../utils/publishOutcome'
 import type { BaseElement, Parameter } from '../../types/authoring'
 import { extractApiError } from '../../utils/errorUtils'
+import { ArtifactScopeProvider } from '../../contexts/ArtifactScopeContext'
 
 const EMPTY_BASE_ELEMENTS: BaseElement[] = []
 const EMPTY_PARAMETERS: Parameter[] = []
@@ -39,6 +43,7 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   const [snack, setSnack] = useState<{ message: string; severity: 'success' | 'error' } | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const [showBackConfirm, setShowBackConfirm] = useState(false)
+  const [publishConflict, setPublishConflict] = useState(false)
 
   // Local optimistic state — mirrors server artifact but updates immediately on user edits
   const [localOverrides, setLocalOverrides] = useState<Partial<EcqmArtifactRequest>>({})
@@ -173,15 +178,22 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [flushSave])
 
-  const handlePublish = () => {
+  const handlePublish = (force = false) => {
     // Flush any pending changes before publishing
     flushSave()
-    publishMutation.mutate(artifact.id, {
-      onSuccess: () => {
-        setSnack({ message: t('workspace.publishSuccess'), severity: 'success' })
+    publishMutation.mutate({ id: artifact.id, force }, {
+      onSuccess: (result) => {
+        // BUG-147: say what happened — draft needing review, new version, or metadata update
+        const outcome = publishOutcomeMessage(result)
+        setSnack({ message: t(outcome.key, outcome.params), severity: 'success' })
         onArtifactUpdate()
       },
-      onError: () => { setSnack({ message: t('workspace.publishFailed'), severity: 'error' }) },
+      onError: (error) => {
+        // PAT-238: the measure was edited on the measure page since the last publish — ask first
+        if (!force && isPublishConflict(error)) { setPublishConflict(true); return }
+        // BUG-147: e.g. "under review" — the server message says what to do
+        setSnack({ message: extractApiError(error) || t('workspace.publishFailed'), severity: 'error' })
+      },
     })
   }
 
@@ -217,6 +229,12 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
   }, [updateMutation, save, onBack])
 
   return (
+    // PAT-237: what a library function call may take as arguments; an eCQM always has a Measurement Period
+    <ArtifactScopeProvider
+      baseElements={localArtifact.baseElements}
+      parameters={localArtifact.parameters}
+      hasMeasurementPeriod
+    >
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <EcqmArtifactWorkspaceHeader
         artifact={localArtifact}
@@ -303,6 +321,12 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         )}
       </Box>
 
+      <PublishConflictDialog
+        open={publishConflict}
+        onCancel={() => setPublishConflict(false)}
+        onOverwrite={() => { setPublishConflict(false); handlePublish(true) }}
+      />
+
       {/* Unsaved changes confirmation dialog */}
       <Dialog open={showBackConfirm} onClose={() => setShowBackConfirm(false)}>
         <DialogTitle>{t('workspace.unsavedTitle')}</DialogTitle>
@@ -330,5 +354,6 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
         </Alert>
       </Snackbar>
     </Box>
+    </ArtifactScopeProvider>
   )
 }

@@ -21,7 +21,7 @@ class PrefetchRetrieveProviderTest {
         PrefetchRetrieveProvider provider = new PrefetchRetrieveProvider(
                 List.of(patient, obs), "p1");
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Observation",
                 null, null, null, null, null, null, null, null);
 
@@ -38,7 +38,7 @@ class PrefetchRetrieveProviderTest {
         PrefetchRetrieveProvider provider = new PrefetchRetrieveProvider(
                 List.of(patient), "p1");
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Condition",
                 null, null, null, null, null, null, null, null);
 
@@ -59,7 +59,7 @@ class PrefetchRetrieveProviderTest {
 
         List<Code> codes = List.of(new Code().withCode("12345"));
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Observation",
                 null, "code", codes, null, null, null, null, null);
 
@@ -78,7 +78,7 @@ class PrefetchRetrieveProviderTest {
 
         List<Code> codes = List.of(new Code().withCode("E11"));
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Condition",
                 null, "code", codes, null, null, null, null, null);
 
@@ -97,7 +97,7 @@ class PrefetchRetrieveProviderTest {
 
         List<Code> codes = List.of(new Code().withCode("metformin"));
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "MedicationRequest",
                 null, "medication", codes, null, null, null, null, null);
 
@@ -111,7 +111,7 @@ class PrefetchRetrieveProviderTest {
         PrefetchRetrieveProvider provider = new PrefetchRetrieveProvider(
                 List.of(), "p1");
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Observation",
                 null, null, null, null, null, null, null, null);
 
@@ -130,7 +130,7 @@ class PrefetchRetrieveProviderTest {
         PrefetchRetrieveProvider provider = new PrefetchRetrieveProvider(
                 List.of(obs1, obs2), "p1");
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Observation",
                 null, null, null, null, null, null, null, null);
 
@@ -170,7 +170,7 @@ class PrefetchRetrieveProviderTest {
 
         List<Code> codes = List.of(new Code().withCode("ZZZ"));
 
-        Iterable<Object> results = provider.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> results = provider.retrieve(
                 "Patient", null, null, "Observation",
                 null, "code", codes, null, null, null, null, null);
 

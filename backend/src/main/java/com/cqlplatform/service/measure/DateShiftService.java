@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.Period;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -20,8 +21,10 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Shifts all date/dateTime/instant fields in a FHIR Bundle JSON by a given number of days.
- * Useful for adjusting test case patient data to fall within a measure's evaluation period.
+ * Shifts all date/dateTime/instant fields in a FHIR Bundle JSON by a given number of days — or,
+ * since PAT-248, by whole years (MADiE's "shift test case dates": the clinical story keeps its
+ * month / day pattern while moving into the next Measurement Period). Useful for adjusting test
+ * case patient data to fall within a measure's evaluation period.
  */
 @Service
 @Slf4j
@@ -64,15 +67,39 @@ public class DateShiftService {
             return bundleJson;
         }
         try {
-            JsonNode root = MAPPER.readTree(bundleJson);
-            if (root.isObject()) {
-                shiftNode((ObjectNode) root, null, shiftDays);
-            }
-            return MAPPER.writeValueAsString(root);
+            return shift(bundleJson, Period.ofDays(shiftDays));
         } catch (Exception e) {
             log.warn("Failed to shift dates in bundle JSON, returning original", e);
             return bundleJson;
         }
+    }
+
+    /**
+     * PAT-248: shift every recognised date / dateTime / instant by whole years — including bare
+     * {@code YYYY} values, which a day shift leaves alone. 29 February lands on 28 February in a
+     * non-leap year (java.time semantics). Unlike {@link #shiftDates} this is an explicit user
+     * action on stored data, so a bundle that is not JSON is an error, not a silent no-op.
+     *
+     * @throws IllegalArgumentException when the bundle is not a JSON object
+     */
+    public String shiftYears(String bundleJson, int years) {
+        if (bundleJson == null || bundleJson.isBlank() || years == 0) {
+            return bundleJson;
+        }
+        try {
+            return shift(bundleJson, Period.ofYears(years));
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("The patient bundle is not valid JSON: " + e.getMessage(), e);
+        }
+    }
+
+    private String shift(String bundleJson, Period period) throws java.io.IOException {
+        JsonNode root = MAPPER.readTree(bundleJson);
+        if (!root.isObject()) {
+            throw new java.io.IOException("not a JSON object");
+        }
+        shiftNode((ObjectNode) root, null, period);
+        return MAPPER.writeValueAsString(root);
     }
 
     /**
@@ -98,7 +125,7 @@ public class DateShiftService {
         }
     }
 
-    private void shiftNode(ObjectNode node, String parentFieldName, int shiftDays) {
+    private void shiftNode(ObjectNode node, String parentFieldName, Period period) {
         Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> entry = fields.next();
@@ -106,25 +133,25 @@ public class DateShiftService {
             JsonNode value = entry.getValue();
 
             if (value.isTextual() && isDateField(fieldName)) {
-                String shifted = shiftDateString(value.asText(), shiftDays);
+                String shifted = shiftDateString(value.asText(), period);
                 if (shifted != null) {
                     node.set(fieldName, new TextNode(shifted));
                 }
             } else if (value.isObject()) {
-                shiftNode((ObjectNode) value, fieldName, shiftDays);
+                shiftNode((ObjectNode) value, fieldName, period);
             } else if (value.isArray()) {
-                shiftArray((ArrayNode) value, fieldName, shiftDays);
+                shiftArray((ArrayNode) value, fieldName, period);
             }
         }
     }
 
-    private void shiftArray(ArrayNode array, String fieldName, int shiftDays) {
+    private void shiftArray(ArrayNode array, String fieldName, Period period) {
         for (int i = 0; i < array.size(); i++) {
             JsonNode element = array.get(i);
             if (element.isObject()) {
-                shiftNode((ObjectNode) element, fieldName, shiftDays);
+                shiftNode((ObjectNode) element, fieldName, period);
             } else if (element.isTextual() && isDateField(fieldName)) {
-                String shifted = shiftDateString(element.asText(), shiftDays);
+                String shifted = shiftDateString(element.asText(), period);
                 if (shifted != null) {
                     array.set(i, new TextNode(shifted));
                 }
@@ -140,19 +167,19 @@ public class DateShiftService {
      * Attempt to parse and shift a FHIR date/dateTime/instant string.
      * Returns the shifted string or null if the value is not a recognized date format.
      */
-    private String shiftDateString(String value, int shiftDays) {
+    private String shiftDateString(String value, Period period) {
         if (value == null || value.isEmpty()) return null;
 
         // Try full dateTime with offset: 2024-01-15T10:30:00+08:00
         if (FHIR_DATETIME_PATTERN.matcher(value).matches()) {
             try {
                 OffsetDateTime odt = OffsetDateTime.parse(value);
-                return odt.plusDays(shiftDays).toString();
+                return odt.plus(period).toString();
             } catch (DateTimeParseException e) {
                 // Try without offset (plain LocalDateTime)
                 try {
                     LocalDateTime ldt = LocalDateTime.parse(value);
-                    return ldt.plusDays(shiftDays).toString();
+                    return ldt.plus(period).toString();
                 } catch (DateTimeParseException e2) {
                     // Fall through
                 }
@@ -165,7 +192,7 @@ public class DateShiftService {
                 // Full date: YYYY-MM-DD
                 try {
                     LocalDate date = LocalDate.parse(value);
-                    return date.plusDays(shiftDays).toString();
+                    return date.plus(period).toString();
                 } catch (DateTimeParseException e) {
                     return null;
                 }
@@ -173,13 +200,20 @@ public class DateShiftService {
                 // Year-month: YYYY-MM — shift by months approximation
                 try {
                     LocalDate date = LocalDate.parse(value + "-01");
-                    LocalDate shifted = date.plusDays(shiftDays);
+                    LocalDate shifted = date.plus(period);
                     return shifted.format(DateTimeFormatter.ofPattern("yyyy-MM"));
                 } catch (DateTimeParseException e) {
                     return null;
                 }
             }
-            // Year only: YYYY — don't shift
+            // Year only: YYYY — a day shift leaves it alone; a year shift (PAT-248) moves it
+            if (period.getYears() != 0 && period.getMonths() == 0 && period.getDays() == 0) {
+                try {
+                    return String.format("%04d", Integer.parseInt(value) + period.getYears());
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
             return null;
         }
 

@@ -33,6 +33,16 @@ public class ExpressionCqlEngine {
     private static final Pattern ARITHMETIC_UCUM_UNIT_PATTERN =
             Pattern.compile("[A-Za-z0-9./*+\\-()\\[\\]{}%_]{1,32}");
 
+    // PAT-237: literal argument allow-lists for library function calls. Each literal kind has
+    // exactly one accepted shape; anything else leaves the argument unresolved (never emitted).
+    private static final Pattern FN_INTEGER_PATTERN = Pattern.compile("-?\\d{1,18}");
+    private static final Pattern FN_DECIMAL_PATTERN = Pattern.compile("-?\\d{1,18}(\\.\\d{1,8})?");
+    private static final Pattern FN_DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final Pattern FN_DATETIME_PATTERN =
+            Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})?");
+    private static final int FN_STRING_MAX_LENGTH = 500;
+    public static final String FUNCTION_CALL_TYPE = "externalCqlFunctionCall";
+
     // PAT-161: arithmetic operator allow-list. mod/div are CQL keyword operators
     // (word-style); ^ is the CQL exponentiation operator. Failsafe to "+" for
     // anything outside this set so a malicious operator string can never reach
@@ -67,18 +77,20 @@ public class ExpressionCqlEngine {
         /** Default — list-returning expressions are wrapped in {@code exists(...)}. */
         STANDARD,
         /**
-         * Continuous-variable measure's Measure Population — preserve the list shape so the
-         * Measure Observation wrapper can iterate, and skip modifiers that collapse a list
-         * to a single resource / extract a scalar (see {@link #classifyListBehavior}).
+         * An episode-based measure's population define (PAT-243: every population of an
+         * episode-based group, not only the continuous-variable Measure Population) — preserve
+         * the list shape so the evaluation can count and intersect episodes and the Measure
+         * Observation wrapper can iterate, and skip modifiers that collapse a list to a single
+         * resource / extract a scalar (see {@link #classifyListBehavior}).
          */
-        CV_MEASURE_POPULATION,
+        EPISODE_LIST,
         /**
          * Inside an episode-based conjunction's filter branch — a leaf expression here is
          * a boolean predicate over the already-identified episode, so STANDARD rendering
          * (exists-wrap for lists) applies to it independently. Kept as a named mode for
          * readability; behaviorally identical to STANDARD.
          */
-        CV_EPISODE_FILTER
+        EPISODE_FILTER
     }
 
     public static class BuildContext {
@@ -89,8 +101,19 @@ public class ExpressionCqlEngine {
 
         /** Current render mode — package-visible for read; mutate only via {@link #withRenderMode}. */
         RenderMode renderMode = RenderMode.STANDARD;
-        /** Resource type to preserve as a list when {@code renderMode = CV_MEASURE_POPULATION}. */
+        /** Resource type to preserve as a list when {@code renderMode = EPISODE_LIST}. */
         String episodeResourceType = null;
+        /**
+         * PAT-243: whether the last conjunction rendered in {@code EPISODE_LIST} mode came out as a
+         * list of episodes (an episode element was found) rather than a Boolean fallback. Read via
+         * {@link #lastEpisodeRenderIsList()} right after the render.
+         */
+        boolean episodeListRendered = false;
+
+        public boolean lastEpisodeRenderIsList() { return episodeListRendered; }
+
+        /** Clear the flag before an EPISODE_LIST render so a stale value cannot be read. */
+        public void resetEpisodeListFlag() { episodeListRendered = false; }
 
         /**
          * Whether the output library declares a {@code "Measurement Period"} parameter. eCQM
@@ -185,10 +208,16 @@ public class ExpressionCqlEngine {
         }
         log.debug("buildConjunctionExpression: processing {} children", children.size());
 
-        // Episode-based CV: separate the episode resource from filter conditions
-        if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && ctx.episodeResourceType != null
-                && "And".equals(getStr(group, "id", "And"))) {
-            return buildEpisodeConjunction(children, ctx);
+        // Episode-based population: separate the episode resource from filter conditions
+        if (ctx.getRenderMode() == RenderMode.EPISODE_LIST && ctx.episodeResourceType != null) {
+            if ("And".equals(getStr(group, "id", "And"))) {
+                return buildEpisodeConjunction(children, ctx);
+            }
+            // PAT-243: an Or / Union / Intersect at the root of an episode-based population has no
+            // single episode query to filter — render it as a Boolean condition (the evaluation
+            // then treats it as "all / none of the parent's episodes").
+            ctx.episodeListRendered = false;
+            return ctx.withRenderMode(RenderMode.STANDARD, () -> buildConjunctionExpression(group, ctx));
         }
 
         String conjId = getStr(group, "id", "And");
@@ -227,25 +256,27 @@ public class ExpressionCqlEngine {
         for (Map<String, Object> child : children) {
             Boolean conjunction = (Boolean) child.get("conjunction");
             if (Boolean.TRUE.equals(conjunction)) {
-                filterExprs.add("(" + ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                filterExprs.add("(" + ctx.withRenderMode(RenderMode.EPISODE_FILTER,
                         () -> buildConjunctionExpression(child, ctx)) + ")");
                 continue;
             }
 
             String childType = getStr(child, "type", "").toLowerCase();
             if (baseExpr == null && childType.contains(episodeType)) {
-                // This is the episode resource — build as list query (caller's CV_MEASURE_POPULATION mode)
+                // This is the episode resource — build as list query (caller's EPISODE_LIST mode)
                 baseExpr = buildExpression(child, ctx);
             } else {
-                filterExprs.add(ctx.withRenderMode(RenderMode.CV_EPISODE_FILTER,
+                filterExprs.add(ctx.withRenderMode(RenderMode.EPISODE_FILTER,
                         () -> buildExpression(child, ctx)));
             }
         }
 
         if (baseExpr == null) {
             // No matching episode element found — fall back to normal boolean conjunction
+            ctx.episodeListRendered = false;
             return String.join(" and \n  ", filterExprs);
         }
+        ctx.episodeListRendered = true;
 
         if (filterExprs.isEmpty()) {
             return baseExpr;
@@ -291,6 +322,11 @@ public class ExpressionCqlEngine {
                 } else {
                     expr = String.format("\"%s\"", escapeCqlIdentifier(defName));
                 }
+                break;
+            }
+            case FUNCTION_CALL_TYPE: {
+                // PAT-237: a call to a function of an included library, with author-supplied arguments
+                expr = emitFunctionCall(fields, ctx, elementName);
                 break;
             }
             case "externalCqlElement": {
@@ -381,18 +417,18 @@ public class ExpressionCqlEngine {
                 // Episode-based CV Measure Population: skip modifiers that collapse a list
                 // to a single item or extract non-resource values, so the population returns
                 // a resource list for the Measure Observation wrapper to iterate over.
-                if (ctx.getRenderMode() == RenderMode.CV_MEASURE_POPULATION && isListCollapsingOrValueExtractingModifier(mod)) {
+                if (ctx.getRenderMode() == RenderMode.EPISODE_LIST && isListCollapsingOrValueExtractingModifier(mod)) {
                     String modName = getStr(mod, "name", getStr(mod, "id", "?"));
                     String behavior = classifyListBehavior(mod);
                     // Surface the silent skip to the author: the UI's CQL preview warns panel
                     // picks up ctx.warnings so the user sees WHY their modifier chain was shortened.
                     ctx.warn(String.format(
-                            "Modifier '%s' (%s) skipped in Measure Population: "
-                                    + "continuous-variable measures require a resource list for the "
-                                    + "Measure Observation function to iterate over. This modifier is "
-                                    + "applied inside the observation function body, not at the "
-                                    + "population level.",
-                            modName, behavior));
+                            "Modifier '%s' (%s) skipped: an episode-based population must return the "
+                                    + "list of %s episodes so the evaluation can count them (and, for a "
+                                    + "continuous-variable measure, the Measure Observation function can "
+                                    + "iterate over them). Apply this modifier inside a filter condition "
+                                    + "or the observation function instead.",
+                            modName, behavior, ctx.episodeResourceType));
                     continue;
                 }
                 expr = applyModifier(expr, mod, ctx);
@@ -401,7 +437,7 @@ public class ExpressionCqlEngine {
 
         String finalReturnType = getFinalReturnType(element, modifiers);
         if (finalReturnType != null && finalReturnType.startsWith("list_of_")
-                && ctx.getRenderMode() != RenderMode.CV_MEASURE_POPULATION) {
+                && ctx.getRenderMode() != RenderMode.EPISODE_LIST) {
             expr = String.format("exists(%s)", expr);
         }
 
@@ -556,6 +592,105 @@ public class ExpressionCqlEngine {
         if (refId == null || refId.isEmpty()) return null;
         String refName = ctx.findBaseElementName(refId);
         return refName != null ? String.format("\"%s\"", escapeCqlIdentifier(refName)) : null;
+    }
+
+    // ── PAT-237: library function calls ─────────────────────────────────
+
+    /** The name the include is {@code called} and the call is qualified with. */
+    static String functionCallQualifier(String libName, String alias) {
+        if (alias != null && !alias.isBlank()) return alias.replaceAll("[^a-zA-Z0-9_]", "_");
+        return libName == null ? "" : libName.replaceAll("[^a-zA-Z0-9_]", "_");
+    }
+
+    /**
+     * {@code "Lib"."Fn"(arg, …)}. Every argument must resolve; one unresolved argument makes the
+     * whole call {@code null} with a warning — a call with a silently dropped argument would be a
+     * different (and probably still translatable) call.
+     */
+    @SuppressWarnings("unchecked")
+    private String emitFunctionCall(List<Map<String, Object>> fields, BuildContext ctx, String elementName) {
+        String libName = getFieldValue(fields, "library_name", "");
+        String alias = getFieldValue(fields, "alias", "");
+        String fnName = getFieldValue(fields, "function_name", "");
+        if (fnName == null || fnName.isBlank()) {
+            ctx.warn(String.format("Function call element '%s' has no function name", elementName));
+            return "null /* missing library function */";
+        }
+        Object argsRaw = getFieldRawValue(fields, "arguments");
+        List<Map<String, Object>> args = argsRaw instanceof List<?> ? (List<Map<String, Object>>) argsRaw : List.of();
+        List<String> argCqls = new ArrayList<>(args.size());
+        for (int i = 0; i < args.size(); i++) {
+            Map<String, Object> arg = args.get(i);
+            String cql = resolveFunctionArgument(arg, ctx);
+            if (cql == null) {
+                ctx.warn(String.format("Function call '%s': argument '%s' is unresolved",
+                        elementName, strFromMap(arg, "name", String.valueOf(i + 1))));
+                return "null /* unresolved function argument */";
+            }
+            argCqls.add(cql);
+        }
+        String qualifier = functionCallQualifier(libName, alias);
+        String call = String.format("\"%s\"(%s)", escapeCqlIdentifier(fnName), String.join(", ", argCqls));
+        return qualifier.isEmpty() ? call : String.format("\"%s\".%s", qualifier, call);
+    }
+
+    /**
+     * One argument of a library function call. {@code mode}: {@code element} (a base element by
+     * uniqueId), {@code parameter} (an artifact parameter by uniqueId), {@code patient}
+     * ({@code Patient}), {@code measurementPeriod} (eCQM only) or {@code literal}
+     * ({@code literal_type} + {@code literal_value} [+ {@code literal_unit}]). Returns null when
+     * the argument cannot be emitted safely.
+     */
+    String resolveFunctionArgument(Map<String, Object> arg, BuildContext ctx) {
+        if (arg == null) return null;
+        String mode = strFromMap(arg, "mode", "element");
+        switch (mode) {
+            case "element": {
+                String name = ctx.findBaseElementName(strFromMap(arg, "operand_id", null));
+                return name != null ? String.format("\"%s\"", escapeCqlIdentifier(name)) : null;
+            }
+            case "parameter": {
+                String name = ctx.findParameterName(strFromMap(arg, "operand_id", null));
+                return name != null ? String.format("\"%s\"", escapeCqlIdentifier(name)) : null;
+            }
+            case "patient":
+                return "Patient";
+            case "measurementPeriod":
+                return ctx.hasMeasurementPeriod ? "\"Measurement Period\"" : null;
+            case "literal":
+                return functionLiteral(strFromMap(arg, "literal_type", ""),
+                        strFromMap(arg, "literal_value", ""), strFromMap(arg, "literal_unit", ""));
+            default:
+                return null;
+        }
+    }
+
+    /** A typed literal argument, or null when the value does not have the type's one accepted shape. */
+    static String functionLiteral(String type, String value, String unit) {
+        String v = value == null ? "" : value.trim();
+        switch (type == null ? "" : type) {
+            case "Integer":
+                return FN_INTEGER_PATTERN.matcher(v).matches() ? v : null;
+            case "Decimal":
+                return FN_DECIMAL_PATTERN.matcher(v).matches() ? v : null;
+            case "Boolean":
+                return "true".equals(v) || "false".equals(v) ? v : null;
+            case "String":
+                if (value == null || value.length() > FN_STRING_MAX_LENGTH) return null;
+                return "'" + com.cqlplatform.util.CqlEscapeUtil.escapeCqlString(value) + "'";
+            case "Date":
+                return FN_DATE_PATTERN.matcher(v).matches() ? "@" + v : null;
+            case "DateTime":
+                return FN_DATETIME_PATTERN.matcher(v).matches() ? "@" + v : null;
+            case "Quantity": {
+                String u = unit == null ? "" : unit.trim();
+                if (!ARITHMETIC_NUMERIC_PATTERN.matcher(v).matches()) return null;
+                if (!ARITHMETIC_UCUM_UNIT_PATTERN.matcher(u).matches()) return null;
+                return String.format("%s '%s'", v, u);
+            }
+            default:
+                return null;
+        }
     }
 
     private static String strFromMap(Map<String, Object> map, String key, String defaultVal) {
@@ -1086,6 +1221,23 @@ public class ExpressionCqlEngine {
                 }
                 includes.add(includeStmt);
             }
+        } else if (FUNCTION_CALL_TYPE.equals(type)) {
+            // PAT-237: same include as an externalCqlRef; the body qualifies the call with the
+            // `called` name (alias when the author picked one, else the sanitised library name).
+            List<Map<String, Object>> extFields = (List<Map<String, Object>>) node.get("fields");
+            String libName = getFieldValue(extFields, "library_name", null);
+            String libVersion = getFieldValue(extFields, "library_version", null);
+            String alias = getFieldValue(extFields, "alias", null);
+            if (libName != null && !libName.isEmpty()) {
+                String called = functionCallQualifier(libName, alias);
+                String safeLibName = libName.replaceAll("[^a-zA-Z0-9_]", "_");
+                if (libVersion != null && !libVersion.isEmpty()) {
+                    includes.add(String.format("include %s version '%s' called %s",
+                            safeLibName, escapeCqlString(libVersion), called));
+                } else {
+                    includes.add(String.format("include %s called %s", safeLibName, called));
+                }
+            }
         } else if ("externalCqlElement".equals(type)) {
             List<Map<String, Object>> extFields = (List<Map<String, Object>>) node.get("fields");
             String libName = getFieldValue(extFields, "libraryName", null);
@@ -1113,7 +1265,7 @@ public class ExpressionCqlEngine {
                     Map<String, Object> vsVal = (Map<String, Object>) value;
                     String vsName = (String) vsVal.get("name");
                     if (vsName != null)
-                        valueSets.add(vsName);
+                        valueSets.add(valueSetEntry(vsName, vsVal.get("oid"), vsVal.get("version")));
                 }
 
                 List<Map<String, Object>> vsRefs = (List<Map<String, Object>>) field.get("valueSets");
@@ -1121,7 +1273,7 @@ public class ExpressionCqlEngine {
                     for (Map<String, Object> vs : vsRefs) {
                         String vsName = (String) vs.get("name");
                         if (vsName != null)
-                            valueSets.add(vsName);
+                            valueSets.add(valueSetEntry(vsName, vs.get("oid"), vs.get("version")));
                     }
                 }
 
@@ -1158,10 +1310,61 @@ public class ExpressionCqlEngine {
 
     // ── Emit helpers (for CQL header generation) ─────────────────────────
 
+    // ── Value set declarations (PAT-230) ─────────────────────────────────
+    //
+    // The collected set used to hold bare names, and the header declared
+    // `valueset "<name>": '<name>'` — the URL the author picked (`oid` in the artifact JSON) was
+    // dropped, so no terminology source could resolve the value set. An entry now carries
+    // name, URI and optional version; an element without an `oid` still yields the bare name,
+    // which keeps the old declaration for artifacts that never had a URL.
+
+    private static final String VS_SEP = "\u0000";
+    private static final java.util.regex.Pattern BARE_OID = java.util.regex.Pattern.compile("^[0-2](\\.\\d+)+$");
+
+    /** One {@code valueset} line of a CQL header. */
+    public record ValueSetDeclaration(String name, String uri, String version) {}
+
+    static String valueSetEntry(String name, Object oid, Object version) {
+        String uri = oid instanceof String s && !s.isBlank() ? s.trim() : null;
+        if (uri == null || uri.equals(name)) return name;
+        if (BARE_OID.matcher(uri).matches()) uri = "urn:oid:" + uri; // same convention as the standard SDE value sets
+        String ver = version instanceof String s && !s.isBlank() ? s.trim() : "";
+        return name + VS_SEP + uri + VS_SEP + ver;
+    }
+
+    /** One declaration per name (a CQL identifier must be unique); an entry that knows its URI wins. */
+    public static List<ValueSetDeclaration> valueSetDeclarations(Set<String> entries) {
+        Map<String, ValueSetDeclaration> byName = new LinkedHashMap<>();
+        for (String entry : entries) {
+            String[] parts = entry.split(VS_SEP, -1);
+            boolean hasUri = parts.length == 3;
+            ValueSetDeclaration declaration = hasUri
+                    ? new ValueSetDeclaration(parts[0], parts[1], parts[2].isEmpty() ? null : parts[2])
+                    : new ValueSetDeclaration(entry, entry, null);
+            ValueSetDeclaration existing = byName.get(declaration.name());
+            if (existing == null || (hasUri && existing.uri().equals(existing.name()))) {
+                byName.put(declaration.name(), declaration);
+            }
+        }
+        return new ArrayList<>(byName.values());
+    }
+
+    /** Template model of the declarations: identifier / uri / version, already escaped for CQL. */
+    public List<Map<String, String>> valueSetTemplateModel(Set<String> entries) {
+        List<Map<String, String>> model = new ArrayList<>();
+        for (ValueSetDeclaration d : valueSetDeclarations(entries)) {
+            model.add(Map.of("identifier", escapeCqlIdentifier(d.name()), "uri", escapeCqlString(d.uri()),
+                    "version", d.version() == null ? "" : escapeCqlString(d.version())));
+        }
+        return model;
+    }
+
     public void emitValueSets(StringBuilder cql, Set<String> valueSets) {
         if (!valueSets.isEmpty()) {
-            for (String vs : valueSets) {
-                cql.append(String.format("valueset \"%s\": '%s'%n", escapeCqlIdentifier(vs), escapeCqlString(vs)));
+            for (ValueSetDeclaration vs : valueSetDeclarations(valueSets)) {
+                cql.append(String.format("valueset \"%s\": '%s'", escapeCqlIdentifier(vs.name()), escapeCqlString(vs.uri())));
+                if (vs.version() != null) cql.append(String.format(" version '%s'", escapeCqlString(vs.version())));
+                cql.append(String.format("%n"));
             }
             cql.append("\n");
         }
@@ -1416,7 +1619,7 @@ public class ExpressionCqlEngine {
 
     /**
      * Returns true if the modifier should be skipped in the CV Measure Population path
-     * (where renderMode = CV_MEASURE_POPULATION). Both {@code collapses-list} and {@code extracts-value}
+     * (where renderMode = EPISODE_LIST). Both {@code collapses-list} and {@code extracts-value}
      * strip the list shape the Measure Observation wrapper needs to iterate over.
      */
     private boolean isListCollapsingOrValueExtractingModifier(Map<String, Object> modifier) {

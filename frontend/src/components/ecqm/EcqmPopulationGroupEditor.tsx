@@ -2,8 +2,7 @@ import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Box, Button,
-  FormControlLabel, Stack, Switch, TextField, Typography,
-} from '@mui/material'
+  FormControlLabel, Stack, Switch, TextField, Typography, Alert } from '@mui/material'
 import { Add as AddIcon } from '@mui/icons-material'
 import type { PopulationGroup, ObservationEntry } from '../../types/ecqm'
 import type { ConjunctionGroup as ConjunctionGroupType, FormTemplateCategory, ModifierDefinition } from '../../types/authoring'
@@ -90,6 +89,12 @@ export default function EcqmPopulationGroupEditor({
 
   return (
     <Box>
+      {/* PAT-243: in an episode-based group every population is a list of episodes */}
+      {populationBasis !== 'boolean' && (
+        <Alert severity="info" sx={{ mb: 2 }} data-testid="episode-based-hint">
+          {t('populationGroups.episodeBasedHint', { basis: populationBasis })}
+        </Alert>
+      )}
       {/* Dual IP toggle (ratio only) */}
       {isRatio && (
         <Box sx={{ mb: 2 }}>

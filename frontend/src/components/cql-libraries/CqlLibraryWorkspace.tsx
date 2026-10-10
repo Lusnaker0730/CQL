@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 import { AUTOSAVE_SLOW_MS } from '../../constants/timing'
 import { useTranslation } from 'react-i18next'
 import {
-  Box, Button, Chip, CircularProgress, Dialog, DialogTitle, DialogContent,
+  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogTitle, DialogContent,
   DialogContentText, DialogActions, IconButton,
   Stack, Tab, Tabs, Tooltip, Typography,
   RadioGroup, Radio, FormControlLabel,
@@ -14,9 +14,13 @@ import {
   ErrorOutlined as ErrorIcon,
   NewReleases as VersionIcon,
   Download as ExportIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import type { CqlLibrary } from '../../types'
-import { useUpdateCqlLibrary, useCreateCqlLibraryVersion, useExportCqlLibrary } from '../../hooks/useCqlLibraries'
+import {
+  useUpdateCqlLibrary, useCreateCqlLibraryVersion, useExportCqlLibrary, useLockCqlLibrary, useUnlockCqlLibrary,
+} from '../../hooks/useCqlLibraries'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
 import { useNotification } from '../../hooks/useNotification'
 import { downloadBlob } from '../../utils/download'
@@ -27,6 +31,7 @@ import CqlLibraryDependencyTab from './CqlLibraryDependencyTab'
 import CqlLibraryHistoryTab from './CqlLibraryHistoryTab'
 import CqlLibrarySharingTab from './CqlLibrarySharingTab'
 import { extractApiError } from '../../utils/errorUtils'
+import { getStoredUsername } from '../../utils/validation'
 
 type SaveStatus = 'idle' | 'dirty' | 'saving' | 'saved' | 'error'
 
@@ -59,6 +64,14 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
 
   const updateMutation = useUpdateCqlLibrary()
 
+  // PAT-253: edit lock — the holder alone may save or delete until it is released or expires
+  // (server-enforced with 409 Locked; the workspace mirrors it as read-only).
+  const lockMutation = useLockCqlLibrary()
+  const unlockMutation = useUnlockCqlLibrary()
+  const currentUser = useMemo(() => getStoredUsername(), [])
+  const isLockedByOther = !!library.lockedBy && library.lockedBy !== currentUser
+  const isLockedByMe = !!library.lockedBy && library.lockedBy === currentUser
+
   // Ref for mutate to stabilize save callback
   const mutateRef = useRef(updateMutation.mutate)
   mutateRef.current = updateMutation.mutate
@@ -66,7 +79,7 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
   const isDirty = saveStatus === 'dirty' || saveStatus === 'saving'
   useUnsavedChangesGuard(isDirty)
 
-  const readOnly = library.status !== 'draft' && library.status !== 'active'
+  const readOnly = (library.status !== 'draft' && library.status !== 'active') || isLockedByOther
 
   // Clear local overrides when server library changes (refetch completed)
   const lastUpdatedRef = useRef(library.updatedAt)
@@ -298,6 +311,11 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
               {readOnly && (
                 <Chip label={t('workspace.readOnly')} size="small" color="warning" variant="outlined" />
               )}
+              {isLockedByOther && (
+                <Tooltip title={library.lockExpiresAt ? t('workspace.lockedUntil', { user: library.lockedBy, until: new Date(library.lockExpiresAt).toLocaleString() }) : ''}>
+                  <Chip icon={<LockIcon />} label={t('workspace.lockedBy', { user: library.lockedBy })} size="small" color="warning" variant="outlined" data-testid="library-lock-chip" />
+                </Tooltip>
+              )}
             </Stack>
             <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
               <Chip label={`v${merged.version}`} size="small" variant="outlined" />
@@ -307,6 +325,35 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
               )}
             </Stack>
           </Box>
+          {!library.lockedBy && !readOnly && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={lockMutation.isPending ? <CircularProgress size={14} /> : <LockIcon />}
+              onClick={() => lockMutation.mutate(library.id, {
+                onError: (err) => showNotification(t('errors.lockFailed', { error: extractApiError(err) }), 'error'),
+              })}
+              disabled={lockMutation.isPending}
+              data-testid="library-lock-button"
+            >
+              {t('workspace.lock')}
+            </Button>
+          )}
+          {isLockedByMe && (
+            <Button
+              variant="outlined"
+              size="small"
+              color="warning"
+              startIcon={unlockMutation.isPending ? <CircularProgress size={14} /> : <LockOpenIcon />}
+              onClick={() => unlockMutation.mutate(library.id, {
+                onError: (err) => showNotification(t('errors.unlockFailed', { error: extractApiError(err) }), 'error'),
+              })}
+              disabled={unlockMutation.isPending}
+              data-testid="library-unlock-button"
+            >
+              {t('workspace.unlock')}
+            </Button>
+          )}
           {library.status === 'draft' && (
             <Button
               variant="outlined"
@@ -341,6 +388,11 @@ export default function CqlLibraryWorkspace({ library, onBack }: CqlLibraryWorks
           </Tooltip>
         </Stack>
       </Box>
+      {isLockedByOther && (
+        <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }} data-testid="library-lock-notice">
+          {t('workspace.lockedWarning', { user: library.lockedBy })}
+        </Alert>
+      )}
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
           <Tab label={t('workspace.tabs.cqlEditor')} />

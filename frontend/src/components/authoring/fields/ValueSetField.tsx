@@ -402,6 +402,15 @@ function AddValueSetDialog({
                     >
                       <TableCell>
                         <Typography variant="body2">{vs.title || vs.name}</Typography>
+                        {vs.source === 'platform' && (
+                          <Chip
+                            label={t('valueSetField.platformSource', { version: vs.version ?? '', status: vs.status ?? '' })}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.65rem' }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption" sx={{

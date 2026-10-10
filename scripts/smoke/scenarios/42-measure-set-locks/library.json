@@ -1,0 +1,4 @@
+{
+  "cql": "library SmokeSetLockLib version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\ncontext Patient\n\ndefine \"Adult\":\n  AgeInYears() >= 18\n",
+  "description": "Smoke — PAT-253 CQL library edit lock"
+}

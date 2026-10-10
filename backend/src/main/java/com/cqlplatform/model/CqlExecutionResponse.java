@@ -17,6 +17,8 @@ public class CqlExecutionResponse {
     private List<String> warnings;
     private ExecutionMetadata metadata;
     private DebugTrace debugTrace;
+    /** PAT-232: present when the request asked for clause coverage. */
+    private com.cqlplatform.model.measure.ClauseCoverage clauseCoverage;
 
     /**
      * Structured error classification (phase + errorType + stack frames) — populated

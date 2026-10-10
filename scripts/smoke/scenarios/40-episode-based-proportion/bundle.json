@@ -1,0 +1,78 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "fullUrl": "Patient/smoke-40-p1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-40-p1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "gender": "female",
+        "birthDate": "1980-01-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-40-p1"}
+    },
+    {
+      "fullUrl": "Encounter/smoke-40-e1",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "smoke-40-e1",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "IMP"},
+        "subject": {"reference": "Patient/smoke-40-p1"},
+        "period": {"start": "2024-03-01T08:00:00Z", "end": "2024-03-03T08:00:00Z"}
+      },
+      "request": {"method": "PUT", "url": "Encounter/smoke-40-e1"}
+    },
+    {
+      "fullUrl": "Encounter/smoke-40-e2",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "smoke-40-e2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "IMP"},
+        "subject": {"reference": "Patient/smoke-40-p1"},
+        "period": {"start": "2023-06-01T08:00:00Z", "end": "2023-06-02T08:00:00Z"}
+      },
+      "request": {"method": "PUT", "url": "Encounter/smoke-40-e2"}
+    },
+    {
+      "fullUrl": "Patient/smoke-40-p2",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-40-p2",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "gender": "male",
+        "birthDate": "1975-01-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-40-p2"}
+    },
+    {
+      "fullUrl": "Encounter/smoke-40-e3",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "smoke-40-e3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "status": "finished",
+        "class": {"system": "http://terminology.hl7.org/CodeSystem/v3-ActCode", "code": "IMP"},
+        "subject": {"reference": "Patient/smoke-40-p2"},
+        "period": {"start": "2024-05-10T08:00:00Z", "end": "2024-05-12T08:00:00Z"}
+      },
+      "request": {"method": "PUT", "url": "Encounter/smoke-40-e3"}
+    },
+    {
+      "fullUrl": "Patient/smoke-40-p3",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "smoke-40-p3",
+        "meta": {"tag": [{"system": "http://smoke.test", "code": "scenario-40"}]},
+        "gender": "female",
+        "birthDate": "1990-01-01"
+      },
+      "request": {"method": "PUT", "url": "Patient/smoke-40-p3"}
+    }
+  ]
+}

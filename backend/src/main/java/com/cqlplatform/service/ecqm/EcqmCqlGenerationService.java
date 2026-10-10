@@ -38,7 +38,9 @@ public class EcqmCqlGenerationService {
                     entity.getParametersList(),
                     entity.getSupplementalDataList(),
                     entity.getStratifiersList(),
-                    "R4"
+                    "R4",
+                    entity.getMeasurementPeriodStart(),
+                    entity.getMeasurementPeriodEnd()
             );
             log.info("Generated eCQM CQL for artifact {} (id={})", entity.getName(), artifactId);
             return result;

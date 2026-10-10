@@ -114,6 +114,45 @@ class CqlGenerationServiceLibraryIntegrationTest {
                 .contains("\"shared\".\"HasDiabetes\"");
     }
 
+    // PAT-237: a library function call survives save → load → generate: the include is declared
+    // once and the body carries the call with its arguments (a base element and a literal). In a
+    // CDS artifact there is no Measurement Period, so that argument mode is not exercised here.
+    @Test
+    void functionCallInInclusionTree_emitsIncludeAndCallWithArguments() {
+        Map<String, Object> baseElement = new LinkedHashMap<>();
+        baseElement.put("uniqueId", "be-hba1c");
+        baseElement.put("name", "HbA1c Results");
+        baseElement.put("type", "baseElement");
+        baseElement.put("returnType", "list_of_observations");
+        baseElement.put("childInstances", new ArrayList<>());
+
+        Map<String, Object> call = new LinkedHashMap<>();
+        call.put("uniqueId", "fn-1");
+        call.put("type", "externalCqlFunctionCall");
+        call.put("name", "Below Threshold");
+        call.put("returnType", "boolean");
+        call.put("fields", List.of(
+                Map.of("id", "element_name", "type", "string", "value", "Below Threshold"),
+                Map.of("id", "library_name", "type", "string", "value", "SharedLogic", "static", true),
+                Map.of("id", "library_version", "type", "string", "value", "1.2.0", "static", true),
+                Map.of("id", "function_name", "type", "string", "value", "MostRecentBelow", "static", true),
+                Map.of("id", "arguments", "type", "functionArguments", "value", List.of(
+                        Map.of("name", "observations", "mode", "element", "operand_id", "be-hba1c"),
+                        Map.of("name", "threshold", "mode", "literal", "literal_type", "Decimal", "literal_value", "7.0")))));
+        call.put("modifiers", new ArrayList<>());
+
+        CdsArtifactEntity entity = newArtifact("TestFunctionCall");
+        entity.setBaseElementsList(List.of(baseElement));
+        entity.setExpTreeIncludeMap(treeWithChild(call));
+        entity = artifactRepository.saveAndFlush(entity);
+
+        String cql = cqlGenerationService.generateCql(entity.getId());
+
+        assertThat(cql).contains("include SharedLogic version '1.2.0' called SharedLogic");
+        assertThat(cql).contains("\"SharedLogic\".\"MostRecentBelow\"(\"HbA1c Results\", 7.0)");
+        assertThat(cql.indexOf("include SharedLogic")).isEqualTo(cql.lastIndexOf("include SharedLogic"));
+    }
+
     @Test
     void multipleLibraryReferences_emitOnlyUniqueIncludeStatements() {
         // Two baseElements referencing the SAME library should produce ONE include.

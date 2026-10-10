@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Box, Grid, Typography, Tabs, Tab } from '@mui/material'
 import { APP_BAR_HEIGHT } from '../constants/layout'
@@ -13,6 +14,28 @@ export default function MeasuresPage() {
   const { t } = useTranslation('measures')
   const [topTab, setTopTab] = useState(0)
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureDefinition | null>(null)
+  // PAT-238: /measures?measure=<id> opens that measure (the eCQM builder links here)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedMeasureId = Number(searchParams.get('measure')) || undefined
+  useEffect(() => {
+    if (!linkedMeasureId) return
+    let cancelled = false
+    measureApi.getMeasure(linkedMeasureId)
+      .then((full) => {
+        if (cancelled) return
+        setSelectedMeasure(full)
+        setTopTab(1)
+      })
+      .catch(() => { /* not found / no access: stay on the library */ })
+      .finally(() => {
+        if (cancelled) return
+        const next = new URLSearchParams(searchParams)
+        next.delete('measure')
+        setSearchParams(next, { replace: true })
+      })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once per linked id
+  }, [linkedMeasureId])
 
   const handleSelectMeasure = async (measure: MeasureDefinition) => {
     // Load full measure data if we only have summary

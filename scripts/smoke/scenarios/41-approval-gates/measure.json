@@ -1,0 +1,9 @@
+{
+  "name": "SmokeApprovalGates",
+  "version": "1.0.0",
+  "title": "Smoke — PAT-249 approval gates + four-eyes",
+  "description": "Raw draft MeasureDefinition (POST /api/measures). One test case with a wrong expectation must block submit-for-review (409 Measure Not Ready); once fixed, submit succeeds, the owner's own approve is refused (403 Approval Not Allowed) and the shared reviewer's approve lands the measure active.",
+  "status": "draft",
+  "scoringType": "cohort",
+  "cqlContent": "library SmokeApprovalGates version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n"
+}

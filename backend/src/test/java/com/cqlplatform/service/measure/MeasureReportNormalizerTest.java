@@ -36,6 +36,8 @@ class MeasureReportNormalizerTest {
     private MeasureReportPopulationRepository popRepo;
     private MeasureReportStratifierRepository stratRepo;
     private MeasureReportStratifierPopulationRepository stratPopRepo;
+    private com.cqlplatform.repository.MeasureReportSupplementalDataRepository sdeRepo;
+    private final List<com.cqlplatform.entity.MeasureReportSupplementalDataEntity> savedSde = new ArrayList<>();
 
     private MeasureReportNormalizer normalizer;
 
@@ -77,7 +79,13 @@ class MeasureReportNormalizerTest {
             return sp;
         });
 
-        normalizer = new MeasureReportNormalizer(groupRepo, popRepo, stratRepo, stratPopRepo);
+        sdeRepo = mock(com.cqlplatform.repository.MeasureReportSupplementalDataRepository.class);
+        when(sdeRepo.save(any(com.cqlplatform.entity.MeasureReportSupplementalDataEntity.class))).thenAnswer(inv -> {
+            com.cqlplatform.entity.MeasureReportSupplementalDataEntity s = inv.getArgument(0);
+            savedSde.add(s);
+            return s;
+        });
+        normalizer = new MeasureReportNormalizer(groupRepo, popRepo, stratRepo, stratPopRepo, sdeRepo);
     }
 
     @Test
@@ -271,5 +279,57 @@ class MeasureReportNormalizerTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() ->
                 normalizer.persist(null, MeasureEvaluationResult.builder().build())
         ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    // PAT-234 — distributions are written as (element, value) rows plus one null-value row each.
+    @Test
+    @DisplayName("supplemental data results persist one row per value and a null-value row per element")
+    void supplementalData_persistedAsRows() {
+        MeasureEvaluationResult result = MeasureEvaluationResult.builder()
+                .groups(List.of(MeasureEvaluationResult.GroupResult.builder().groupId("g").populations(List.of()).build()))
+                .supplementalDataResults(List.of(
+                        MeasureEvaluationResult.SupplementalDataResult.builder()
+                                .definition("SDE Sex").usage("supplemental-data").patientsWithoutValue(1)
+                                .values(List.of(
+                                        MeasureEvaluationResult.ValueCount.builder().value("female").count(4).build(),
+                                        MeasureEvaluationResult.ValueCount.builder().value("male").count(3).build()))
+                                .build(),
+                        MeasureEvaluationResult.SupplementalDataResult.builder()
+                                .definition("RAF Diabetes").usage("risk-adjustment-factor").description("Type 2 diabetes")
+                                .patientsWithoutValue(0).values(List.of()).build()))
+                .build();
+
+        normalizer.persist(7L, result);
+
+        verify(sdeRepo).deleteAllByMeasureReportId(7L);
+        assertThat(savedSde).extracting(s -> s.getDefinition() + "|" + s.getUsage() + "|" + s.getValue() + "|" + s.getCount() + "|" + s.getOrdinal())
+                .containsExactly("SDE Sex|supplemental-data|female|4|0", "SDE Sex|supplemental-data|male|3|1",
+                        "SDE Sex|supplemental-data|null|1|2", "RAF Diabetes|risk-adjustment-factor|null|0|3");
+        assertThat(savedSde.get(3).getDescription()).isEqualTo("Type 2 diabetes");
+        assertThat(savedSde).allMatch(s -> s.getMeasureReportId().equals(7L));
+    }
+
+    // PAT-235 — a multi-component stratum persists its components as JSON next to the combined value.
+    @Test
+    @DisplayName("stratum components persist as JSON; single-expression strata leave the column null")
+    void stratumComponents_persistedAsJson() {
+        MeasureEvaluationResult result = MeasureEvaluationResult.builder()
+                .groups(List.of(MeasureEvaluationResult.GroupResult.builder().groupId("g").populations(List.of())
+                        .stratifiers(List.of(
+                                MeasureEvaluationResult.StratifierResult.builder().strataId("sex-age").strataValue("female | 65+")
+                                        .components(List.of(
+                                                MeasureEvaluationResult.StratumComponent.builder().code("sex").value("female").build(),
+                                                MeasureEvaluationResult.StratumComponent.builder().code("age").value("65+").build()))
+                                        .populations(List.of()).build(),
+                                MeasureEvaluationResult.StratifierResult.builder().strataId("gender").strataValue("true")
+                                        .populations(List.of()).build()))
+                        .build()))
+                .build();
+
+        normalizer.persist(8L, result);
+
+        assertThat(savedStrats).extracting(s -> s.getStrataValue() + "|" + s.getComponentValuesJson())
+                .containsExactly("female | 65+|[{\"code\":\"sex\",\"value\":\"female\"},{\"code\":\"age\",\"value\":\"65+\"}]",
+                        "true|null");
     }
 }

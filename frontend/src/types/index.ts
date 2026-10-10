@@ -138,6 +138,17 @@ export interface ExpressionInfo {
   context?: string
   accessLevel?: string
   resultType?: string
+  /** PAT-237: `expression` (plain define) or `function`; older stored metadata has none (= expression). */
+  kind?: 'expression' | 'function'
+  /** PAT-237: declared operands of a function, in order. */
+  operands?: FunctionOperand[]
+}
+
+/** PAT-237: one declared operand of a library `define function`. */
+export interface FunctionOperand {
+  name: string
+  /** Declared type in CQL terms, e.g. `Integer`, `List<FHIR.Observation>`, `Interval<DateTime>`. */
+  type: string
 }
 
 export interface CqlExecutionRequest {
@@ -197,6 +208,10 @@ export interface CqlLibrary {
   ownerUsername?: string
   sharedWith?: string[]
   accessLevel?: string
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
   createdAt: string
   updatedAt: string
 }
@@ -473,7 +488,11 @@ export interface MeasureEvaluationResult {
   reportType: string
   groups: MeasureGroupResult[]
   supplementalData?: Record<string, unknown>
+  /** PAT-234: declared supplemental data / risk adjustment factors as value distributions. */
+  supplementalDataResults?: SupplementalDataResult[]
   errorMessage?: string
+  /** PAT-243: notes for the author, e.g. an episode-based group that was counted per patient. */
+  warnings?: string[]
 }
 
 export interface ObservationStatistics {
@@ -490,6 +509,8 @@ export interface ObservationStatistics {
 export interface MeasureGroupResult {
   groupId: string
   description?: string
+  /** PAT-243: "boolean" (counts are patients) or a resource type such as "Encounter" (counts are episodes). */
+  populationBasis?: string
   populations: PopulationResult[]
   measureScore?: number
   measureScoreUnit?: string
@@ -507,13 +528,66 @@ export interface PopulationResult {
 
 export interface StratifierResult {
   strataId: string
+  /** For a multi-component stratum, the components' values joined with ` | `. */
   strataValue: string
+  /** PAT-235: per-component values of a multi-component stratum. */
+  components?: { code: string; value: string }[]
   populations: PopulationResult[]
   measureScore?: number
 }
 
+/** PAT-234 — one supplemental data element / risk adjustment factor over all evaluated patients. */
+export interface SupplementalDataResult {
+  definition: string
+  usage: 'supplemental-data' | 'risk-adjustment-factor'
+  description?: string
+  patientsWithoutValue: number
+  values: SupplementalDataValueCount[]
+}
+
+export interface SupplementalDataValueCount {
+  value: string
+  count: number
+}
+
+/** PAT-236 — one Measure.definition entry: a term and what it means in this measure. */
+export interface DefinitionTerm {
+  term?: string
+  definition?: string
+}
+
+/** PAT-236 — Measure.type codes (http://terminology.hl7.org/CodeSystem/measure-type). */
+export type MeasureTypeCode = 'process' | 'outcome' | 'structure' | 'patient-reported-outcome' | 'composite'
+
+/**
+ * PAT-236 — the standard FHIR Measure metadata the platform did not model before; shared by
+ * the MeasureDefinition and the eCQM artifact (which publishes them onto the measure).
+ */
+export interface MeasureStandardMetadata {
+  measureTypes?: MeasureTypeCode[]
+  definitionTerms?: DefinitionTerm[]
+  clinicalRecommendationStatement?: string
+  /** ISO dates (yyyy-MM-dd); `null` is an explicit "cleared" (the artifact API turns it into `''`). */
+  effectiveStart?: string | null
+  effectiveEnd?: string | null
+  approvalDate?: string | null
+  lastReviewDate?: string | null
+  experimental?: boolean
+}
+
+/**
+ * PAT-242 — the measure's own Measurement Period (ISO dates): the default of the CQL
+ * "Measurement Period" parameter, used by test case runs and by evaluations that do not pass
+ * a period. Shared by the MeasureDefinition and the eCQM artifact (publish copies it over).
+ * `null` is an explicit "cleared" (the artifact API turns it into `''`).
+ */
+export interface MeasurementPeriodFields {
+  measurementPeriodStart?: string | null
+  measurementPeriodEnd?: string | null
+}
+
 // Measure Definition types
-export interface MeasureDefinition {
+export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementPeriodFields {
   id?: number
   name: string
   version: string
@@ -553,6 +627,10 @@ export interface MeasureDefinition {
   accessLevel?: string
   lockedBy?: string
   lockedAt?: string
+  /** PAT-253: when the active lock lapses. */
+  lockExpiresAt?: string
+  /** PAT-253: the version lineage (measure set) this measure belongs to; read-only. */
+  measureSetId?: number
   reviewedBy?: string
   approvedBy?: string
   reviewComment?: string
@@ -641,6 +719,17 @@ export interface StratifierDefinition {
   criteriaExpression: string
   description?: string
   associations?: string[]
+  /** PAT-233: `value` when the expression returns the stratum itself; absent / `criteria` for boolean. */
+  kind?: 'criteria' | 'value'
+  /** PAT-235: multi-component stratifier — one define per component; `criteriaExpression` is then unused. */
+  components?: StratifierComponentDefinition[]
+}
+
+export interface StratifierComponentDefinition {
+  code: string
+  criteriaExpression: string
+  description?: string
+  kind?: 'criteria' | 'value'
 }
 
 export interface MeasureReport {
@@ -713,6 +802,54 @@ export interface ValueSetSearchResult {
   url: string
   name: string
   title: string
+  /**
+   * PAT-230: 'platform' = this installation's own value set, 'remote' = terminology server / VSAC
+   * (both set by the backend); 'local' = bundled implementation guide (set by the browse tab).
+   */
+  source?: 'platform' | 'remote' | 'local'
+  /** Platform value sets only: the version an unversioned reference resolves to, and its status. */
+  version?: string
+  status?: string
+}
+
+/** PAT-230 — one code of a platform value set. */
+export interface ValueSetConcept {
+  system: string
+  /** Code system version, when pinned. */
+  version?: string
+  code: string
+  display?: string
+}
+
+export type PlatformValueSetStatus = 'draft' | 'active' | 'retired'
+
+/** PAT-230 — one version of a value set this installation owns. List responses omit `concepts`. */
+export interface PlatformValueSet {
+  id: number
+  url: string
+  version: string
+  name: string
+  title?: string
+  description?: string
+  status: PlatformValueSetStatus
+  publisher?: string
+  concepts?: ValueSetConcept[]
+  conceptCount: number
+  origin: 'authored' | 'imported'
+  ownerUsername: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+/** What the author may set; status, owner and origin are the server's. */
+export interface PlatformValueSetInput {
+  url?: string
+  version?: string
+  name: string
+  title?: string
+  description?: string
+  publisher?: string
+  concepts: ValueSetConcept[]
 }
 
 export interface ValueSetExpansion {
@@ -878,6 +1015,33 @@ export interface RetrieveTrace {
 }
 
 // Test Case types
+/** One finding of the exchange-package conformance report (PAT-229). */
+export interface ConformanceIssue {
+  severity: 'error' | 'warning' | 'info'
+  element: string
+  message: string
+}
+
+export interface ValueSetPackagingStatus {
+  url: string
+  name?: string
+  /** True when the package carries the full definition rather than just the URL. */
+  included: boolean
+  /** ig | vsac | none */
+  source: string
+}
+
+/** What an exported measure package conforms to (HL7 Quality Measure IG / CRMI), and what it lacks. */
+export interface MeasureExportConformance {
+  profiles: string[]
+  libraryProfiles: string[]
+  issues: ConformanceIssue[]
+  valueSets: ValueSetPackagingStatus[]
+  canonicalBaseConfigured: boolean
+  /** False when the report contains an error: the receiver could not run the package. */
+  exchangeReady: boolean
+}
+
 export interface TestCase {
   id?: number
   measureDefinitionId?: number
@@ -885,6 +1049,9 @@ export interface TestCase {
   description?: string
   patientBundleJson?: string
   expectedPopulations?: Record<string, boolean>
+  /** Structured expectations per population group (PAT-228). When present the run compares
+   *  against these and ignores the flat `expectedPopulations` map. */
+  expectedValues?: TestCaseExpectedValues | null
   status?: string
   lastRunResultJson?: string
   lastRunActualPopulations?: Record<string, boolean>
@@ -893,6 +1060,80 @@ export interface TestCase {
   updatedAt?: string
   series?: string
   sortOrder?: number
+  /** PAT-245: FHIR validation of the patient bundle — pending | valid | invalid | error; absent = never validated. */
+  validationStatus?: 'pending' | 'valid' | 'invalid' | 'error'
+  validation?: TestCaseValidation
+  /** PAT-253: active edit lock (holder, taken at, lapses at); all absent when unlocked. */
+  lockedBy?: string
+  lockedAt?: string
+  lockExpiresAt?: string
+}
+
+/** PAT-246 — outcome of copying test cases to another measure. */
+export interface TestCaseCopyResult {
+  sourceMeasureId: number
+  targetMeasureId: number
+  copied: TestCase[]
+  /** One line per copy whose expected values were dropped (did not fit the target's groups). */
+  warnings: string[]
+}
+
+/** PAT-245 — the FHIR validation outcome of a test case's patient bundle (error issues are capped). */
+export interface TestCaseValidation {
+  status: string
+  validatedAt?: string
+  totalResources?: number
+  invalidResources?: number
+  errorCount?: number
+  warningCount?: number
+  message?: string
+  issues?: TestCaseValidationIssue[]
+}
+
+export interface TestCaseValidationIssue {
+  resourceType?: string
+  resourceId?: string
+  severity?: string
+  location?: string
+  message: string
+}
+
+/** PAT-232 — one clause (ELM expression node with a source position) of a CQL library. */
+export interface ClauseCoverageClause {
+  localId: string
+  /** `startLine:startCol-endLine:endCol` (1-based, end inclusive) or `line:col`. */
+  locator: string
+  type: string
+  hits: number
+  value?: string
+}
+
+export interface ClauseCoverageStatement {
+  name: string
+  locator?: string
+  function: boolean
+  totalClauses: number
+  coveredClauses: number
+  clauses: ClauseCoverageClause[]
+}
+
+/** Which clauses of a CQL library were executed — over one test case or the union of all of them. */
+export interface ClauseCoverage {
+  /** The exact text the locators refer to. */
+  cql: string
+  libraryName?: string
+  totalClauses: number
+  coveredClauses: number
+  percent: number
+  statements: ClauseCoverageStatement[]
+}
+
+export interface MeasureClauseCoverage {
+  measureId: number
+  testCases: number
+  executed: number
+  passed: number
+  coverage?: ClauseCoverage
 }
 
 export interface TestCaseRunResult {
@@ -902,13 +1143,47 @@ export interface TestCaseRunResult {
   expectedPopulations?: Record<string, boolean>
   actualPopulations?: Record<string, boolean>
   comparisons?: PopulationComparison[]
+  /** Structured expectation this run compared against; absent for legacy test cases. */
+  expectedValues?: TestCaseExpectedValues
+  /** Structured actual values (production evaluation rules); present on every successful run. */
+  actualValues?: TestCaseExpectedValues
+  valueComparisons?: ValueComparison[]
   errorMessage?: string
   executionTimeMs?: number
+  /** PAT-242: the Measurement Period this run used (the measure's own, or the current calendar year). */
+  measurementPeriodStart?: string
+  measurementPeriodEnd?: string
   // Debug mode additions (only populated when run with debugMode=true)
   debugTrace?: DebugTrace
   populationTrace?: PopulationMembershipTrace
   coverage?: CoverageResult
+  /** PAT-232: debug-mode runs only. */
+  clauseCoverage?: ClauseCoverage
   phaseError?: PhaseError
+}
+
+/** Expected (or actual) values of one population group of a test case (PAT-228). */
+export interface TestCaseGroupValues {
+  groupId: string
+  /** Effective count per population type, after the scoring type's population hierarchy. */
+  populations?: Record<string, number>
+  /** Measure observation values (order-insensitive). Absent / null = not asserted. */
+  observations?: number[] | null
+  /** stratifierId → expected stratum value ('true' / 'false' for criteria stratifiers). */
+  stratifiers?: Record<string, string>
+}
+
+export interface TestCaseExpectedValues {
+  groups: TestCaseGroupValues[]
+}
+
+export interface ValueComparison {
+  groupId: string
+  kind: 'population' | 'observation' | 'stratifier'
+  key: string
+  expected?: string
+  actual?: string
+  match: boolean
 }
 
 export interface PopulationComparison {
@@ -930,6 +1205,8 @@ export interface PopulationMembershipTrace {
 
 export interface GroupTrace {
   groupId?: string
+  /** PAT-243: the group's population basis; episode-based groups show member counts. */
+  populationBasis?: string
   description?: string
   scoringType?: string
   populations: PopulationTraceEntry[]
@@ -943,6 +1220,8 @@ export interface PopulationTraceEntry {
   effectiveResult?: boolean | null
   reasonCode: string
   reasonInputs?: Record<string, boolean>
+  /** PAT-243: episode-based groups only — how many of the patient's episodes this population counts. */
+  memberCount?: number
 }
 
 export interface BatchTestCaseImportResult {
@@ -951,6 +1230,55 @@ export interface BatchTestCaseImportResult {
   failureCount: number
   imported: TestCase[]
   errors: string[]
+  /** PAT-247: imported, but with something dropped or worth knowing — one line per test case. */
+  warnings?: string[]
+}
+
+/** PAT-249: one finding of the approval readiness check; `items` names the test cases concerned (capped). */
+export interface ApprovalReadinessItem {
+  code: string
+  count: number
+  message: string
+  items: string[]
+}
+
+/** PAT-249: what stands between a measure and its approval; blockers stop submit / approve on the server. */
+export interface ApprovalReadiness {
+  measureId: number
+  status: string
+  ready: boolean
+  blockers: ApprovalReadinessItem[]
+  warnings: ApprovalReadinessItem[]
+  testCases?: {
+    total: number
+    passed: number
+    failed: number
+    errored: number
+    notRun: number
+    stale: number
+    valid: number
+    invalid: number
+    validationPending: number
+    validationError: number
+    neverValidated: number
+  }
+  cqlErrorCount: number
+  cqlWarningCount: number
+  fourEyes?: {
+    enabled: boolean
+    author?: string
+    submittedBy?: string
+    selfApprovalBlocked: boolean
+  }
+  checkedAt: string
+}
+
+/** PAT-248: outcome of shifting every test case of a measure by whole years. */
+export interface TestCaseDateShiftResult {
+  measureDefinitionId: number
+  years: number
+  shifted: number
+  testCaseIds: number[]
 }
 
 // Implementation Guide types
@@ -1024,6 +1352,11 @@ export interface BundleImportResult {
   librariesImported: number
   librariesSkipped: number
   valueSetsFound: number
+  /** PAT-230: stored as this tenant's own (draft) value sets. */
+  valueSetsImported?: number
+  /** Already here (kept as they are) or came without codes — `warnings` says which. */
+  valueSetsSkipped?: number
+  warnings?: string[]
 }
 
 // Dashboard types

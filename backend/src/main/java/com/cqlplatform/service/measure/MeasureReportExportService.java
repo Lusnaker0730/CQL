@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -28,6 +29,10 @@ public class MeasureReportExportService {
     private final QrdaExportService qrdaExportService;
     /** Phase 2 of ADR-001: prefer normalized tables over result_json for read. */
     private final NormalizedMeasureReportReader reportReader;
+    private final FhirCanonicalResolver canonical;
+
+    /** PAT-234: where the supplemental data / risk adjustment distributions live on the FHIR MeasureReport. */
+    static final String SUPPLEMENTAL_DATA_EXTENSION = "StructureDefinition/measurereport-supplemental-data";
     private static final ObjectMapper MAPPER = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
@@ -39,6 +44,41 @@ public class MeasureReportExportService {
     private MeasureEvaluationResult loadResult(MeasureReportEntity report) {
         return reportReader.reconstruct(report.getId())
                 .orElseGet(report::getEvaluationResult);
+    }
+
+    /**
+     * PAT-234 — the supplemental data / risk adjustment distributions as a complex extension
+     * on the MeasureReport: one extension per element with {@code definition}, {@code usage},
+     * {@code description?}, one {@code value} extension per distinct value ({@code value},
+     * {@code count}) and {@code patientsWithoutValue}. This is a platform extension (url under
+     * the installation's canonical base): FHIR R4 summary MeasureReports have no standard
+     * element for SDE distributions — the standard carries SDE per patient, on individual reports.
+     */
+    private void addSupplementalDataExtension(ObjectNode fhirReport, MeasureEvaluationResult result) {
+        if (result == null || result.getSupplementalDataResults() == null || result.getSupplementalDataResults().isEmpty()) return;
+        String url = canonical.getBase() + "/" + SUPPLEMENTAL_DATA_EXTENSION;
+        ArrayNode extensions = fhirReport.withArray("extension");
+        for (SupplementalDataResult element : result.getSupplementalDataResults()) {
+            ObjectNode ext = extensions.addObject();
+            ext.put("url", url);
+            ArrayNode parts = ext.putArray("extension");
+            parts.addObject().put("url", "definition").put("valueString", element.getDefinition());
+            parts.addObject().put("url", "usage").put("valueCode", element.getUsage());
+            if (element.getDescription() != null && !element.getDescription().isBlank()) {
+                parts.addObject().put("url", "description").put("valueString", element.getDescription());
+            }
+            if (element.getValues() != null) {
+                for (ValueCount vc : element.getValues()) {
+                    ObjectNode valueExt = parts.addObject();
+                    valueExt.put("url", "value");
+                    ArrayNode valueParts = valueExt.putArray("extension");
+                    valueParts.addObject().put("url", "value").put("valueString", vc.getValue());
+                    valueParts.addObject().put("url", "count").put("valueInteger", vc.getCount() != null ? vc.getCount() : 0);
+                }
+            }
+            parts.addObject().put("url", "patientsWithoutValue")
+                    .put("valueInteger", element.getPatientsWithoutValue() != null ? element.getPatientsWithoutValue() : 0);
+        }
     }
 
     public ResponseEntity<byte[]> exportReport(Long reportId, String format) {
@@ -91,14 +131,32 @@ public class MeasureReportExportService {
                 }
 
                 if (group.getStratifiers() != null) {
+                    // The platform keeps one row per (stratifier, stratum); FHIR wants one
+                    // stratifier holding all its strata, identified by its code (PAT-233 — it
+                    // used to emit one code-less stratifier per stratum).
                     ArrayNode stratArray = groupNode.putArray("stratifier");
+                    Map<String, ArrayNode> strataByStratifier = new java.util.LinkedHashMap<>();
                     for (StratifierResult strat : group.getStratifiers()) {
-                        ObjectNode stratNode = stratArray.addObject();
-                        ArrayNode strataArray = stratNode.putArray("stratum");
+                        String stratifierId = strat.getStrataId() != null ? strat.getStrataId() : "stratifier";
+                        ArrayNode strataArray = strataByStratifier.computeIfAbsent(stratifierId, id -> {
+                            ObjectNode stratNode = stratArray.addObject();
+                            stratNode.putObject("code").put("text", id);
+                            return stratNode.putArray("stratum");
+                        });
                         ObjectNode stratumNode = strataArray.addObject();
 
                         ObjectNode valueNode = stratumNode.putObject("value");
                         valueNode.put("text", strat.getStrataValue());
+                        // PAT-235: a multi-component stratum also carries each component's value
+                        // (MeasureReport.stratum.component); value.text keeps the combination.
+                        if (strat.getComponents() != null && !strat.getComponents().isEmpty()) {
+                            ArrayNode componentArray = stratumNode.putArray("component");
+                            for (StratumComponent component : strat.getComponents()) {
+                                ObjectNode componentNode = componentArray.addObject();
+                                componentNode.putObject("code").put("text", component.getCode());
+                                componentNode.putObject("value").put("text", component.getValue());
+                            }
+                        }
 
                         if (strat.getPopulations() != null) {
                             ArrayNode stratPopArray = stratumNode.putArray("population");
@@ -107,6 +165,7 @@ public class MeasureReportExportService {
                                 ObjectNode code = popNode.putObject("code");
                                 ArrayNode coding = code.putArray("coding");
                                 ObjectNode codeEntry = coding.addObject();
+                                codeEntry.put("system", com.cqlplatform.model.fhir.FhirCodeSystemConstants.CS_MEASURE_POPULATION);
                                 codeEntry.put("code", pop.getPopulationType());
                                 popNode.put("count", pop.getCount() != null ? pop.getCount() : 0);
                             }
@@ -120,6 +179,7 @@ public class MeasureReportExportService {
                 }
             }
         }
+        addSupplementalDataExtension(fhirReport, result);
 
         try {
             byte[] json = MAPPER.writerWithDefaultPrettyPrinter().writeValueAsBytes(fhirReport);
@@ -185,6 +245,24 @@ public class MeasureReportExportService {
                 }
                 csv.append("\n");
             }
+        }
+        if (result != null && result.getSupplementalDataResults() != null && !result.getSupplementalDataResults().isEmpty()) {
+            csv.append("Supplemental Data and Risk Adjustment Factors\n");
+            csv.append("Definition,Usage,Value,Patients\n");
+            for (SupplementalDataResult element : result.getSupplementalDataResults()) {
+                if (element.getValues() != null) {
+                    for (ValueCount vc : element.getValues()) {
+                        csv.append(CsvUtils.escapeCsv(element.getDefinition())).append(",")
+                                .append(CsvUtils.escapeCsv(element.getUsage())).append(",")
+                                .append(CsvUtils.escapeCsv(vc.getValue())).append(",")
+                                .append(vc.getCount() != null ? vc.getCount() : 0).append("\n");
+                    }
+                }
+                csv.append(CsvUtils.escapeCsv(element.getDefinition())).append(",")
+                        .append(CsvUtils.escapeCsv(element.getUsage())).append(",(no value),")
+                        .append(element.getPatientsWithoutValue() != null ? element.getPatientsWithoutValue() : 0).append("\n");
+            }
+            csv.append("\n");
         }
 
         byte[] csvBytes = csv.toString().getBytes();
@@ -282,6 +360,34 @@ public class MeasureReportExportService {
                 }
             }
             for (int i = 0; i < 5; i++) stratSheet.autoSizeColumn(i);
+
+            // Sheet 4: Supplemental data / risk adjustment factors (PAT-234)
+            Sheet sdeSheet = workbook.createSheet("Supplemental Data");
+            row = 0;
+            headerRow = sdeSheet.createRow(row++);
+            createCell(headerRow, 0, "Definition", headerStyle);
+            createCell(headerRow, 1, "Usage", headerStyle);
+            createCell(headerRow, 2, "Value", headerStyle);
+            createCell(headerRow, 3, "Patients", headerStyle);
+            if (result != null && result.getSupplementalDataResults() != null) {
+                for (SupplementalDataResult element : result.getSupplementalDataResults()) {
+                    if (element.getValues() != null) {
+                        for (ValueCount vc : element.getValues()) {
+                            Row dataRow = sdeSheet.createRow(row++);
+                            dataRow.createCell(0).setCellValue(element.getDefinition());
+                            dataRow.createCell(1).setCellValue(element.getUsage());
+                            dataRow.createCell(2).setCellValue(vc.getValue());
+                            dataRow.createCell(3).setCellValue(vc.getCount() != null ? vc.getCount() : 0);
+                        }
+                    }
+                    Row dataRow = sdeSheet.createRow(row++);
+                    dataRow.createCell(0).setCellValue(element.getDefinition());
+                    dataRow.createCell(1).setCellValue(element.getUsage());
+                    dataRow.createCell(2).setCellValue("(no value)");
+                    dataRow.createCell(3).setCellValue(element.getPatientsWithoutValue() != null ? element.getPatientsWithoutValue() : 0);
+                }
+            }
+            for (int i = 0; i < 4; i++) sdeSheet.autoSizeColumn(i);
 
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             workbook.write(baos);

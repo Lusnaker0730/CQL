@@ -10,6 +10,7 @@ import type {
   VersionComparison,
   RepositoryLibrary,
   DependencyAnalysisResult,
+  ExpressionInfo,
 } from '../types'
 import { getStoredUsername } from '../utils/validation'
 import { api } from './client'
@@ -46,6 +47,12 @@ export const cqlApi = {
     return response.data
   },
 
+  /** PAT-237: a stored library's defines and functions (with operand signatures), from its ELM. */
+  getLibraryExpressions: async (id: string): Promise<ExpressionInfo[]> => {
+    const response = await api.get<ExpressionInfo[]>(`/cql/libraries/${id}/expressions`)
+    return response.data
+  },
+
   createLibrary: async (cql: string, description?: string): Promise<CqlLibrary> => {
     const response = await api.post<CqlLibrary>('/cql/libraries', { cql, description })
     return response.data
@@ -58,6 +65,17 @@ export const cqlApi = {
 
   deleteLibrary: async (id: string): Promise<void> => {
     await api.delete(`/cql/libraries/${id}`)
+  },
+
+  /** PAT-253: take (or refresh) the caller's edit lock on a library; 409 Locked while someone else holds one. */
+  lockLibrary: async (id: string): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/lock`)
+    return response.data
+  },
+
+  unlockLibrary: async (id: string): Promise<CqlLibrary> => {
+    const response = await api.post<CqlLibrary>(`/cql/libraries/${id}/unlock`)
+    return response.data
   },
 
   getLatestLibrary: async (name: string): Promise<CqlLibrary> => {

@@ -249,6 +249,78 @@ public class CqlTranslationService {
         return null;
     }
 
+    /**
+     * PAT-237 — a statement as the UI sees it. A {@code define function} is reported with
+     * {@code kind = function} and its operand signature so the builder can offer it as a call
+     * with arguments; before, functions were listed like plain defines and a reference to one
+     * produced {@code "Lib"."Fn"} without parentheses, which only failed at publish.
+     */
+    static ExpressionInfo expressionInfo(ExpressionDef stmt) {
+        ExpressionInfo.ExpressionInfoBuilder info = ExpressionInfo.builder()
+                .name(stmt.getName())
+                .context(stmt.getContext())
+                .accessLevel(stmt.getAccessLevel() != null ? stmt.getAccessLevel().value() : "Public")
+                .resultType(resultTypeName(stmt));
+        if (stmt instanceof FunctionDef fn) {
+            List<CqlTranslationResponse.OperandInfo> operands = new ArrayList<>();
+            if (fn.getOperand() != null) {
+                for (OperandDef operand : fn.getOperand()) {
+                    operands.add(new CqlTranslationResponse.OperandInfo(operand.getName(), operandTypeName(operand)));
+                }
+            }
+            info.kind(ExpressionInfo.KIND_FUNCTION).operands(operands);
+        } else {
+            info.kind(ExpressionInfo.KIND_EXPRESSION);
+        }
+        return info.build();
+    }
+
+    /** The result type: the QName set by EnableResultTypes, else the declared specifier (functions). */
+    private static String resultTypeName(ExpressionDef stmt) {
+        if (stmt.getResultTypeName() != null) return stmt.getResultTypeName().getLocalPart();
+        if (stmt.getResultTypeSpecifier() != null) return typeName(stmt.getResultTypeSpecifier());
+        return null;
+    }
+
+    private static String operandTypeName(OperandDef operand) {
+        if (operand.getOperandTypeSpecifier() != null) return typeName(operand.getOperandTypeSpecifier());
+        if (operand.getOperandType() != null) return qualifiedTypeName(operand.getOperandType());
+        if (operand.getResultTypeName() != null) return qualifiedTypeName(operand.getResultTypeName());
+        return null;
+    }
+
+    /** A type specifier rendered the way an author would write it: {@code List<FHIR.Observation>}, {@code Interval<DateTime>}. */
+    static String typeName(TypeSpecifier specifier) {
+        if (specifier instanceof NamedTypeSpecifier named) {
+            return qualifiedTypeName(named.getName());
+        }
+        if (specifier instanceof ListTypeSpecifier list) {
+            return "List<" + typeName(list.getElementType()) + ">";
+        }
+        if (specifier instanceof IntervalTypeSpecifier interval) {
+            return "Interval<" + typeName(interval.getPointType()) + ">";
+        }
+        if (specifier instanceof ChoiceTypeSpecifier choice) {
+            return "Choice<" + choice.getChoice().stream().map(CqlTranslationService::typeName).collect(Collectors.joining(", ")) + ">";
+        }
+        if (specifier instanceof TupleTypeSpecifier tuple) {
+            return "Tuple{" + tuple.getElement().stream()
+                    .map(e -> e.getName() + " " + typeName(e.getElementType()))
+                    .collect(Collectors.joining(", ")) + "}";
+        }
+        return specifier != null ? specifier.getClass().getSimpleName() : null;
+    }
+
+    /** {@code System.Integer} → {@code Integer}; any other model keeps its prefix ({@code FHIR.Observation}). */
+    private static String qualifiedTypeName(javax.xml.namespace.QName name) {
+        if (name == null) return null;
+        String local = name.getLocalPart();
+        String ns = name.getNamespaceURI();
+        if (ns == null || ns.isEmpty() || "urn:hl7-org:elm-types:r1".equals(ns)) return local;
+        String model = ns.startsWith("http://hl7.org/fhir") ? "FHIR" : ns.substring(ns.lastIndexOf(':') + 1);
+        return model + "." + local;
+    }
+
     private TranslationMetadata extractMetadata(Library library) {
         List<String> usings = new ArrayList<>();
         if (library.getUsings() != null && library.getUsings().getDef() != null) {
@@ -295,12 +367,7 @@ public class CqlTranslationService {
         List<ExpressionInfo> expressions = new ArrayList<>();
         if (library.getStatements() != null && library.getStatements().getDef() != null) {
             expressions = library.getStatements().getDef().stream()
-                    .map(stmt -> ExpressionInfo.builder()
-                            .name(stmt.getName())
-                            .context(stmt.getContext())
-                            .accessLevel(stmt.getAccessLevel() != null ? stmt.getAccessLevel().value() : "Public")
-                            .resultType(stmt.getResultTypeName() != null ? stmt.getResultTypeName().getLocalPart() : null)
-                            .build())
+                    .map(CqlTranslationService::expressionInfo)
                     .collect(Collectors.toList());
         }
 

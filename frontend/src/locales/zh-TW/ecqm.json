@@ -46,7 +46,8 @@
     "save": "儲存",
     "publishing": "發佈中...",
     "publish": "發佈",
-    "basedSuffix": "以 {{basis}} 為基準"
+    "basedSuffix": "以 {{basis}} 為基準",
+    "openPublishedMeasure": "已發布——開啟指標"
   },
   "summary": {
     "title": "品質指標摘要",
@@ -72,7 +73,9 @@
     "rationale": "理由",
     "clinicalGuidance": "臨床指引",
     "copyright": "版權",
-    "disclaimer": "免責聲明"
+    "disclaimer": "免責聲明",
+    "standardMetadata": "標準 Metadata（FHIR Measure）",
+    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、日期與實驗性旗標。發布時帶到指標，並匯出到 FHIR Measure。"
   },
   "populationGroups": {
     "title": "族群群組",
@@ -86,7 +89,8 @@
     "addObservation": "新增觀測",
     "rateMultiplier": "比率乘數",
     "scoringUnit": "計分單位",
-    "scoringUnitPlaceholder": "例如：每 1,000 人年"
+    "scoringUnitPlaceholder": "例如：每 1,000 人年",
+    "episodeBasedHint": "以 {{basis}} 為基準的群組：每個母群是它保留的 {{basis}} episode 清單。每個母群請把 {{basis}} 元素放在第一個，其餘元素成為它的條件；評估以 episode 計數，不以病人計數。沒有 {{basis}} 元素的母群是布林值，代表保留上層母群的全部或零個 episode。"
   },
   "observation": {
     "title": "品質指標觀測",
@@ -124,7 +128,18 @@
     "removeCustom": "移除 SDE「{{name}}」",
     "sdeName": "SDE 名稱",
     "sdeCriteria": "SDE 條件",
-    "defaultName": "自訂 SDE {{number}}"
+    "defaultName": "自訂 SDE {{number}}",
+    "usage": {
+      "label": "{{name}} 的用途",
+      "supplementalData": "補充資料",
+      "riskAdjustment": "風險校正因子",
+      "supplementalDataHint": "報表以「值 → 病人數」的分布呈現。",
+      "riskAdjustmentHint": "風險模型用來校正達成率的變數；匯出時 usage 為 risk-adjustment-factor，報表以分布呈現。",
+      "rafNameHint": "風險校正因子的 define 名稱應以「RAF 」開頭（QM IG）；發佈時會提出警告。"
+    },
+    "kind": {
+      "label": "{{name}} 的類型"
+    }
   },
   "stratifiers": {
     "title": "分層器",
@@ -134,7 +149,55 @@
     "label": "分層器 {{number}}",
     "description": "描述",
     "criteria": "分層條件",
-    "disabledByDualIp": "當此 Ratio 量測為分母與分子各自使用獨立的 Initial Population 時，不允許使用分層器。請先在「母群體群組」分頁關閉雙 IP，才能新增或編輯分層器。"
+    "disabledByDualIp": "當此 Ratio 量測為分母與分子各自使用獨立的 Initial Population 時，不允許使用分層器。請先在「母群體群組」分頁關閉雙 IP，才能新增或編輯分層器。",
+    "kind": {
+      "label": "分層 {{number}} 類型",
+      "criteria": "條件式",
+      "value": "值",
+      "criteriaHint": "布林條件：病人落入 true 或 false 兩層。",
+      "valueHint": "運算式的結果就是分層：每個不同的值各成一層（Bonnie / MADiE 的做法）。",
+      "components": "多元件",
+      "componentsHint": "多個運算式；病人的分層是各元件值的組合（例如 female | 65+）。任一元件沒有值的病人不屬於任何分層。"
+    },
+    "value": {
+      "source": "分層依據",
+      "sources": {
+        "gender": "性別",
+        "ageBands": "年齡帶"
+      },
+      "sourceHints": {
+        "gender": "依 Patient.gender 的值各成一層（female / male / other / unknown）。",
+        "ageBands": "以測量期間結束時的足歲年齡分帶；上下界皆含。不落在任何一帶的病人不屬於任何分層。"
+      },
+      "bandLabel": "標籤",
+      "min": "起（歲）",
+      "max": "迄（歲）",
+      "bandAria": "年齡帶 {{number}} {{field}}",
+      "addBand": "新增年齡帶",
+      "removeBand": "移除年齡帶 {{number}}"
+    },
+    "bandErrors": {
+      "empty": "至少要有一個年齡帶。",
+      "tooMany": "年齡帶最多 20 個。",
+      "label": "標籤限 1–40 個英數字、空格或 _ + - . / : ( )（它會成為 CQL 字串）。",
+      "bounds": "上下界必須是 0 到 150 之間的整數歲。",
+      "noBound": "每個年齡帶至少要有起或迄其中一個。",
+      "order": "起不能大於迄。",
+      "duplicate": "標籤不能重複——相同標籤會把兩帶合併成同一層。"
+    },
+    "component": {
+      "code": "元件代碼",
+      "codeAria": "元件 {{number}} 代碼",
+      "kindAria": "元件 {{number}} 類型",
+      "add": "新增元件",
+      "remove": "移除元件 {{number}}"
+    },
+    "componentErrors": {
+      "tooFew": "多元件分層至少要兩個元件。",
+      "tooMany": "元件最多 10 個。",
+      "code": "元件代碼限 1–50 個英數字、空格、_ . -（它會成為 CQL define 名稱的一部分）。",
+      "duplicate": "元件代碼不能重複。"
+    }
   },
   "cqlPreview": {
     "generate": "產生 CQL",
@@ -177,5 +240,15 @@
     "numerator-exclusion": "分子排除 (Numerator Exclusion)",
     "measure-population": "測量族群 (Measure Population)",
     "measure-population-exclusion": "測量族群排除 (Measure Population Exclusion)"
+  },
+  "publishConflict": {
+    "title": "覆寫在指標頁做的修改？",
+    "message": "這個指標在上次從 builder 發布之後，邏輯或母群對應在指標頁被改過。現在發布會用 builder 的版本取代那些修改。要保留的話，請取消，先在 builder 做同樣的改動。",
+    "overwrite": "發布並覆寫"
+  },
+  "publishOutcome": {
+    "draft": "已發布為 draft（指標 #{{id}}）。送審並核准後才能正式評估。",
+    "newVersion": "已核准的指標沒有變動；你的修改發布成新的 draft 版本 {{version}}，審核核准後會取代目前的版本。",
+    "updated": "已發布到指標 #{{id}}。"
   }
 }

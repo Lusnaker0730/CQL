@@ -1,0 +1,41 @@
+{
+  "type": "measure-package",
+  "periodStart": "2024-01-01",
+  "periodEnd": "2024-06-30",
+  "score": 66.67,
+  "scoreTolerance": 0.5,
+  "populations": {
+    "initial-population": 4,
+    "denominator": 3,
+    "numerator": 2
+  },
+  "uploadLibrary": "library.cql",
+  "importAsVersion": "1.0.0-roundtrip",
+  "expectLibrariesSkipped": 1,
+  "package": {
+    "measureProfiles": [
+      "http://hl7.org/fhir/uv/crmi/StructureDefinition/crmi-shareablemeasure",
+      "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/computable-measure-cqfm",
+      "http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/proportion-measure-cqfm"
+    ],
+    "libraries": [
+      "SmokeLibraryFunctionCall",
+      "SmokeFnUtil"
+    ],
+    "dependsOn": [
+      "/Library/SmokeFnUtil|1.0.0",
+      "/Library/FHIRHelpers|4.0.1"
+    ],
+    "populationBasis": "boolean",
+    "improvementNotation": "increase",
+    "cqlContains": [
+      "include SmokeFnUtil version '1.0.0' called SmokeFnUtil",
+      "parameter \"Senior Threshold\" Integer default 65",
+      "\"SmokeFnUtil\".\"AgeAtLeast\"(18)",
+      "\"SmokeFnUtil\".\"AgeBetweenAsOf\"(50, 120, @2024-06-30)",
+      "\"SmokeFnUtil\".\"AtLeastAtPeriodEnd\"(\"Measurement Period\", \"Senior Threshold\")",
+      "\"SmokeFnUtil\".\"Identity\"(\"Is Adult\")"
+    ]
+  },
+  "_note": "PAT-237 library function calls. The eCQM's populations are externalCqlFunctionCall elements calling functions of the uploaded SmokeFnUtil library with every argument source the builder offers: IP = AgeAtLeast(18) (literal Integer), denominator = AgeBetweenAsOf(50, 120, @2024-06-30) (literal Integers + Date), numerator = AtLeastAtPeriodEnd(\"Measurement Period\", \"Senior Threshold\") (Measurement Period + artifact parameter defaulting to 65) AND Identity(\"Is Adult\") (a base element). Same five patients as scenario 33 (ages 74/69/59/44/14 at 2024-06-30) → IP 4, denominator 3, numerator 2 → 66.67. package.cqlContains locks the exact call text in the packaged primary Library's CQL (decoded); the round trip re-imports the package and evaluates identically, so a function library travels with the measure as a depends-on Library."
+}
