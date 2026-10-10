@@ -88,6 +88,11 @@ public class EcqmArtifactService {
         if (request.getSteward() != null) entity.setSteward(request.getSteward());
         if (request.getDisclaimer() != null) entity.setDisclaimer(request.getDisclaimer());
         if (request.getSupplementalDataGuidance() != null) entity.setSupplementalDataGuidance(request.getSupplementalDataGuidance());
+        // PAT-256 metadata fill-ins (same partial-update convention)
+        if (request.getRiskAdjustmentDescription() != null) entity.setRiskAdjustmentDescription(request.getRiskAdjustmentDescription());
+        if (request.getEcqmTitle() != null) entity.setEcqmTitle(request.getEcqmTitle());
+        if (request.getEndorser() != null) entity.setEndorser(request.getEndorser());
+        if (request.getEndorsementId() != null) entity.setEndorsementId(request.getEndorsementId());
         // PAT-236 standard metadata (same partial-update convention as the fields above)
         if (request.getMeasureTypes() != null) entity.setMeasureTypeList(request.getMeasureTypes());
         if (request.getDefinitionTerms() != null) entity.setDefinitionTermList(request.getDefinitionTerms());
@@ -158,6 +163,10 @@ public class EcqmArtifactService {
                 .steward(original.getSteward())
                 .disclaimer(original.getDisclaimer())
                 .supplementalDataGuidance(original.getSupplementalDataGuidance())
+                .riskAdjustmentDescription(original.getRiskAdjustmentDescription())
+                .ecqmTitle(original.getEcqmTitle())
+                .endorser(original.getEndorser())
+                .endorsementId(original.getEndorsementId())
                 .measureTypeList(new ArrayList<>(original.getMeasureTypeList()))
                 .definitionTermList(new ArrayList<>(original.getDefinitionTermList()))
                 .clinicalRecommendationStatement(original.getClinicalRecommendationStatement())
@@ -211,6 +220,10 @@ public class EcqmArtifactService {
                 .steward(entity.getSteward())
                 .disclaimer(entity.getDisclaimer())
                 .supplementalDataGuidance(entity.getSupplementalDataGuidance())
+                .riskAdjustmentDescription(entity.getRiskAdjustmentDescription())
+                .ecqmTitle(entity.getEcqmTitle())
+                .endorser(entity.getEndorser())
+                .endorsementId(entity.getEndorsementId())
                 .measureTypes(entity.getMeasureTypeList())
                 .definitionTerms(entity.getDefinitionTermList())
                 .clinicalRecommendationStatement(entity.getClinicalRecommendationStatement())
@@ -282,6 +295,10 @@ public class EcqmArtifactService {
                 .steward(request.getSteward())
                 .disclaimer(request.getDisclaimer())
                 .supplementalDataGuidance(request.getSupplementalDataGuidance())
+                .riskAdjustmentDescription(request.getRiskAdjustmentDescription())
+                .ecqmTitle(request.getEcqmTitle())
+                .endorser(request.getEndorser())
+                .endorsementId(request.getEndorsementId())
                 .measureTypeList(request.getMeasureTypes() != null ? request.getMeasureTypes() : new ArrayList<>())
                 .definitionTermList(request.getDefinitionTerms() != null ? request.getDefinitionTerms() : new ArrayList<>())
                 .clinicalRecommendationStatement(request.getClinicalRecommendationStatement())

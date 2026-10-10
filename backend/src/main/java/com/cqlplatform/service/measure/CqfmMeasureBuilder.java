@@ -383,6 +383,23 @@ public class CqfmMeasureBuilder {
         if (notBlank(def.getClinicalRecommendationStatement())) {
             measure.put("clinicalRecommendationStatement", def.getClinicalRecommendationStatement());
         }
+        // PAT-256: Measure.endorser is a ContactDetail; the SDE guidance has no R4 element and travels in
+        // the QM IG complex extension (usage + guidance). Measure.riskAdjustment is written above.
+        if (notBlank(def.getEndorser())) {
+            measure.putArray("endorser").addObject().put("name", def.getEndorser());
+        }
+        if (notBlank(def.getSupplementalDataGuidance())) {
+            ObjectNode ext = measure.withArrayProperty("extension").addObject();
+            ext.put("url", CqfmConstants.EXT_SUPPLEMENTAL_DATA_GUIDANCE);
+            ArrayNode parts = ext.putArray("extension");
+            ObjectNode usage = parts.addObject();
+            usage.put("url", CqfmConstants.SDG_USAGE);
+            CqfmLibraryBuilder.codeable(usage.putObject("valueCodeableConcept"),
+                    CqfmConstants.CS_DATA_USAGE, CqfmConstants.USAGE_SUPPLEMENTAL_DATA, "Supplemental Data");
+            ObjectNode guidance = parts.addObject();
+            guidance.put("url", CqfmConstants.SDG_GUIDANCE);
+            guidance.put("valueMarkdown", def.getSupplementalDataGuidance());
+        }
     }
 
     /** {@code **term**: definition} — Measure.definition is markdown[]; the term is bold so a reader can find it. */
@@ -468,7 +485,26 @@ public class CqfmMeasureBuilder {
         if (notBlank(def.getCmsMeasureId())) {
             identifiers.add(identifier("https://madie.cms.gov/measure/id", def.getCmsMeasureId(), "CMS", "CMS Measure ID"));
         }
+        // PAT-256: the QM IG publishable-measure identifier slices — the abbreviated title is the
+        // short-name identifier (use usual), the endorsement the endorser identifier (use official,
+        // assigner = the endorsing organisation). Typed with THO artifact-identifier-type, no system.
+        if (notBlank(def.getEcqmTitle())) {
+            identifiers.add(typedIdentifier("usual", CqfmConstants.IDENTIFIER_SHORT_NAME, "Short Name", def.getEcqmTitle(), null));
+        }
+        if (notBlank(def.getEndorsementId())) {
+            identifiers.add(typedIdentifier("official", CqfmConstants.IDENTIFIER_ENDORSER, "Endorser", def.getEndorsementId(), def.getEndorser()));
+        }
         if (!identifiers.isEmpty()) measure.set("identifier", identifiers);
+    }
+
+    /** PAT-256: an identifier typed with THO artifact-identifier-type; {@code assigner} names the issuing organisation. */
+    private ObjectNode typedIdentifier(String use, String typeCode, String typeDisplay, String value, String assigner) {
+        ObjectNode id = MAPPER.createObjectNode();
+        id.put("use", use);
+        CqfmLibraryBuilder.codeable(id.putObject("type"), CqfmConstants.CS_ARTIFACT_IDENTIFIER_TYPE, typeCode, typeDisplay);
+        id.put("value", value);
+        if (notBlank(assigner)) id.putObject("assigner").put("display", assigner);
+        return id;
     }
 
     private ObjectNode identifier(String system, String value, String typeCode, String typeDisplay) {

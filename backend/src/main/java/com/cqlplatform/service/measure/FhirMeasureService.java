@@ -276,12 +276,35 @@ public class FhirMeasureService {
 
         String nqfNumber = null;
         String cmsMeasureId = null;
+        String ecqmTitle = null;
+        String endorsementId = null;
+        String endorser = null;
         for (JsonNode idNode : json.path("identifier")) {
             String idValue = idNode.path("value").asText(null);
             for (JsonNode coding : idNode.path("type").path("coding")) {
                 String code = coding.path("code").asText("");
                 if ("NQF".equals(code)) nqfNumber = idValue;
                 else if ("CMS".equals(code)) cmsMeasureId = idValue;
+                // PAT-256: the QM IG identifier slices (matched on the type code, whichever system typed it)
+                else if (CqfmConstants.IDENTIFIER_SHORT_NAME.equals(code)) ecqmTitle = idValue;
+                else if (CqfmConstants.IDENTIFIER_ENDORSER.equals(code)) {
+                    endorsementId = idValue;
+                    endorser = idNode.path("assigner").path("display").asText(null);
+                }
+            }
+        }
+        if (endorser == null) {
+            for (JsonNode contact : json.path("endorser")) {
+                if (contact.hasNonNull("name")) { endorser = contact.get("name").asText(); break; }
+            }
+        }
+        String supplementalDataGuidance = null;
+        for (JsonNode ext : json.path("extension")) {
+            if (!CqfmConstants.EXT_SUPPLEMENTAL_DATA_GUIDANCE.equals(ext.path("url").asText(""))) continue;
+            for (JsonNode part : ext.path("extension")) {
+                if (CqfmConstants.SDG_GUIDANCE.equals(part.path("url").asText(""))) {
+                    supplementalDataGuidance = part.path("valueMarkdown").asText(part.path("valueString").asText(null));
+                }
             }
         }
 
@@ -342,6 +365,11 @@ public class FhirMeasureService {
                 .cqlLibraryId(libraryId)
                 .nqfNumber(nqfNumber)
                 .cmsMeasureId(cmsMeasureId)
+                // PAT-256 metadata fill-ins
+                .ecqmTitle(ecqmTitle)
+                .endorser(endorser)
+                .endorsementId(endorsementId)
+                .supplementalDataGuidance(supplementalDataGuidance)
                 .improvementNotation(firstCode(json.path("improvementNotation"), null))
                 .rateAggregation(json.path("rateAggregation").asText(null))
                 .riskAdjustmentDescription(json.path("riskAdjustment").asText(null))

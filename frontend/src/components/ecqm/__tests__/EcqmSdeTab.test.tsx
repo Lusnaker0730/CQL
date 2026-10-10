@@ -17,7 +17,7 @@ describe('EcqmSdeTab — PAT-115 usability fixes', () => {
   const baseProps = {
     templates: [],
     modifiers: [],
-    onGuidanceChange: vi.fn(),
+    onGuidanceChange: vi.fn(), onRiskAdjustmentDescriptionChange: vi.fn(),
   }
 
   it('Bug #1 fix: typing in a custom SDE name does NOT unmount the TextField', () => {
@@ -148,7 +148,25 @@ describe('EcqmSdeTab — PAT-115 usability fixes', () => {
 
 // PAT-234 — a custom element can be a risk adjustment factor, and a value expression.
 describe('EcqmSdeTab — risk adjustment factors', () => {
-  const baseProps = { templates: [], modifiers: [], onGuidanceChange: vi.fn() }
+  const baseProps = { templates: [], modifiers: [], onGuidanceChange: vi.fn(), onRiskAdjustmentDescriptionChange: vi.fn() }
+
+  // PAT-256 — the risk adjustment description sits next to the SDE guidance and reports its edits.
+  it('the risk adjustment description is its own field and reports edits', () => {
+    const onRisk = vi.fn()
+    render(
+      <EcqmSdeTab
+        {...baseProps}
+        supplementalData={[]}
+        onChange={vi.fn()}
+        riskAdjustmentDescription="Adjusted by age band"
+        onRiskAdjustmentDescriptionChange={onRisk}
+      />
+    )
+    const input = screen.getByTestId('sde-risk-adjustment-description')
+    expect(input).toHaveValue('Adjusted by age band')
+    fireEvent.change(input, { target: { value: 'Adjusted by age band and sex' } })
+    expect(onRisk).toHaveBeenCalledWith('Adjusted by age band and sex')
+  })
 
   it('switching a default-named row to a risk adjustment factor renames it "RAF …" and sets the usage', () => {
     const onChange = vi.fn()

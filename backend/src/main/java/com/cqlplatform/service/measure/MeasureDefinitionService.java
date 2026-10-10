@@ -184,6 +184,9 @@ public class MeasureDefinitionService {
         entity.setMeasureSet(definition.getMeasureSet());
         entity.setNqfNumber(definition.getNqfNumber());
         entity.setCmsMeasureId(definition.getCmsMeasureId());
+        entity.setEcqmTitle(definition.getEcqmTitle());           // PAT-256
+        entity.setEndorser(definition.getEndorser());
+        entity.setEndorsementId(definition.getEndorsementId());
         entity.setSupplementalDataGuidance(definition.getSupplementalDataGuidance());
         entity.setRiskAdjustmentDescription(definition.getRiskAdjustmentDescription());
         entity.setRiskAdjustmentList(definition.getRiskAdjustments());
@@ -539,6 +542,9 @@ public class MeasureDefinitionService {
                 .measureSet(entity.getMeasureSet())
                 .nqfNumber(entity.getNqfNumber())
                 .cmsMeasureId(entity.getCmsMeasureId())
+                .ecqmTitle(entity.getEcqmTitle())
+                .endorser(entity.getEndorser())
+                .endorsementId(entity.getEndorsementId())
                 .supplementalDataGuidance(entity.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(entity.getRiskAdjustmentDescription())
                 .riskAdjustments(entity.getRiskAdjustmentList())
@@ -900,6 +906,9 @@ public class MeasureDefinitionService {
                 .measureSet(model.getMeasureSet())
                 .nqfNumber(model.getNqfNumber())
                 .cmsMeasureId(model.getCmsMeasureId())
+                .ecqmTitle(model.getEcqmTitle())
+                .endorser(model.getEndorser())
+                .endorsementId(model.getEndorsementId())
                 .supplementalDataGuidance(model.getSupplementalDataGuidance())
                 .riskAdjustmentDescription(model.getRiskAdjustmentDescription())
                 .riskAdjustmentList(model.getRiskAdjustments())

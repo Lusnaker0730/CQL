@@ -24,6 +24,10 @@ describe('MeasureStandardMetadataFields', () => {
     approvalDate: '2025-11-20',
     lastReviewDate: '2026-06-15',
     experimental: true,
+    // PAT-256
+    ecqmTitle: 'DM-HbA1c',
+    endorser: 'MOHW',
+    endorsementId: 'TW-0059',
   }
 
   it('renders the current values — type chips, dates, statement, terms, experimental on', () => {
@@ -39,6 +43,9 @@ describe('MeasureStandardMetadataFields', () => {
     expect(screen.getByDisplayValue('HbA1c control')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Most recent HbA1c < 7%')).toBeInTheDocument()
     expect(screen.getByRole('switch', { name: 'standardMetadata.experimental' })).toBeChecked()
+    expect(screen.getByTestId('standard-metadata-ecqmTitle')).toHaveValue('DM-HbA1c')
+    expect(screen.getByTestId('standard-metadata-endorser')).toHaveValue('MOHW')
+    expect(screen.getByTestId('standard-metadata-endorsementId')).toHaveValue('TW-0059')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
@@ -59,6 +66,9 @@ describe('MeasureStandardMetadataFields', () => {
 
     fireEvent.change(screen.getByDisplayValue('ADA 2026'), { target: { value: 'ADA 2027' } })
     expect(onChange).toHaveBeenLastCalledWith({ clinicalRecommendationStatement: 'ADA 2027' })
+
+    fireEvent.change(screen.getByTestId('standard-metadata-endorsementId'), { target: { value: 'TW-0060' } })
+    expect(onChange).toHaveBeenLastCalledWith({ endorsementId: 'TW-0060' })
 
     fireEvent.change(screen.getByDisplayValue('HbA1c control'), { target: { value: 'Glycaemic control' } })
     expect(onChange).toHaveBeenLastCalledWith({
@@ -106,6 +116,7 @@ describe('MeasureStandardMetadataFields', () => {
     expect(screen.queryByRole('button', { name: 'standardMetadata.addTerm' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'standardMetadata.removeTerm' })).not.toBeInTheDocument()
     expect(screen.getByTestId('standard-metadata-effectiveStart')).toBeDisabled()
+    expect(screen.getByTestId('standard-metadata-ecqmTitle')).toBeDisabled()
     expect(screen.getByRole('switch', { name: 'standardMetadata.experimental' })).toBeDisabled()
   })
 
@@ -116,6 +127,8 @@ describe('MeasureStandardMetadataFields', () => {
     expect(standardMetadataFilled({ measureTypes: ['process'] })).toBe(true)
     expect(standardMetadataFilled({ approvalDate: '2026-01-01' })).toBe(true)
     expect(standardMetadataFilled({ experimental: true })).toBe(true)
+    expect(standardMetadataFilled({ endorser: '   ' })).toBe(false)
+    expect(standardMetadataFilled({ ecqmTitle: 'DM-HbA1c' })).toBe(true)
     expect(effectivePeriodInverted('2026-01-01', '2026-12-31')).toBe(false)
     expect(effectivePeriodInverted('2026-01-01', '2026-01-01')).toBe(false)
     expect(effectivePeriodInverted('2026-12-31', '2026-01-01')).toBe(true)

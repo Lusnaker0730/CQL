@@ -42,7 +42,12 @@
       "definitions": [
         "**Adult**: 18 years or older at the end of the measurement period",
         "**Elderly**: 65 years or older at the end of the measurement period"
-      ]
+      ],
+      "ecqmTitle": "SMK-RT",
+      "endorser": "Smoke Endorsement Board",
+      "endorsementId": "SMK-0033",
+      "riskAdjustmentDescription": "Smoke: rates are reported by age band; no risk model is applied.",
+      "supplementalDataGuidance": "Smoke: report sex and age band for every patient in the initial population."
     }
   },
   "_note": "PAT-229 exchange-package round trip. A proportion measure that `include`s an uploaded library (SmokePackageUtil) is published and evaluated, exported through GET /export/bundle (JSON + XML) and GET /export/conformance, then the JSON package is re-imported through POST /import/bundle with Measure.version rewritten to importAsVersion (same name + version would be a duplicate — this is what 'the other hospital sent us their next version' looks like). The import lands as draft, is walked through submit-for-review + approve, and evaluated. populations/score are asserted on the IMPORTED measure by lib/assert.sh; lib/assert-measure-package.sh asserts the package shape (profiles, canonical Measure.library, no Measure.dataRequirement, Library CQL + ELM content, depends-on, fullUrl = url), the conformance report, that the import carries the CQL, and that both evaluations are identical. Before PAT-229 the imported measure had populations but no CQL and could not be evaluated at all. Ages at 2024-06-30: p1(74)/p2(69)/p3(59)/p4(44)/p5(14) → IP 4, denominator (>=50) 3, numerator (>=65) 2 → 66.67. PAT-236: the artifact also carries the standard metadata (measure type, definition terms, clinical recommendation statement, effective / approval / review dates, experimental); assert-measure-package.sh checks they are on the exported Measure as the R4 elements (type[].coding, definition[] markdown, effectivePeriod…) and come back on the imported MeasureDefinition."

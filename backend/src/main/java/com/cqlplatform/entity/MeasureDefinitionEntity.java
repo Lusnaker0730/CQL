@@ -184,6 +184,17 @@ public class MeasureDefinitionEntity {
     @Column(name = "cms_measure_id", length = 20)
     private String cmsMeasureId;
 
+    /** PAT-256 (V80): eCQM abbreviated title — exported as the QM IG {@code short-name} identifier. */
+    @Column(name = "ecqm_title", length = 200)
+    private String ecqmTitle;
+
+    /** PAT-256 (V80): endorsing organisation (Measure.endorser) and its identifier for the measure. */
+    @Column(name = "endorser", length = 200)
+    private String endorser;
+
+    @Column(name = "endorsement_id", length = 100)
+    private String endorsementId;
+
     @Column(name = "supplemental_data_guidance", columnDefinition = "TEXT")
     private String supplementalDataGuidance;
 

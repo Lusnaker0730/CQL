@@ -17,10 +17,13 @@ const RAF_PREFIX = 'RAF '
 interface Props {
   supplementalData: SupplementalDataElement[]
   supplementalDataGuidance?: string
+  /** PAT-256: Measure.riskAdjustment — how the risk adjustment factors below are applied. */
+  riskAdjustmentDescription?: string
   templates: FormTemplateCategory[]
   modifiers: ModifierDefinition[]
   onChange: (sde: SupplementalDataElement[]) => void
   onGuidanceChange: (guidance: string) => void
+  onRiskAdjustmentDescriptionChange: (text: string) => void
 }
 
 // PAT-115: legacy SDE rows (pre-this-patch) don't carry `custom` flag.
@@ -41,6 +44,7 @@ function newCustomId(): string {
 
 export default function EcqmSdeTab({
   supplementalData, supplementalDataGuidance, templates, modifiers, onChange, onGuidanceChange,
+  riskAdjustmentDescription, onRiskAdjustmentDescriptionChange,
 }: Props) {
   const { t } = useTranslation('ecqm')
 
@@ -112,9 +116,18 @@ export default function EcqmSdeTab({
     <Box sx={{ p: 3, maxWidth: 900 }}>
       <Typography variant="h6" gutterBottom>{t('sde.title')}</Typography>
       <TextField
-        label={t('sde.guidance')} fullWidth multiline rows={2} sx={{ mb: 3 }}
+        label={t('sde.guidance')} fullWidth multiline rows={2} sx={{ mb: 2 }}
         value={supplementalDataGuidance || ''}
         onChange={(e) => onGuidanceChange(e.target.value)}
+        helperText={t('sde.guidanceHelper')}
+      />
+      {/* PAT-256 */}
+      <TextField
+        label={t('sde.riskAdjustmentDescription')} fullWidth multiline rows={2} sx={{ mb: 3 }}
+        value={riskAdjustmentDescription || ''}
+        onChange={(e) => onRiskAdjustmentDescriptionChange(e.target.value)}
+        helperText={t('sde.riskAdjustmentDescriptionHelper')}
+        slotProps={{ htmlInput: { 'data-testid': 'sde-risk-adjustment-description' } }}
       />
       <Typography
         variant="subtitle1"

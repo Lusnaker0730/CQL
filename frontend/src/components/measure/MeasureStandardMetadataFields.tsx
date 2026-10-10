@@ -54,8 +54,28 @@ export default function MeasureStandardMetadataFields({ value, onChange, readOnl
     />
   )
 
+  // PAT-256: abbreviated title and endorsement — exported as the QM IG short-name / endorser identifiers
+  const textField = (field: 'ecqmTitle' | 'endorser' | 'endorsementId') => (
+    <TextField
+      label={t(`standardMetadata.${field}`)}
+      size={size}
+      fullWidth
+      disabled={readOnly}
+      value={value[field] || ''}
+      onChange={(e) => onChange({ [field]: e.target.value })}
+      placeholder={t(`standardMetadata.${field}Placeholder`)}
+      helperText={t(`standardMetadata.${field}Helper`)}
+      slotProps={{ htmlInput: { maxLength: MEASURE[field].maxLength, 'data-testid': `standard-metadata-${field}` } }}
+    />
+  )
+
   return (
     <Stack spacing={2}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
+        {textField('ecqmTitle')}
+        {textField('endorser')}
+        {textField('endorsementId')}
+      </Stack>
       <Stack direction="row" spacing={2} sx={{ alignItems: 'flex-start' }}>
         <TextField
           label={t('standardMetadata.measureTypes')}

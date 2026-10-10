@@ -254,7 +254,13 @@
       "departmentHelper": "Assign this measure to a department for filtering and reporting",
       "none": "None",
       "compositeScoring": "Composite Scoring",
-      "scoringTypeLocked": "Scoring is part of the logic — create a new version to change it"
+      "scoringTypeLocked": "Scoring is part of the logic — create a new version to change it",
+      "riskAdjustmentDescription": "Risk adjustment description",
+      "riskAdjustmentDescriptionPlaceholder": "How the risk adjustment factors are applied, e.g. \"Rates are stratified by age band; no model is applied.\"",
+      "riskAdjustmentDescriptionHelper": "FHIR Measure.riskAdjustment",
+      "supplementalDataGuidance": "Supplemental data guidance",
+      "supplementalDataGuidancePlaceholder": "How the supplemental data elements are collected and reported",
+      "supplementalDataGuidanceHelper": "Exported in the QM IG supplemental data guidance extension"
     },
     "measureOverview": "Measure Overview",
     "overviewFields": {
@@ -288,7 +294,7 @@
       "disclaimer": "Disclaimer"
     },
     "standardMetadata": "Standard Metadata (FHIR Measure)",
-    "standardMetadataHint": "Measure type, definition terms, clinical recommendation statement, effective / approval / review dates and the experimental flag — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here."
+    "standardMetadataHint": "Abbreviated title and endorsement, measure type, definition terms, clinical recommendation statement, effective / approval / review dates, the experimental flag and the risk adjustment / supplemental data guidance texts — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here."
   },
   "cql": {
     "translate": "Translate",
@@ -1251,6 +1257,15 @@
     "canonicalBaseHint": "Canonical URLs use a placeholder. Ask an administrator to set FHIR_CANONICAL_BASE to a domain your organisation owns before sharing packages."
   },
   "standardMetadata": {
+    "ecqmTitle": "Abbreviated title (eCQM)",
+    "ecqmTitlePlaceholder": "e.g. DM-HbA1c",
+    "ecqmTitleHelper": "Short name on the FHIR Measure (identifier type short-name)",
+    "endorser": "Endorser",
+    "endorserPlaceholder": "e.g. Ministry of Health and Welfare",
+    "endorserHelper": "Organisation that endorsed the measure (Measure.endorser)",
+    "endorsementId": "Endorsement ID",
+    "endorsementIdPlaceholder": "e.g. 0059",
+    "endorsementIdHelper": "The endorser's identifier for the measure",
     "measureTypes": "Measure type",
     "measureTypesHelper": "FHIR Measure.type — one or more (up to 5)",
     "types": {

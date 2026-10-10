@@ -75,7 +75,7 @@
     "copyright": "版權",
     "disclaimer": "免責聲明",
     "standardMetadata": "標準 Metadata（FHIR Measure）",
-    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、日期與實驗性旗標。發布時帶到指標，並匯出到 FHIR Measure。"
+    "standardMetadataHint": "簡稱與背書、指標類型、名詞定義、臨床建議聲明、日期與實驗性旗標。發布時帶到指標，並匯出到 FHIR Measure。"
   },
   "populationGroups": {
     "title": "族群群組",
@@ -122,6 +122,9 @@
   "sde": {
     "title": "補充資料元素",
     "guidance": "SDE 指引",
+    "guidanceHelper": "補充資料元素如何蒐集與呈報；發布時帶到指標，並以 QM IG extension 匯出。",
+    "riskAdjustmentDescription": "風險校正說明",
+    "riskAdjustmentDescriptionHelper": "說明下方風險校正因子如何套用（FHIR Measure.riskAdjustment）；發布時帶到指標。",
     "standardSdes": "標準 SDE",
     "customSdes": "自訂 SDE",
     "addCustom": "新增自訂",
