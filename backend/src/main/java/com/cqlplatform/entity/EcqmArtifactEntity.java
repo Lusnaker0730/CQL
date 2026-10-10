@@ -93,6 +93,19 @@ public class EcqmArtifactEntity {
     @Column(name = "supplemental_data_guidance", columnDefinition = "TEXT")
     private String supplementalDataGuidance;
 
+    /** PAT-256 (V80): the measure-page fields the workspace lacked — risk adjustment description, abbreviated title, endorsement. */
+    @Column(name = "risk_adjustment_description", columnDefinition = "TEXT")
+    private String riskAdjustmentDescription;
+
+    @Column(name = "ecqm_title", length = 200)
+    private String ecqmTitle;
+
+    @Column(name = "endorser", length = 200)
+    private String endorser;
+
+    @Column(name = "endorsement_id", length = 100)
+    private String endorsementId;
+
     // JSON columns
     @Column(name = "population_groups", nullable = false, columnDefinition = "TEXT")
     @Builder.Default

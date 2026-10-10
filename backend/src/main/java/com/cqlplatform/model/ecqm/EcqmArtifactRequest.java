@@ -92,6 +92,23 @@ public class EcqmArtifactRequest {
     @NoXss
     private String supplementalDataGuidance;
 
+    // PAT-256 — same partial-update convention: absent keeps, "" clears, a value sets
+    @Size(max = 5000)
+    @NoXss
+    private String riskAdjustmentDescription;
+
+    @Size(max = 200)
+    @NoXss
+    private String ecqmTitle;
+
+    @Size(max = 200)
+    @NoXss
+    private String endorser;
+
+    @Size(max = 100)
+    @NoXss
+    private String endorsementId;
+
     // PAT-236 — standard FHIR Measure metadata, published onto the MeasureDefinition
     @Size(max = 5)
     private List<@jakarta.validation.constraints.Pattern(regexp = "process|outcome|structure|patient-reported-outcome|composite") String> measureTypes;

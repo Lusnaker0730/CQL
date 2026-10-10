@@ -391,7 +391,89 @@ class CqfmMeasureBuilderTest {
                 .clinicalRecommendationStatement("ADA recommends an HbA1c goal below 7% for most non-pregnant adults.")
                 .effectiveStart(java.time.LocalDate.of(2026, 1, 1)).effectiveEnd(java.time.LocalDate.of(2026, 12, 31))
                 .approvalDate(java.time.LocalDate.of(2025, 11, 20)).lastReviewDate(java.time.LocalDate.of(2026, 6, 15))
-                .experimental(Boolean.TRUE);
+                .experimental(Boolean.TRUE)
+                // PAT-256 fill-ins
+                .ecqmTitle("DM-HbA1c").endorser("Ministry of Health and Welfare").endorsementId("TW-0059")
+                .supplementalDataGuidance("Report every SDE for each patient in the initial population.");
+    }
+
+    private static JsonNode identifierOfType(ObjectNode measure, String typeCode) {
+        for (JsonNode id : measure.path("identifier")) {
+            if (typeCode.equals(id.path("type").path("coding").path(0).path("code").asText())) return id;
+        }
+        return null;
+    }
+
+    private static JsonNode extension(ObjectNode measure, String url) {
+        for (JsonNode ext : measure.path("extension")) {
+            if (url.equals(ext.path("url").asText())) return ext;
+        }
+        return null;
+    }
+
+    // ===== PAT-256 — abbreviated title, endorsement, SDE guidance =====
+
+    @Test
+    void metadataFillIns_exportAsQmIgIdentifiers_endorserContact_andTheGuidanceExtension_andReadBack() {
+        ObjectNode measure = build(withStandardMetadata().build(), new MeasureExportConformance());
+
+        JsonNode shortName = identifierOfType(measure, "short-name");
+        assertThat(shortName).isNotNull();
+        assertThat(shortName.path("use").asText()).isEqualTo("usual");
+        assertThat(shortName.path("value").asText()).isEqualTo("DM-HbA1c");
+        assertThat(shortName.path("type").path("coding").get(0).path("system").asText())
+                .isEqualTo("http://terminology.hl7.org/CodeSystem/artifact-identifier-type");
+        assertThat(shortName.has("system")).isFalse();
+        JsonNode endorserId = identifierOfType(measure, "endorser");
+        assertThat(endorserId).isNotNull();
+        assertThat(endorserId.path("use").asText()).isEqualTo("official");
+        assertThat(endorserId.path("value").asText()).isEqualTo("TW-0059");
+        assertThat(endorserId.path("assigner").path("display").asText()).isEqualTo("Ministry of Health and Welfare");
+        assertThat(measure.path("endorser")).hasSize(1);
+        assertThat(measure.path("endorser").get(0).path("name").asText()).isEqualTo("Ministry of Health and Welfare");
+
+        JsonNode guidance = extension(measure, CqfmConstants.EXT_SUPPLEMENTAL_DATA_GUIDANCE);
+        assertThat(guidance).isNotNull();
+        assertThat(guidance.path("extension")).hasSize(2);
+        assertThat(guidance.path("extension").get(0).path("url").asText()).isEqualTo("usage");
+        assertThat(guidance.path("extension").get(0).path("valueCodeableConcept").path("coding").get(0).path("code").asText())
+                .isEqualTo("supplemental-data");
+        assertThat(guidance.path("extension").get(1).path("url").asText()).isEqualTo("guidance");
+        assertThat(guidance.path("extension").get(1).path("valueMarkdown").asText()).startsWith("Report every SDE");
+
+        Measure parsed = FhirContext.forR4Cached().newJsonParser()
+                .setParserErrorHandler(new StrictErrorHandler())
+                .parseResource(Measure.class, measure.toString());
+        assertThat(parsed.getEndorser()).hasSize(1);
+        assertThat(parsed.getEndorserFirstRep().getName()).isEqualTo("Ministry of Health and Welfare");
+
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+        assertThat(readBack.getEcqmTitle()).isEqualTo("DM-HbA1c");
+        assertThat(readBack.getEndorser()).isEqualTo("Ministry of Health and Welfare");
+        assertThat(readBack.getEndorsementId()).isEqualTo("TW-0059");
+        assertThat(readBack.getSupplementalDataGuidance()).startsWith("Report every SDE");
+    }
+
+    @Test
+    void metadataFillIns_notSet_writeNothing_andAnEndorserGivenOnlyAsAContactStillReadsBack() {
+        ObjectNode measure = build(proportion().build(), new MeasureExportConformance());
+
+        assertThat(identifierOfType(measure, "short-name")).isNull();
+        assertThat(identifierOfType(measure, "endorser")).isNull();
+        assertThat(measure.has("endorser")).isFalse();
+        assertThat(extension(measure, CqfmConstants.EXT_SUPPLEMENTAL_DATA_GUIDANCE)).isNull();
+
+        // a MADiE / HAPI measure that names its endorser only as a ContactDetail (no endorser identifier)
+        measure.putArray("endorser").addObject().put("name", "NQF");
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+        assertThat(readBack.getEndorser()).isEqualTo("NQF");
+        assertThat(readBack.getEndorsementId()).isNull();
+        assertThat(readBack.getEcqmTitle()).isNull();
+        assertThat(readBack.getSupplementalDataGuidance()).isNull();
     }
 
     @Test

@@ -296,6 +296,8 @@ export default function EcqmArtifactWorkspace({ artifact, onBack, onArtifactUpda
             modifiers={modifiers}
             onChange={(sde: SupplementalDataElement[]) => debouncedSave({ supplementalData: sde })}
             onGuidanceChange={(g: string) => debouncedSave({ supplementalDataGuidance: g })}
+            riskAdjustmentDescription={localArtifact.riskAdjustmentDescription}
+            onRiskAdjustmentDescriptionChange={(text: string) => debouncedSave({ riskAdjustmentDescription: text })}
           />
         )}
         {tab === 5 && (

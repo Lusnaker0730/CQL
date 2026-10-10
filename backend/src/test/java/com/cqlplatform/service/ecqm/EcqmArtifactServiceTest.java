@@ -321,6 +321,8 @@ class EcqmArtifactServiceTest {
         existing.setEffectiveEnd(java.time.LocalDate.of(2026, 12, 31));
         existing.setApprovalDate(java.time.LocalDate.of(2025, 11, 20));
         existing.setClinicalRecommendationStatement("keep me");
+        existing.setEcqmTitle("keep title");                                      // PAT-256
+        existing.setRiskAdjustmentDescription("old risk adjustment text");
         when(repository.findByIdAndTenantId(5L, 7L)).thenReturn(Optional.of(existing));
         when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -330,7 +332,9 @@ class EcqmArtifactServiceTest {
                 .effectiveEnd("")                                                 // clear
                 .lastReviewDate("2026-06-15")                                     // set
                 .experimental(Boolean.TRUE)
-                .build();                                  // effectiveStart / approvalDate / statement absent
+                .endorser("MOHW")                                                 // PAT-256: set
+                .riskAdjustmentDescription("")                                    // PAT-256: clear
+                .build();                                  // effectiveStart / approvalDate / statement / ecqmTitle absent
         EcqmArtifactResponse result = service.update(5L, req, "alice");
 
         assertThat(result.getMeasureTypes()).containsExactly("process", "structure");
@@ -341,6 +345,10 @@ class EcqmArtifactServiceTest {
         assertThat(result.getLastReviewDate()).isEqualTo(java.time.LocalDate.of(2026, 6, 15));
         assertThat(result.getClinicalRecommendationStatement()).isEqualTo("keep me");
         assertThat(result.getExperimental()).isTrue();
+        assertThat(result.getEcqmTitle()).isEqualTo("keep title");
+        assertThat(result.getEndorser()).isEqualTo("MOHW");
+        assertThat(result.getEndorsementId()).isNull();
+        assertThat(result.getRiskAdjustmentDescription()).isEmpty();
     }
 
     @Test
@@ -384,6 +392,8 @@ class EcqmArtifactServiceTest {
                 .effectiveStart("2026-01-01")
                 .approvalDate("")
                 .experimental(Boolean.FALSE)
+                .ecqmTitle("DM-HbA1c").endorser("MOHW").endorsementId("TW-0059")       // PAT-256
+                .riskAdjustmentDescription("Adjusted by age band")
                 .build();
 
         EcqmArtifactResponse created = service.create(req, "alice");
@@ -394,6 +404,10 @@ class EcqmArtifactServiceTest {
         assertThat(created.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
         assertThat(created.getApprovalDate()).isNull();
         assertThat(created.getExperimental()).isFalse();
+        assertThat(created.getEcqmTitle()).isEqualTo("DM-HbA1c");
+        assertThat(created.getEndorser()).isEqualTo("MOHW");
+        assertThat(created.getEndorsementId()).isEqualTo("TW-0059");
+        assertThat(created.getRiskAdjustmentDescription()).isEqualTo("Adjusted by age band");
 
         ArgumentCaptor<EcqmArtifactEntity> saved = ArgumentCaptor.forClass(EcqmArtifactEntity.class);
         verify(repository).save(saved.capture());
@@ -407,6 +421,10 @@ class EcqmArtifactServiceTest {
         assertThat(copy.getClinicalRecommendationStatement()).isEqualTo("CRS");
         assertThat(copy.getEffectiveStart()).isEqualTo(java.time.LocalDate.of(2026, 1, 1));
         assertThat(copy.getExperimental()).isFalse();
+        assertThat(copy.getEcqmTitle()).isEqualTo("DM-HbA1c");
+        assertThat(copy.getEndorser()).isEqualTo("MOHW");
+        assertThat(copy.getEndorsementId()).isEqualTo("TW-0059");
+        assertThat(copy.getRiskAdjustmentDescription()).isEqualTo("Adjusted by age band");
     }
 
     @Test

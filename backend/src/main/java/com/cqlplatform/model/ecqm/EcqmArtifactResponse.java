@@ -36,6 +36,11 @@ public class EcqmArtifactResponse {
     private String steward;
     private String disclaimer;
     private String supplementalDataGuidance;
+    /** PAT-256 */
+    private String riskAdjustmentDescription;
+    private String ecqmTitle;
+    private String endorser;
+    private String endorsementId;
 
     // PAT-236 standard metadata
     private List<String> measureTypes;

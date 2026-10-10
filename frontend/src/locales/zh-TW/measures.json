@@ -254,7 +254,13 @@
       "departmentHelper": "將此指標指派至科別以進行篩選和報告",
       "none": "無",
       "compositeScoring": "複合評分",
-      "scoringTypeLocked": "計分方式屬於邏輯——要改請建立新版本"
+      "scoringTypeLocked": "計分方式屬於邏輯——要改請建立新版本",
+      "riskAdjustmentDescription": "風險校正說明",
+      "riskAdjustmentDescriptionPlaceholder": "說明風險校正因子如何套用，例如「以年齡層分層呈現，不套用模型」",
+      "riskAdjustmentDescriptionHelper": "FHIR Measure.riskAdjustment",
+      "supplementalDataGuidance": "補充資料指引",
+      "supplementalDataGuidancePlaceholder": "補充資料元素如何蒐集與呈報",
+      "supplementalDataGuidanceHelper": "匯出為 QM IG 的補充資料指引 extension"
     },
     "measureOverview": "指標概述",
     "overviewFields": {
@@ -288,7 +294,7 @@
       "disclaimer": "免責聲明"
     },
     "standardMetadata": "標準 Metadata（FHIR Measure）",
-    "standardMetadataHint": "指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期與實驗性旗標——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。"
+    "standardMetadataHint": "簡稱與背書、指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期、實驗性旗標，以及風險校正 / 補充資料指引——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。"
   },
   "cql": {
     "translate": "翻譯",
@@ -1251,6 +1257,15 @@
     "canonicalBaseHint": "Canonical URL 目前使用預設的佔位網址。對外分享封裝前，請管理員把 FHIR_CANONICAL_BASE 設成貴單位擁有的網域。"
   },
   "standardMetadata": {
+    "ecqmTitle": "簡稱（eCQM）",
+    "ecqmTitlePlaceholder": "例如 DM-HbA1c",
+    "ecqmTitleHelper": "FHIR Measure 的 short-name 識別碼",
+    "endorser": "背書單位",
+    "endorserPlaceholder": "例如 衛生福利部",
+    "endorserHelper": "為指標背書的機構（Measure.endorser）",
+    "endorsementId": "背書編號",
+    "endorsementIdPlaceholder": "例如 0059",
+    "endorsementIdHelper": "背書單位給這個指標的識別碼",
     "measureTypes": "指標類型",
     "measureTypesHelper": "FHIR Measure.type——可複選（最多 5 個）",
     "types": {

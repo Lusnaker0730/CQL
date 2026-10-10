@@ -131,6 +131,17 @@ public class MeasureDefinition {
 
     @Size(max = 20)
     private String cmsMeasureId;
+
+    /** PAT-256: eCQM abbreviated title (QM IG short-name identifier). */
+    @Size(max = 200)
+    private String ecqmTitle;
+
+    /** PAT-256: endorsing organisation and its identifier for the measure (Measure.endorser + endorser identifier). */
+    @Size(max = 200)
+    private String endorser;
+
+    @Size(max = 100)
+    private String endorsementId;
     @Size(max = 5000)
     @NoXss
     private String supplementalDataGuidance;

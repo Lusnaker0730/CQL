@@ -52,6 +52,14 @@ public final class CqfmConstants {
     public static final String EXT_SCORING_UNIT = QM + "cqfm-scoringUnit";
     /** valueCanonical → a module-definition Library, conventionally contained. */
     public static final String EXT_EFFECTIVE_DATA_REQUIREMENTS = CRMI + "crmi-effectiveDataRequirements";
+    /**
+     * PAT-256: complex extension on Measure — sub-extensions {@code usage} (CodeableConcept bound to
+     * measure-data-usage) and {@code guidance} (markdown). The only place the QM IG puts guidance on the
+     * supplemental data elements of a measure as a whole.
+     */
+    public static final String EXT_SUPPLEMENTAL_DATA_GUIDANCE = QM + "cqfm-supplementalDataGuidance";
+    public static final String SDG_USAGE = "usage";
+    public static final String SDG_GUIDANCE = "guidance";
 
     /** Id of the contained module-definition Library referenced by {@link #EXT_EFFECTIVE_DATA_REQUIREMENTS}. */
     public static final String EFFECTIVE_DATA_REQUIREMENTS_ID = "effective-data-requirements";
@@ -61,6 +69,14 @@ public final class CqfmConstants {
     public static final String CS_DATA_USAGE = "http://terminology.hl7.org/CodeSystem/measure-data-usage";
     public static final String USAGE_SUPPLEMENTAL_DATA = "supplemental-data";
     public static final String USAGE_RISK_ADJUSTMENT_FACTOR = "risk-adjustment-factor";
+    /**
+     * PAT-256: the QM IG publishable measure profile slices Measure.identifier on this THO code system —
+     * {@code short-name} (use usual) carries the abbreviated title, {@code endorser} (use official,
+     * assigner = the endorsing organisation) the endorser's identifier.
+     */
+    public static final String CS_ARTIFACT_IDENTIFIER_TYPE = "http://terminology.hl7.org/CodeSystem/artifact-identifier-type";
+    public static final String IDENTIFIER_SHORT_NAME = "short-name";
+    public static final String IDENTIFIER_ENDORSER = "endorser";
 
     /** Media type for a criteria expression that names a CQL define (QM IG conformance requirement 3.8). */
     public static final String LANGUAGE_CQL_IDENTIFIER = "text/cql-identifier";

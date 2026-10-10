@@ -573,6 +573,11 @@ export interface MeasureStandardMetadata {
   approvalDate?: string | null
   lastReviewDate?: string | null
   experimental?: boolean
+  /** PAT-256: eCQM abbreviated title (the QM IG short-name identifier on export). */
+  ecqmTitle?: string
+  /** PAT-256: endorsing organisation (Measure.endorser) and its identifier for the measure (endorser identifier). */
+  endorser?: string
+  endorsementId?: string
 }
 
 /**

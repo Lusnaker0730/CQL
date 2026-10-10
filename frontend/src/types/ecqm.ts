@@ -39,6 +39,8 @@ export interface EcqmArtifact extends MeasureStandardMetadata, MeasurementPeriod
   steward?: string
   disclaimer?: string
   supplementalDataGuidance?: string
+  /** PAT-256: Measure.riskAdjustment — published onto the measure like the SDE guidance. */
+  riskAdjustmentDescription?: string
 
   populationGroups: PopulationGroup[]
   supplementalData: SupplementalDataElement[]
@@ -75,6 +77,8 @@ export interface EcqmArtifactRequest extends MeasureStandardMetadata, Measuremen
   steward?: string
   disclaimer?: string
   supplementalDataGuidance?: string
+  /** PAT-256: Measure.riskAdjustment — published onto the measure like the SDE guidance. */
+  riskAdjustmentDescription?: string
   populationGroups?: PopulationGroup[]
   supplementalData?: SupplementalDataElement[]
   stratifiers?: StratifierElement[]

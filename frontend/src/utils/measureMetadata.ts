@@ -38,6 +38,9 @@ export function standardMetadataFilled(value: MeasureStandardMetadata): boolean 
     (value.measureTypes?.length ?? 0) > 0 ||
     (value.definitionTerms?.length ?? 0) > 0 ||
     !!value.clinicalRecommendationStatement?.trim() ||
+    !!value.ecqmTitle?.trim() ||
+    !!value.endorser?.trim() ||
+    !!value.endorsementId?.trim() ||
     !!value.effectiveStart ||
     !!value.effectiveEnd ||
     !!value.approvalDate ||

@@ -132,6 +132,7 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, 
   const legalFilled = sectionFilled([form.copyright, form.disclaimer])
   // PAT-236 standard metadata
   const metadataFilled = standardMetadataFilled(form)
+    || !!form.riskAdjustmentDescription?.trim() || !!form.supplementalDataGuidance?.trim()   // PAT-256
   const periodInverted = effectivePeriodInverted(form.effectiveStart, form.effectiveEnd)
 
   return (
@@ -407,6 +408,26 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, 
                 setIsDirty(true)
               }}
             />
+            {/* PAT-256: Measure.riskAdjustment and the QM IG supplemental data guidance — the backend
+                carried both fields but the page had nowhere to enter them */}
+            <Stack spacing={2} sx={{ mt: 2 }}>
+              {(['riskAdjustmentDescription', 'supplementalDataGuidance'] as const).map((field) => (
+                <TextField
+                  key={field}
+                  label={t(`details.fields.${field}`)}
+                  size="small"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  disabled={readOnly}
+                  value={form[field] || ''}
+                  onChange={(e) => updateField(field, e.target.value)}
+                  placeholder={t(`details.fields.${field}Placeholder`)}
+                  helperText={`${t(`details.fields.${field}Helper`)} (${(form[field] || '').length} / ${MEASURE[field].maxLength})`}
+                  slotProps={{ htmlInput: { maxLength: MEASURE[field].maxLength, 'data-testid': `measure-${field}` } }}
+                />
+              ))}
+            </Stack>
           </AccordionDetails>
         </Accordion>
 

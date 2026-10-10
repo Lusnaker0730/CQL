@@ -27,6 +27,11 @@
   "approvalDate": "2023-11-20",
   "lastReviewDate": "2024-06-15",
   "experimental": true,
+  "ecqmTitle": "SMK-RT",
+  "endorser": "Smoke Endorsement Board",
+  "endorsementId": "SMK-0033",
+  "riskAdjustmentDescription": "Smoke: rates are reported by age band; no risk model is applied.",
+  "supplementalDataGuidance": "Smoke: report sex and age band for every patient in the initial population.",
   "populationGroups": [
     {
       "groupId": "group-1",

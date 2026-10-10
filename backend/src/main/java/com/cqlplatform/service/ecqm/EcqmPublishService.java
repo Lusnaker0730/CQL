@@ -157,7 +157,14 @@ public class EcqmPublishService {
         measureDef.setMeasureSet(ecqm.getMeasureSet());
         measureDef.setNqfNumber(ecqm.getNqfNumber());
         measureDef.setCmsMeasureId(ecqm.getCmsMeasureId());
-        measureDef.setSupplementalDataGuidance(ecqm.getSupplementalDataGuidance());
+        // PAT-256: the guidance texts, abbreviated title and endorsement follow the PAT-236 rule below —
+        // copied only when the artifact has them, so what the author typed on the measure page (which now
+        // has fields for them) survives a re-publish.
+        if (ecqm.getSupplementalDataGuidance() != null) measureDef.setSupplementalDataGuidance(ecqm.getSupplementalDataGuidance());
+        if (ecqm.getRiskAdjustmentDescription() != null) measureDef.setRiskAdjustmentDescription(ecqm.getRiskAdjustmentDescription());
+        if (ecqm.getEcqmTitle() != null) measureDef.setEcqmTitle(ecqm.getEcqmTitle());
+        if (ecqm.getEndorser() != null) measureDef.setEndorser(ecqm.getEndorser());
+        if (ecqm.getEndorsementId() != null) measureDef.setEndorsementId(ecqm.getEndorsementId());
         // PAT-236 standard metadata: copied only when the artifact has them, so a value the
         // author entered on the published measure survives a re-publish.
         if (ecqm.getMeasureTypeList() != null && !ecqm.getMeasureTypeList().isEmpty()) measureDef.setMeasureTypeList(new ArrayList<>(ecqm.getMeasureTypeList()));

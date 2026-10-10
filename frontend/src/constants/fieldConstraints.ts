@@ -28,6 +28,12 @@ export const MEASURE = {
   definitionText:   { maxLength: 2000 },
   definitionTerms:  { maxItems: 50 },
   measureTypes:     { maxItems: 5 },
+  // PAT-256 metadata fill-ins (same limits on MeasureDefinition and EcqmArtifactRequest)
+  ecqmTitle:        { maxLength: 200 },
+  endorser:         { maxLength: 200 },
+  endorsementId:    { maxLength: 100 },
+  riskAdjustmentDescription: { maxLength: 5000 },
+  supplementalDataGuidance:  { maxLength: 5000 },
 } as const
 
 // ─── CDS Artifact ───────────────────────────────────────────────────────────────

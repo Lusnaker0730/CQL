@@ -256,6 +256,10 @@ class EcqmPublishServiceTest {
                 Map.of("definition", "Note without a term"))));
         entity.setEffectiveStart(java.time.LocalDate.of(2026, 1, 1));
         entity.setExperimental(Boolean.FALSE);
+        // PAT-256 fill-ins: the artifact has a title and a risk adjustment description, no endorsement / SDE guidance
+        entity.setEcqmTitle("DM-HbA1c");
+        entity.setRiskAdjustmentDescription("Adjusted by age band");
+        entity.setSupplementalDataGuidance(null);
         // Not set on the artifact: clinicalRecommendationStatement, effectiveEnd, approvalDate, lastReviewDate.
 
         MeasureDefinitionEntity existingMeasure = MeasureDefinitionEntity.builder()
@@ -263,6 +267,9 @@ class EcqmPublishServiceTest {
                 .clinicalRecommendationStatement("Kept from the measure page")
                 .approvalDate(java.time.LocalDate.of(2025, 12, 1))
                 .measureTypeList(new ArrayList<>(List.of("outcome")))
+                .endorser("Kept endorser").endorsementId("Kept-01")
+                .supplementalDataGuidance("Kept SDE guidance")
+                .riskAdjustmentDescription("Old risk adjustment text")
                 .build();
 
         when(ecqmRepository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
@@ -288,6 +295,12 @@ class EcqmPublishServiceTest {
         assertThat(m.getApprovalDate()).isEqualTo(java.time.LocalDate.of(2025, 12, 1));
         assertThat(m.getEffectiveEnd()).isNull();
         assertThat(m.getLastReviewDate()).isNull();
+        // PAT-256: copied where the artifact has a value, the measure page's own value kept elsewhere
+        assertThat(m.getEcqmTitle()).isEqualTo("DM-HbA1c");
+        assertThat(m.getRiskAdjustmentDescription()).isEqualTo("Adjusted by age band");
+        assertThat(m.getEndorser()).isEqualTo("Kept endorser");
+        assertThat(m.getEndorsementId()).isEqualTo("Kept-01");
+        assertThat(m.getSupplementalDataGuidance()).isEqualTo("Kept SDE guidance");
     }
 
     @Test

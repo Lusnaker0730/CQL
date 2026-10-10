@@ -165,6 +165,37 @@ if [ "$(jq -r '.package.standardMetadata != null' "$EXPECTED" | tr -d '\r')" = "
         check "Measure.effectivePeriod.$bound = $want" "$M.effectivePeriod.$bound == $want"
         check "import: $key = $want" ".measure.$key == $want" "$DIR/import-result.json"
     done
+    # PAT-256 fill-ins: short-name / endorser identifiers (THO artifact-identifier-type), Measure.endorser,
+    # Measure.riskAdjustment and the QM IG cqfm-supplementalDataGuidance complex extension.
+    SDG_EXT='http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-supplementalDataGuidance'
+    want=$(jq -c "$SM.ecqmTitle // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$want" ]; then
+        check "Measure.identifier short-name = $want" \
+            "[$M.identifier[]? | select(.type.coding[]?.code == \"short-name\") | .value] == [$want]"
+        check "import: ecqmTitle = $want" ".measure.ecqmTitle == $want" "$DIR/import-result.json"
+    fi
+    want=$(jq -c "$SM.endorsementId // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$want" ]; then
+        check "Measure.identifier endorser = $want" \
+            "[$M.identifier[]? | select(.type.coding[]?.code == \"endorser\") | .value] == [$want]"
+        check "import: endorsementId = $want" ".measure.endorsementId == $want" "$DIR/import-result.json"
+    fi
+    want=$(jq -c "$SM.endorser // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$want" ]; then
+        check "Measure.endorser[0].name = $want" "$M.endorser[0].name == $want"
+        check "import: endorser = $want" ".measure.endorser == $want" "$DIR/import-result.json"
+    fi
+    want=$(jq -c "$SM.riskAdjustmentDescription // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$want" ]; then
+        check "Measure.riskAdjustment = $want" "$M.riskAdjustment == $want"
+        check "import: riskAdjustmentDescription = $want" ".measure.riskAdjustmentDescription == $want" "$DIR/import-result.json"
+    fi
+    want=$(jq -c "$SM.supplementalDataGuidance // empty" "$EXPECTED" | tr -d '\r')
+    if [ -n "$want" ]; then
+        check "Measure supplemental data guidance extension = $want" \
+            "[$M.extension[]? | select(.url == \"$SDG_EXT\") | .extension[]? | select(.url == \"guidance\") | .valueMarkdown] == [$want]"
+        check "import: supplementalDataGuidance = $want" ".measure.supplementalDataGuidance == $want" "$DIR/import-result.json"
+    fi
     defs=$(jq -c "$SM.definitions // empty" "$EXPECTED" | tr -d '\r')
     if [ -n "$defs" ]; then
         check "Measure.definition = $defs" "$M.definition == $defs"

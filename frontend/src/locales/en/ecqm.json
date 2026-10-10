@@ -75,7 +75,7 @@
     "copyright": "Copyright",
     "disclaimer": "Disclaimer",
     "standardMetadata": "Standard Metadata (FHIR Measure)",
-    "standardMetadataHint": "Measure type, definition terms, clinical recommendation statement, dates and the experimental flag. Published onto the measure and exported on the FHIR Measure."
+    "standardMetadataHint": "Abbreviated title and endorsement, measure type, definition terms, clinical recommendation statement, dates and the experimental flag. Published onto the measure and exported on the FHIR Measure."
   },
   "populationGroups": {
     "title": "Population Groups",
@@ -122,6 +122,9 @@
   "sde": {
     "title": "Supplemental Data Elements",
     "guidance": "SDE Guidance",
+    "guidanceHelper": "How the supplemental data elements are collected and reported; published onto the measure and exported in the QM IG extension.",
+    "riskAdjustmentDescription": "Risk adjustment description",
+    "riskAdjustmentDescriptionHelper": "How the risk adjustment factors below are applied (FHIR Measure.riskAdjustment); published onto the measure.",
     "standardSdes": "Standard SDEs",
     "customSdes": "Custom SDEs",
     "addCustom": "Add Custom",
