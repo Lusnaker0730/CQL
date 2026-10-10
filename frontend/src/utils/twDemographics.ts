@@ -1,4 +1,4 @@
-import { randomInt, randomElement } from './random'
+import { randomInt, randomElement, random, referenceNow } from './random'
 
 const SURNAMES = [
   '陳', '林', '黃', '張', '李', '王', '吳', '劉', '蔡', '楊',
@@ -137,7 +137,7 @@ export function generateLandline(): string {
 
 /** Generate a random birth date (age 18–80) */
 export function generateBirthDate(): string {
-  const now = new Date()
+  const now = referenceNow()
   const age = randomInt(18, 80)
   const year = now.getFullYear() - age
   const month = randomInt(1, 12)
@@ -147,18 +147,18 @@ export function generateBirthDate(): string {
 
 /** Generate a random date within a given range */
 export function randomDateInRange(from?: string, to?: string, defaultDaysBack = 365): string {
-  const now = new Date()
+  const now = referenceNow()
   const end = to ? new Date(to) : now
   const start = from ? new Date(from) : new Date(end.getTime() - defaultDaysBack * 86400000)
   const diff = end.getTime() - start.getTime()
-  const randomMs = Math.floor(Math.random() * Math.max(diff, 1))
+  const randomMs = Math.floor(random() * Math.max(diff, 1))
   const date = new Date(start.getTime() + randomMs)
   return date.toISOString().split('T')[0]
 }
 
 /** Generate a random gender */
 export function randomGender(): 'male' | 'female' {
-  return Math.random() < 0.5 ? 'male' : 'female'
+  return random() < 0.5 ? 'male' : 'female'
 }
 
 /** Generate a fake email from a name */

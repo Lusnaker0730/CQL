@@ -55,6 +55,16 @@ export const useLockMeasure = () =>
 export const useUnlockMeasure = () =>
   useInvalidatingMutation((id: number) => measureApi.unlockMeasure(id), MEASURES_KEY)
 
+/** PAT-249: readiness for submit / approve; refetched whenever the measures cache is invalidated. */
+export function useApprovalReadiness(id: number | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ['measures', id, 'approval-readiness'],
+    queryFn: () => measureApi.getApprovalReadiness(id!),
+    enabled: !!id && enabled,
+    staleTime: 0,
+  })
+}
+
 export const useSubmitForReview = () =>
   useInvalidatingMutation((id: number) => measureApi.submitForReview(id), MEASURES_KEY)
 

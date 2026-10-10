@@ -1,0 +1,85 @@
+{
+  "name": "SmokeEpisodeProportion",
+  "version": "1.0.0",
+  "description": "PAT-243 + PAT-242: episode-based proportion whose counts are encounters, evaluated in the measure's own Measurement Period (2024) because the evaluation request passes none",
+  "status": "draft",
+  "fhirVersion": "4.0.1",
+  "scoringType": "proportion",
+  "populationBasis": "Encounter",
+  "improvementNotation": "increase",
+  "measurementPeriodStart": "2024-01-01",
+  "measurementPeriodEnd": "2024-12-31",
+  "populationGroups": [
+    {
+      "groupId": "group-1",
+      "description": "Encounters during the measurement period",
+      "populationBasis": "Encounter",
+      "populations": {
+        "initial-population": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "GenericEncounter_vsac",
+              "name": "All Encounters",
+              "type": "GenericEncounter_vsac",
+              "returnType": "list_of_encounters",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "All Encounters"
+                }
+              ],
+              "modifiers": []
+            }
+          ]
+        },
+        "denominator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": []
+        },
+        "numerator": {
+          "id": "And",
+          "name": "And",
+          "conjunction": true,
+          "returnType": "boolean",
+          "childInstances": [
+            {
+              "id": "GenericEncounter_vsac",
+              "name": "Encounters in period",
+              "type": "GenericEncounter_vsac",
+              "returnType": "list_of_encounters",
+              "fields": [
+                {
+                  "id": "element_name",
+                  "type": "string",
+                  "value": "Encounters in period"
+                }
+              ],
+              "modifiers": [
+                {
+                  "id": "DuringMeasurementPeriodEncounter",
+                  "name": "During Measurement Period",
+                  "cqlTemplate": "DuringMeasurementPeriod",
+                  "returnType": "list_of_encounters",
+                  "inputTypes": ["list_of_encounters"],
+                  "values": null
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "supplementalData": [],
+  "stratifiers": [],
+  "baseElements": [],
+  "parameters": []
+}

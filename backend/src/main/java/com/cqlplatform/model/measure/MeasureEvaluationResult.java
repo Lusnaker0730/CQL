@@ -32,6 +32,21 @@ public class MeasureEvaluationResult {
     private String reportType;
     private List<GroupResult> groups;
     private Map<String, Object> supplementalData;
+
+    /**
+     * PAT-234 — the measure's declared supplemental data elements and risk adjustment factors,
+     * each as a distribution of values over the evaluated patients (value → patient count).
+     * Unlike {@link #supplementalData} (a legacy define → count map that drops strings), this
+     * keeps every value: it is what a risk model or a cross-site comparison needs.
+     */
+    private List<SupplementalDataResult> supplementalDataResults;
+
+    /**
+     * PAT-243 — things the evaluation did that the author should know about, e.g. an episode-based
+     * group whose Initial Population returned a Boolean and was therefore counted per patient.
+     * Null when there is nothing to say.
+     */
+    private List<String> warnings;
     private String errorMessage;
 
     /**
@@ -64,6 +79,8 @@ public class MeasureEvaluationResult {
     public static class GroupResult {
         private String groupId;
         private String description;
+        /** PAT-243: "boolean" (counts are patients) or a resource type such as "Encounter" (counts are episodes). */
+        private String populationBasis;
         private List<PopulationResult> populations;
         private Double measureScore;
         private String measureScoreUnit;
@@ -104,8 +121,47 @@ public class MeasureEvaluationResult {
     @AllArgsConstructor
     public static class StratifierResult {
         private String strataId;
+        /** The stratum's value; for a multi-component stratum the components' values joined with {@code " | "}. */
         private String strataValue;
+        /** PAT-235: the per-component values of a multi-component stratum; null for a single-expression stratifier. */
+        private List<StratumComponent> components;
         private List<PopulationResult> populations;
         private Double measureScore;
+    }
+
+    /** PAT-235 — one component of a multi-component stratum (FHIR {@code stratum.component}). */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class StratumComponent {
+        private String code;
+        private String value;
+    }
+
+    /** PAT-234 — one supplemental data element / risk adjustment factor over all evaluated patients. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SupplementalDataResult {
+        /** The CQL define name. */
+        private String definition;
+        /** {@code supplemental-data} or {@code risk-adjustment-factor} (FHIR measure-data-usage). */
+        private String usage;
+        private String description;
+        /** Patients whose value was null / empty — they are in no bucket. */
+        private Integer patientsWithoutValue;
+        /** Distinct values in first-seen order, each with the number of patients that had it. */
+        private List<ValueCount> values;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ValueCount {
+        private String value;
+        private Integer count;
     }
 }

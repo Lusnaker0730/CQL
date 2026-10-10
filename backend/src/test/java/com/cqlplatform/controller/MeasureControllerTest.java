@@ -44,6 +44,9 @@ class MeasureControllerTest {
     @MockitoBean
     private TestCaseService testCaseService;
 
+    @MockitoBean
+    private com.cqlplatform.service.ecqm.EcqmPublishService ecqmPublishService;
+
     @Test
     @WithMockUser
     void evaluateMeasure_shouldReturn200() throws Exception {
@@ -181,5 +184,26 @@ class MeasureControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error").value("Validation Error"))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("review workflow")));
+    }
+
+    // PAT-238: the measure page asks where a measure came from in the eCQM builder
+    @Test
+    @WithMockUser(username = "owner")
+    void builderSource_returnsTheArtifactAndDrift_or204() throws Exception {
+        MeasureDefinition m = MeasureDefinition.builder().id(5L).name("M").version("1.0.0")
+                .ownerUsername("owner").accessLevel("public").build();
+        when(definitionService.getById(5L)).thenReturn(Optional.of(m));
+        when(ecqmPublishService.builderSourceOf(5L)).thenReturn(Optional.of(com.cqlplatform.model.ecqm.BuilderSource.builder()
+                .artifactId(9L).artifactName("M").ownerUsername("owner")
+                .measureEditedSincePublish(true).builderChangedSincePublish(false).build()));
+
+        mockMvc.perform(get("/api/measures/5/builder-source"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.artifactId").value(9))
+                .andExpect(jsonPath("$.measureEditedSincePublish").value(true))
+                .andExpect(jsonPath("$.builderChangedSincePublish").value(false));
+
+        when(ecqmPublishService.builderSourceOf(5L)).thenReturn(Optional.empty());
+        mockMvc.perform(get("/api/measures/5/builder-source")).andExpect(status().isNoContent());
     }
 }

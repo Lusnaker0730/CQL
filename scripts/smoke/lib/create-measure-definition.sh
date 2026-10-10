@@ -2,9 +2,9 @@
 # Create a raw MeasureDefinition via POST /api/measures and emit its numeric id.
 #
 # This is the *editor* path (a hand-written measure with cqlContent), NOT the
-# eCQM artifact path used by save-and-publish.sh — publish always lands the
-# definition as `active`, so it can never exercise the draft lifecycle. A raw
-# definition defaults to `draft` (PAT-219 status-guard scenarios need that).
+# eCQM artifact path used by save-and-publish.sh (which, since BUG-147, lands as
+# draft and then approves). A raw definition stays `draft` (PAT-219 status-guard
+# scenarios need that).
 #
 # Usage:  MEASURE_ID=$(lib/create-measure-definition.sh measure.json)
 # Requires TOKEN env var set to a valid JWT.

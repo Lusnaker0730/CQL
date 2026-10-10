@@ -90,6 +90,7 @@ class TenantRlsIntegrationTest {
         TenantContext.runWithRlsBypass(() -> {
             jdbc.update("DELETE FROM measure_report WHERE id IN (?, ?)", reportA, reportB);      // cascades group / population
             jdbc.update("DELETE FROM measure_definition WHERE id IN (?, ?)", measureA, measureB); // cascades test_case
+            jdbc.update("DELETE FROM measure_set WHERE tenant_id IN (?, ?)", tenantA, tenantB);   // PAT-253
             jdbc.update("DELETE FROM tenant WHERE id IN (?, ?)", tenantA, tenantB);
             jdbc.execute("DROP OWNED BY " + PROBE_ROLE);
             jdbc.execute("DROP ROLE IF EXISTS " + PROBE_ROLE);
@@ -197,9 +198,12 @@ class TenantRlsIntegrationTest {
     }
 
     private long insertMeasure(String name, long tenantId) {
+        // PAT-253 (V79): every measure belongs to a measure set
+        long setId = jdbc.queryForObject(
+                "INSERT INTO measure_set (tenant_id, name) VALUES (?, ?) RETURNING id", Long.class, tenantId, name);
         return jdbc.queryForObject(
-                "INSERT INTO measure_definition (name, version, tenant_id) VALUES (?, '1.0.0', ?) RETURNING id",
-                Long.class, name, tenantId);
+                "INSERT INTO measure_definition (name, version, tenant_id, measure_set_id) VALUES (?, '1.0.0', ?, ?) RETURNING id",
+                Long.class, name, tenantId, setId);
     }
 
     private long insertReport(long measureId, String name, long tenantId) {

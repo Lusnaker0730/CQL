@@ -120,6 +120,16 @@ public class MeasureDefinitionEntity {
     @Column(name = "locked_at")
     private LocalDateTime lockedAt;
 
+    /**
+     * PAT-253 (V79): the version lineage this row belongs to ({@link MeasureSetEntity}). NOT NULL in
+     * PostgreSQL after the V79 backfill and always set by the application; left nullable in the
+     * mapping so H2 tests can build rows without a set (history / supersede then fall back to the
+     * pre-V79 name-based lineage).
+     */
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
+    @Column(name = "measure_set_id")
+    private Long measureSetId;
+
     @Column(name = "reviewed_by", length = 100)
     private String reviewedBy;
 
@@ -197,6 +207,46 @@ public class MeasureDefinitionEntity {
     @Column(name = "improvement_notation", length = 20)
     private String improvementNotation;
 
+    // PAT-236 — standard FHIR Measure metadata (V75)
+    @Column(name = "measure_types", columnDefinition = "TEXT")
+    private String measureTypesJson;
+
+    @Transient
+    @Builder.Default
+    private List<String> measureTypeList = new ArrayList<>();
+
+    @Column(name = "definition_terms", columnDefinition = "TEXT")
+    private String definitionTermsJson;
+
+    @Transient
+    @Builder.Default
+    private List<MeasureDefinition.DefinitionTerm> definitionTermList = new ArrayList<>();
+
+    @Column(name = "clinical_recommendation_statement", columnDefinition = "TEXT")
+    private String clinicalRecommendationStatement;
+
+    @Column(name = "effective_start")
+    private java.time.LocalDate effectiveStart;
+
+    @Column(name = "effective_end")
+    private java.time.LocalDate effectiveEnd;
+
+    @Column(name = "approval_date")
+    private java.time.LocalDate approvalDate;
+
+    @Column(name = "last_review_date")
+    private java.time.LocalDate lastReviewDate;
+
+    @Column(name = "experimental")
+    private Boolean experimental;
+
+    /** PAT-242 (V77): the measure's own Measurement Period; null = use the caller's / default period. */
+    @Column(name = "measurement_period_start")
+    private java.time.LocalDate measurementPeriodStart;
+
+    @Column(name = "measurement_period_end")
+    private java.time.LocalDate measurementPeriodEnd;
+
     @Column(name = "rate_aggregation", length = 2000)
     private String rateAggregation;
 
@@ -242,6 +292,8 @@ public class MeasureDefinitionEntity {
         serializeJsonList(referenceList, (json) -> measureReferences = json, "[]");
         serializeJsonList(riskAdjustmentList, (json) -> riskAdjustmentsJson = json, "[]");
         serializeJsonList(supplementalDataList, (json) -> supplementalDataJson = json, "[]");
+        serializeJsonList(measureTypeList, (json) -> measureTypesJson = json, "[]");
+        serializeJsonList(definitionTermList, (json) -> definitionTermsJson = json, "[]");
         serializeJsonList(sharedWithList, (json) -> sharedWith = json, "[]");
     }
 
@@ -252,6 +304,8 @@ public class MeasureDefinitionEntity {
         referenceList = deserializeJsonList(measureReferences, new TypeReference<>() {});
         riskAdjustmentList = deserializeJsonList(riskAdjustmentsJson, new TypeReference<>() {});
         supplementalDataList = deserializeJsonList(supplementalDataJson, new TypeReference<>() {});
+        measureTypeList = deserializeJsonList(measureTypesJson, new TypeReference<>() {});
+        definitionTermList = deserializeJsonList(definitionTermsJson, new TypeReference<>() {});
         sharedWithList = deserializeJsonList(sharedWith, new TypeReference<>() {});
     }
 

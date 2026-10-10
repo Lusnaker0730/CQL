@@ -1,6 +1,9 @@
 package com.cqlplatform.service.cql;
 
 import com.cqlplatform.entity.CqlLibraryEntity;
+import com.cqlplatform.exception.ResourceLockedException;
+import com.cqlplatform.util.EditLock;
+import org.springframework.beans.factory.annotation.Value;
 import com.cqlplatform.model.CqlLibrary;
 import com.cqlplatform.model.LibraryMetadataDTO;
 import com.cqlplatform.model.CqlTranslationRequest;
@@ -26,6 +29,10 @@ public class CqlLibraryService {
     private final CqlLibraryRepository libraryRepository;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
 
+    /** PAT-253: edit-lock expiry, shared with measures and test cases. */
+    @Value("${measure.locking.timeout-minutes:30}")
+    private int lockTimeoutMinutes;
+
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
         Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
@@ -37,8 +44,19 @@ public class CqlLibraryService {
                 .orElseThrow(() -> new IllegalStateException("Default tenant missing"));
     }
 
+    /** Anonymous save (imports, authoring export): refused while the existing version is locked by anyone. */
     @Transactional
     public CqlLibrary saveLibrary(String cqlContent, String description) {
+        return saveLibrary(cqlContent, description, null);
+    }
+
+    /**
+     * PAT-253: a save that lands on an existing name + version overwrites it, so it honours that
+     * row's edit lock — {@code currentUser} may overwrite what they hold, anyone else's active lock
+     * is a 409 Locked.
+     */
+    @Transactional
+    public CqlLibrary saveLibrary(String cqlContent, String description, String currentUser) {
         CqlTranslationRequest request = new CqlTranslationRequest();
         request.setCql(cqlContent);
         CqlTranslationResponse response = translationService.translate(request);
@@ -60,6 +78,7 @@ public class CqlLibraryService {
         CqlLibraryEntity entity;
         if (existing.isPresent()) {
             entity = existing.get();
+            requireNotLockedByOther(entity, currentUser);
             entity.setCqlContent(cqlContent);
             entity.setElmJson(response.getElmJson());
             entity.setDescription(description);
@@ -74,6 +93,10 @@ public class CqlLibraryService {
                     .status("active")
                     .dependencyList(dependencies)
                     .tenantId(effectiveTenantId())
+                    // PAT-253: the creator is the owner (as for measures since PAT-222). A library
+                    // created through the API used to have no owner, and OwnershipVerifier is
+                    // fail-closed on that — only admins could edit or lock it, not its author.
+                    .ownerUsername(currentUser)
                     .build();
         }
 
@@ -130,31 +153,106 @@ public class CqlLibraryService {
 
     @Transactional
     public void deleteLibrary(String id) {
+        deleteLibrary(id, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public void deleteLibrary(String id, String currentUser) {
         parseId(id).flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
-                .ifPresent(libraryRepository::delete);
+                .ifPresent(entity -> {
+                    requireNotLockedByOther(entity, currentUser);
+                    libraryRepository.delete(entity);
+                });
         log.info("Deleted library: {}", id);
     }
 
     @Transactional
     public CqlLibrary updateLibrary(String id, String cqlContent, String description) {
+        return updateLibrary(id, cqlContent, description, null);
+    }
+
+    /** PAT-253: refused with 409 Locked while someone other than {@code currentUser} holds an active edit lock. */
+    @Transactional
+    public CqlLibrary updateLibrary(String id, String cqlContent, String description, String currentUser) {
         Optional<CqlLibraryEntity> existing = parseId(id)
                 .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]));
 
         if (existing.isEmpty()) {
             throw new IllegalArgumentException("Library not found: " + id);
         }
+        requireNotLockedByOther(existing.get(), currentUser);
+        boolean heldByCaller = currentUser != null && currentUser.equals(existing.get().getLockedBy())
+                && EditLock.isActive(existing.get().getLockedBy(), existing.get().getLockedAt(), lockTimeoutMinutes);
 
         String existingDesc = existing.get().getDescription();
-        CqlLibrary updated = saveLibrary(cqlContent, description != null ? description : existingDesc);
+        CqlLibrary updated = saveLibrary(cqlContent, description != null ? description : existingDesc, currentUser);
 
-        // If the new translation produced a different name-version, remove old entry
+        // If the new translation produced a different name-version, remove old entry — and carry the
+        // caller's own lock over to the new row, so editing the header does not silently drop it
         String newId = updated.getName() + "-" + updated.getVersion();
         if (!newId.equals(id)) {
             parseId(id).flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
                     .ifPresent(libraryRepository::delete);
+            if (heldByCaller) {
+                Optional<CqlLibraryEntity> moved = libraryRepository.findByTenantIdAndNameAndVersion(
+                        effectiveTenantId(), updated.getName(), updated.getVersion());
+                if (moved.isPresent()) {
+                    moved.get().setLockedBy(currentUser);
+                    moved.get().setLockedAt(java.time.LocalDateTime.now());
+                    return entityToModel(libraryRepository.save(moved.get()));
+                }
+            }
         }
 
         return updated;
+    }
+
+    // ===== Edit lock (PAT-253) =====
+
+    /** Takes the edit lock for {@code currentUser} (or refreshes their own); 409 Locked while someone else holds one. */
+    @Transactional
+    public CqlLibrary lockLibrary(String id, String currentUser) {
+        CqlLibraryEntity entity = requireEntity(id);
+        requireNotLockedByOther(entity, currentUser);
+        entity.setLockedBy(currentUser);
+        entity.setLockedAt(java.time.LocalDateTime.now());
+        entity = libraryRepository.save(entity);
+        log.info("Library {} locked by {}", id, currentUser);
+        return entityToModel(entity);
+    }
+
+    /** Releases the lock; only the holder or the library's owner may release someone's active lock. */
+    @Transactional
+    public CqlLibrary unlockLibrary(String id, String currentUser) {
+        CqlLibraryEntity entity = requireEntity(id);
+        boolean isOwner = currentUser != null
+                && (entity.getOwnerUsername() == null || entity.getOwnerUsername().equals(currentUser));
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes) && !isOwner) {
+            throw new ResourceLockedException("Library", id, entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes),
+                    "Library " + id + " is locked by " + entity.getLockedBy()
+                            + "; only the lock holder or the owner can unlock it.");
+        }
+        String previousHolder = entity.getLockedBy();
+        entity.setLockedBy(null);
+        entity.setLockedAt(null);
+        entity = libraryRepository.save(entity);
+        if (previousHolder != null) log.info("Library {} unlocked by {} (was locked by {})", id, currentUser, previousHolder);
+        return entityToModel(entity);
+    }
+
+    private CqlLibraryEntity requireEntity(String id) {
+        return parseId(id)
+                .flatMap(nv -> libraryRepository.findByTenantIdAndNameAndVersion(effectiveTenantId(), nv[0], nv[1]))
+                .orElseThrow(() -> new IllegalArgumentException("Library not found: " + id));
+    }
+
+    private void requireNotLockedByOther(CqlLibraryEntity entity, String currentUser) {
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)) {
+            throw new ResourceLockedException("Library", entity.getName() + "-" + entity.getVersion(), entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes));
+        }
     }
 
     @Transactional(readOnly = true)
@@ -176,7 +274,11 @@ public class CqlLibraryService {
     }
 
     private CqlLibrary entityToModel(CqlLibraryEntity entity) {
+        boolean locked = EditLock.isActive(entity.getLockedBy(), entity.getLockedAt(), lockTimeoutMinutes);
         return CqlLibrary.builder()
+                .lockedBy(locked ? entity.getLockedBy() : null)
+                .lockedAt(locked ? entity.getLockedAt() : null)
+                .lockExpiresAt(locked ? EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes) : null)
                 .id(entity.getName() + "-" + entity.getVersion())
                 .name(entity.getName())
                 .version(entity.getVersion())

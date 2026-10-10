@@ -79,11 +79,9 @@ public class CqlArtifactBuilder {
         dataModel.put("includes", includes);
 
         // Escape value set names for use in quoted identifiers and string literals in template
-        List<Map<String, String>> escapedValueSets = new ArrayList<>();
-        for (String vs : valueSets) {
-            escapedValueSets.add(Map.of("identifier", engine.escapeCqlIdentifier(vs), "uri", engine.escapeCqlString(vs)));
-        }
-        dataModel.put("valueSets", escapedValueSets);
+        // PAT-230: identifier, uri and optional version per value set — the uri is the URL the author
+        // picked, no longer a copy of the name.
+        dataModel.put("valueSets", engine.valueSetTemplateModel(valueSets));
 
         // Code systems: convert URI → {name, id} with escaping
         List<Map<String, String>> codeSystemEntries = new ArrayList<>();

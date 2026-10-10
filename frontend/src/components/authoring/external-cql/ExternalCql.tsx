@@ -14,6 +14,7 @@ import { useExternalCqlList, useUploadExternalCql, useDeleteExternalCql } from '
 import type { ExternalCqlLibrary } from '../../../types/authoring'
 import { codeBlockSx } from '../../../constants/authoringConstants'
 import type { UseMutationResult } from '@tanstack/react-query'
+import { functionSignature } from '../../../utils/libraryFunctions'
 
 /** Props for the presentational view (no hooks — parent provides data) */
 export interface ExternalCqlViewProps {
@@ -214,7 +215,11 @@ export function ExternalCqlView({
                     {detailsLib.details.definitions.map((d) => (
                       <Chip
                         key={d.name}
-                        label={`${d.name}${d.resultType ? `: ${d.resultType}` : ''}`}
+                        // PAT-237: a function shows its signature and is marked as callable with arguments
+                        label={d.kind === 'function'
+                          ? functionSignature(d.name, d.operands, d.resultType)
+                          : `${d.name}${d.resultType ? `: ${d.resultType}` : ''}`}
+                        color={d.kind === 'function' ? 'secondary' : 'default'}
                         size="small"
                         variant="outlined"
                         sx={{ mb: 0.5 }}

@@ -225,6 +225,10 @@ cql:
 
 # FHIR Configuration
 fhir:
+  # PAT-229: base of the canonical URLs this installation publishes for its measures and
+  # libraries (https://<your-domain>/fhir). Falls back to APP_BASE_URL + /fhir; with neither
+  # set, exported packages use a localhost placeholder and the conformance report says so.
+  canonical-base: ${FHIR_CANONICAL_BASE:}
   server:
     url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
   terminology:
@@ -258,6 +262,11 @@ measure:
     default-period-end: ${MEASURE_DEFAULT_PERIOD_END:}
   locking:
     timeout-minutes: ${MEASURE_LOCK_TIMEOUT_MINUTES:30}
+  review:
+    # PAT-249 four-eyes: the measure's author (owner / creator) and whoever submitted it for review
+    # may not approve it. Switch off only for single-person installations — the gate on CQL errors
+    # and invalid / failing test cases stays on regardless.
+    four-eyes: ${MEASURE_REVIEW_FOUR_EYES:true}
   scheduling:
     enabled: ${MEASURE_SCHEDULING_ENABLED:true}
 

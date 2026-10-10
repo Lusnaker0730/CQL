@@ -79,8 +79,13 @@ public class MeasureDefinition {
     private String accessLevel;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Active edit lock only (an expired lock reads as unlocked); see {@code util.EditLock}. */
     private String lockedBy;
     private LocalDateTime lockedAt;
+    /** PAT-253: when the active lock lapses; null when unlocked. */
+    private LocalDateTime lockExpiresAt;
+    /** PAT-253: the version lineage (measure set) this measure belongs to. Read-only: ignored on create / update. */
+    private Long measureSetId;
 
     // Workflow review tracking
     private String reviewedBy;
@@ -147,6 +152,47 @@ public class MeasureDefinition {
     @NoXss
     private String rateAggregation;
 
+    // PAT-236 — standard FHIR Measure metadata the platform did not model before
+    /** {@code Measure.type[]}: process | outcome | structure | patient-reported-outcome | composite. */
+    @Size(max = 5)
+    private List<@Pattern(regexp = "process|outcome|structure|patient-reported-outcome|composite") String> measureTypes;
+
+    /** {@code Measure.definition[]}: the terms the measure uses, each with its definition. */
+    @Size(max = 50)
+    @Valid
+    private List<DefinitionTerm> definitionTerms;
+
+    /** {@code Measure.clinicalRecommendationStatement}. */
+    @Size(max = 5000)
+    @NoXss
+    private String clinicalRecommendationStatement;
+
+    /** {@code Measure.effectivePeriod.start} — when set, replaces the created-at fallback in the export. */
+    private java.time.LocalDate effectiveStart;
+
+    /** {@code Measure.effectivePeriod.end}. */
+    private java.time.LocalDate effectiveEnd;
+
+    /** {@code Measure.approvalDate}. */
+    private java.time.LocalDate approvalDate;
+
+    /** {@code Measure.lastReviewDate}. */
+    private java.time.LocalDate lastReviewDate;
+
+    /** {@code Measure.experimental}: for testing, not for real-world use. */
+    private Boolean experimental;
+
+    /**
+     * PAT-242 — the measure's own Measurement Period, i.e. the default value of the CQL
+     * {@code "Measurement Period"} parameter: what test case runs and an evaluation without an
+     * explicit period use. Null = not set (the evaluation falls back to the configured default or
+     * the current calendar year, as before). Distinct from {@link #effectiveStart}: that is when
+     * the measure is in use, this is the window of data it looks at.
+     */
+    private java.time.LocalDate measurementPeriodStart;
+
+    private java.time.LocalDate measurementPeriodEnd;
+
     // Indicator code mapping
     @Size(max = 50)
     private String mohIndicatorCode;
@@ -165,6 +211,21 @@ public class MeasureDefinition {
     private String department;
 
     // Nested records
+    /** PAT-236 — one {@code Measure.definition} entry: a term and what it means in this measure. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DefinitionTerm {
+        @Size(max = 200)
+        @NoXss
+        private String term;
+
+        @Size(max = 2000)
+        @NoXss
+        private String definition;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

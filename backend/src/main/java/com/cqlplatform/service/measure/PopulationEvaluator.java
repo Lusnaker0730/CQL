@@ -7,6 +7,8 @@ import com.cqlplatform.model.measure.PopulationDefinition;
 import com.cqlplatform.model.measure.PopulationMembershipTrace;
 import com.cqlplatform.model.measure.PopulationMembershipTrace.GroupTrace;
 import com.cqlplatform.model.measure.PopulationMembershipTrace.PopulationTraceEntry;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
+import com.cqlplatform.model.measure.TestCaseExpectedValues;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -51,6 +53,30 @@ public class PopulationEvaluator {
         return counts;
     }
 
+    /** The one member a patient-based population contributes: the patient. */
+    static final String PATIENT_KEY = "patient";
+
+    /** PAT-243 — true for a resource-type basis (Encounter, Procedure, …); false for Boolean / unset. */
+    public static boolean isEpisodeBasis(String populationBasis) {
+        return populationBasis != null && !populationBasis.isBlank() && !"boolean".equalsIgnoreCase(populationBasis);
+    }
+
+    /**
+     * PAT-243 — what one patient contributes to one population group.
+     *
+     * @param counts            effective member count per canonical population name ("Initial
+     *                          Population", "Denominator", …): the patient (0 / 1) for a
+     *                          patient-based group, episodes for an episode-based one
+     * @param observations      continuous-variable observation values of the effective Measure
+     *                          Population members (empty for other scoring types)
+     * @param episodeBased      true when this patient's members were counted as episodes
+     * @param fellBackToPatient true when the group is episode-based but the Initial Population
+     *                          did not return an identifiable episode list, so the patient was
+     *                          counted as one member (the pre-PAT-243 behaviour)
+     */
+    public record PatientContribution(Map<String, Integer> counts, List<Double> observations,
+                                      boolean episodeBased, boolean fellBackToPatient) {}
+
     /**
      * Aggregates a single patient's CQL results into the running population counts.
      * Enforces HL7 proportion measure population hierarchy:
@@ -62,28 +88,15 @@ public class PopulationEvaluator {
      *   <li>Denominator Exceptions only if Denominator is true but Numerator is false</li>
      * </ul>
      *
+     * <p>Patient-based (basis Boolean): the hierarchy of {@link #contribute} with the patient as
+     * the only possible member.
+     *
      * @param counts  running population counts (mutated in place)
      * @param results CQL expression results for one patient
      */
     public void aggregatePatientResults(Map<String, Integer> counts,
                                         Map<String, CqlExecutionResponse.ExpressionResult> results) {
-        // Evaluate each population for this patient
-        boolean inInitPop = isPopulationTrue(results, "Initial Population");
-        boolean inDenom = inInitPop && isPopulationTrue(results, "Denominator");
-        boolean denomExcluded = inDenom && isPopulationTrue(results, "Denominator Exclusions");
-        boolean effectiveDenom = inDenom && !denomExcluded;
-        boolean inNumer = effectiveDenom && isPopulationTrue(results, "Numerator");
-        boolean numerExcluded = inNumer && isPopulationTrue(results, "Numerator Exclusions");
-        boolean effectiveNumer = inNumer && !numerExcluded;
-        boolean denomException = effectiveDenom && !effectiveNumer
-                && isPopulationTrue(results, "Denominator Exceptions");
-
-        if (inInitPop) increment(counts, "Initial Population");
-        if (inDenom) increment(counts, "Denominator");
-        if (denomExcluded) increment(counts, "Denominator Exclusions");
-        if (effectiveNumer) increment(counts, "Numerator");
-        if (numerExcluded) increment(counts, "Numerator Exclusions");
-        if (denomException) increment(counts, "Denominator Exceptions");
+        addCounts(counts, contribute(ScoringTypeConstants.PROPORTION, null, results, results, null).counts());
     }
 
     /**
@@ -102,19 +115,7 @@ public class PopulationEvaluator {
      */
     public void aggregateRatioPatientResults(Map<String, Integer> counts,
                                              Map<String, CqlExecutionResponse.ExpressionResult> results) {
-        boolean inInitPop = isPopulationTrue(results, "Initial Population");
-        boolean inDenom = inInitPop && isPopulationTrue(results, "Denominator");
-        boolean denomExcluded = inDenom && isPopulationTrue(results, "Denominator Exclusions");
-        // Ratio: Numer is gated by IP only, NOT by Denom (the key difference from proportion)
-        boolean inNumer = inInitPop && isPopulationTrue(results, "Numerator");
-        boolean numerExcluded = inNumer && isPopulationTrue(results, "Numerator Exclusions");
-        boolean effectiveNumer = inNumer && !numerExcluded;
-
-        if (inInitPop) increment(counts, "Initial Population");
-        if (inDenom) increment(counts, "Denominator");
-        if (denomExcluded) increment(counts, "Denominator Exclusions");
-        if (effectiveNumer) increment(counts, "Numerator");
-        if (numerExcluded) increment(counts, "Numerator Exclusions");
+        addCounts(counts, contribute(ScoringTypeConstants.RATIO, null, results, results, null).counts());
     }
 
     private boolean isPopulationTrue(Map<String, CqlExecutionResponse.ExpressionResult> results,
@@ -123,8 +124,13 @@ public class PopulationEvaluator {
         return count != null && count > 0;
     }
 
-    private void increment(Map<String, Integer> counts, String key) {
-        counts.computeIfPresent(key, (k, v) -> v + 1);
+    /** Adds a patient's contribution to the running counts (only the keys the running map knows). */
+    private static void addCounts(Map<String, Integer> counts, Map<String, Integer> contribution) {
+        for (Map.Entry<String, Integer> entry : contribution.entrySet()) {
+            if (entry.getValue() != null && entry.getValue() > 0) {
+                counts.merge(entry.getKey(), entry.getValue(), Integer::sum);
+            }
+        }
     }
 
     /**
@@ -193,30 +199,159 @@ public class PopulationEvaluator {
                                            Map<String, CqlExecutionResponse.ExpressionResult> allResults,
                                            List<String> observationExprNames,
                                            List<Double> observationValues) {
-        boolean inInitPop = isPopulationTrue(populationResults, "Initial Population");
-        boolean inMeasurePop = inInitPop && isPopulationTrue(populationResults, "Measure Population");
-        boolean excluded = inMeasurePop && isPopulationTrue(populationResults, "Measure Population Exclusion");
-        boolean effectiveMp = inMeasurePop && !excluded;
+        PatientContribution contribution = contribute(ScoringTypeConstants.CONTINUOUS_VARIABLE, null,
+                populationResults, allResults, observationExprNames);
+        addCounts(counts, contribution.counts());
+        observationValues.addAll(contribution.observations());
+    }
 
-        if (inInitPop) increment(counts, "Initial Population");
-        if (inMeasurePop) increment(counts, "Measure Population");
-        if (excluded) increment(counts, "Measure Population Exclusion");
+    /**
+     * PAT-243 — one patient's contribution to one group of the measure, basis-aware: the group's
+     * canonical population view is built here and the group's own
+     * {@link GroupDefinition#getPopulationBasis() population basis} decides whether episodes or
+     * the patient are counted. The production aggregation and the test case runner both go
+     * through this, so a passing test means "the report counts this patient the same way".
+     */
+    public PatientContribution contributeToGroup(String scoringType, List<GroupDefinition> groupDefs,
+                                                 GroupDefinition group,
+                                                 Map<String, CqlExecutionResponse.ExpressionResult> allResults) {
+        Map<String, CqlExecutionResponse.ExpressionResult> canonical = buildExpressionMap(group, allResults);
+        List<String> observationNames = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType)
+                ? observationExpressionNames(groupDefs, group) : null;
+        return contribute(scoringType, group.getPopulationBasis(), canonical, allResults, observationNames);
+    }
 
-        if (effectiveMp) {
-            if (observationExprNames == null || observationExprNames.isEmpty()) {
-                // Legacy fallback: try episode-based list then patient-based scalar.
-                List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
-                if (values.isEmpty()) {
-                    values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
-                }
-                observationValues.addAll(values);
-            } else {
-                // Per-group: each named observation contributes its values.
-                for (String exprName : observationExprNames) {
-                    observationValues.addAll(extractObservationValues(allResults, exprName));
-                }
+    /**
+     * PAT-243 — the population hierarchy of a scoring type applied to one patient's results, as
+     * set algebra over the members of the Initial Population.
+     *
+     * <p>Patient-based (basis Boolean / unset): the Initial Population's only possible member is
+     * the patient; every other define is true (keeps the parent's members) or false (keeps none)
+     * — exactly the Boolean hierarchy the evaluator always applied.
+     *
+     * <p>Episode-based (basis Encounter, Procedure, …): the Initial Population define returns the
+     * list of episodes ({@link EpisodeKeys}); a child population that returns a list keeps the
+     * parent's episodes that are also in its own list, while a child that returns a Boolean
+     * keeps all (true) or none (false) of the parent's episodes — so a patient-level criterion
+     * still works inside an episode-based measure. Counts are episode counts. When the Initial
+     * Population does not return an identifiable episode list (a Boolean, or resources without
+     * ids) the patient is counted as one member and {@link PatientContribution#fellBackToPatient()}
+     * says so; the caller surfaces that as a warning.
+     *
+     * <p>Continuous-variable observations: the episode-based wrapper
+     * ({@code ("Measure Population") MP return "Measure Observation"(MP)}) yields one value per
+     * Measure Population episode in list order, so values are matched to episodes by position and
+     * only those of the effective Measure Population (minus exclusions) are kept. When the two
+     * lists do not line up, every value counts (the pre-PAT-243 behaviour).
+     */
+    public PatientContribution contribute(String scoringType, String populationBasis,
+                                          Map<String, CqlExecutionResponse.ExpressionResult> canonical,
+                                          Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                          List<String> observationExprNames) {
+        boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
+        boolean isRatio = ScoringTypeConstants.RATIO.equals(scoringType);
+        boolean episode = isEpisodeBasis(populationBasis);
+        boolean fellBack = false;
+
+        CqlExecutionResponse.ExpressionResult ipResult = canonical.get("Initial Population");
+        List<String> ipKeys = episode && ipResult != null ? EpisodeKeys.of(ipResult.getValue()) : null;
+        Set<String> ip;
+        if (episode && ipKeys != null) {
+            ip = new LinkedHashSet<>(ipKeys);
+        } else {
+            if (episode && ipResult != null && ipResult.getValue() != null) fellBack = true;
+            episode = false;
+            ip = isPopulationTrue(canonical, "Initial Population") ? Set.of(PATIENT_KEY) : Set.of();
+        }
+
+        Map<String, Integer> counts = isCv ? initializeCvPopulationCounts() : initializePopulationCounts();
+        List<Double> observations = new ArrayList<>();
+        counts.put("Initial Population", ip.size());
+
+        if (isCv) {
+            Set<String> mp = and(ip, members(canonical, "Measure Population", ip, episode));
+            Set<String> mpExcluded = and(mp, members(canonical, "Measure Population Exclusion", ip, episode));
+            Set<String> effectiveMp = minus(mp, mpExcluded);
+            counts.put("Measure Population", mp.size());
+            counts.put("Measure Population Exclusion", mpExcluded.size());
+            if (!effectiveMp.isEmpty()) {
+                observations.addAll(cvObservations(canonical, allResults, observationExprNames, episode, effectiveMp));
+            }
+        } else {
+            Set<String> denom = and(ip, members(canonical, "Denominator", ip, episode));
+            Set<String> denomExcluded = and(denom, members(canonical, "Denominator Exclusions", ip, episode));
+            Set<String> effectiveDenom = minus(denom, denomExcluded);
+            // Ratio: Numer is gated by IP only, NOT by Denom (the key difference from proportion)
+            Set<String> numer = and(isRatio ? ip : effectiveDenom, members(canonical, "Numerator", ip, episode));
+            Set<String> numerExcluded = and(numer, members(canonical, "Numerator Exclusions", ip, episode));
+            Set<String> effectiveNumer = minus(numer, numerExcluded);
+            counts.put("Denominator", denom.size());
+            counts.put("Denominator Exclusions", denomExcluded.size());
+            counts.put("Numerator", effectiveNumer.size());
+            counts.put("Numerator Exclusions", numerExcluded.size());
+            if (!isRatio) {
+                Set<String> denomException = and(minus(effectiveDenom, effectiveNumer),
+                        members(canonical, "Denominator Exceptions", ip, episode));
+                counts.put("Denominator Exceptions", denomException.size());
             }
         }
+        return new PatientContribution(counts, observations, episode, fellBack);
+    }
+
+    /**
+     * The members a population define keeps of the Initial Population's members: its own episode
+     * list (episode mode and the define returned one), else all of them when the define is truthy,
+     * none when it is false / null / absent.
+     */
+    private Set<String> members(Map<String, CqlExecutionResponse.ExpressionResult> canonical, String populationName,
+                                Set<String> universe, boolean episode) {
+        CqlExecutionResponse.ExpressionResult result = canonical.get(populationName);
+        if (result == null || result.getValue() == null) return Set.of();
+        if (episode) {
+            List<String> keys = EpisodeKeys.of(result.getValue());
+            if (keys != null) return and(universe, new LinkedHashSet<>(keys));
+        }
+        return isPopulationTrue(canonical, populationName) ? new LinkedHashSet<>(universe) : Set.of();
+    }
+
+    private static Set<String> and(Set<String> a, Set<String> b) {
+        Set<String> out = new LinkedHashSet<>(a);
+        out.retainAll(b);
+        return out;
+    }
+
+    private static Set<String> minus(Set<String> a, Set<String> b) {
+        Set<String> out = new LinkedHashSet<>(a);
+        out.removeAll(b);
+        return out;
+    }
+
+    private List<Double> cvObservations(Map<String, CqlExecutionResponse.ExpressionResult> canonical,
+                                        Map<String, CqlExecutionResponse.ExpressionResult> allResults,
+                                        List<String> observationExprNames, boolean episode, Set<String> effectiveMp) {
+        List<Double> values;
+        if (observationExprNames == null || observationExprNames.isEmpty()) {
+            // Legacy fallback: try episode-based list then patient-based scalar.
+            values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
+            if (values.isEmpty()) {
+                values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+            }
+        } else {
+            // Per-group: each named observation contributes its values.
+            values = new ArrayList<>();
+            for (String exprName : observationExprNames) {
+                values.addAll(extractObservationValues(allResults, exprName));
+            }
+        }
+        if (!episode) return values;
+        CqlExecutionResponse.ExpressionResult mpResult = canonical.get("Measure Population");
+        List<String> mpKeys = mpResult == null ? null : EpisodeKeys.of(mpResult.getValue());
+        if (mpKeys == null || mpKeys.size() != values.size()) return values;
+        List<Double> kept = new ArrayList<>();
+        for (int i = 0; i < values.size(); i++) {
+            if (effectiveMp.contains(mpKeys.get(i))) kept.add(values.get(i));
+        }
+        return kept;
     }
 
     /**
@@ -260,6 +395,82 @@ public class PopulationEvaluator {
             return values;
         }
         return List.of();
+    }
+
+    /**
+     * CQL define names that carry one group's continuous-variable observation values.
+     *
+     * <p>{@code EcqmCqlBuilder.appendObservationWrapper} emits ONE wrapper define per group:
+     * {@code "Measure Observation Values{suffix}"} (episode-based) or
+     * {@code "Measure Observation Value{suffix}"} (patient-based), where the suffix is
+     * {@code " N"} (1-indexed) for multi-group measures and empty for a single group.
+     * {@code ObservationDefinition.criteriaExpression} holds the FUNCTION name, which never
+     * surfaces as a standalone result, so the wrapper has to be looked up instead (issue #539).
+     *
+     * @return the names to try, or {@code null} when the group declares no observations —
+     *         {@link #aggregateCvPatientResults} then falls back to the unsuffixed defines
+     */
+    public List<String> observationExpressionNames(List<GroupDefinition> groupDefs, GroupDefinition group) {
+        if (group == null || group.getObservations() == null || group.getObservations().isEmpty()) {
+            return null;
+        }
+        int groupIdx = groupDefs != null ? groupDefs.indexOf(group) : -1;
+        String suffix = groupDefs != null && groupDefs.size() > 1 && groupIdx >= 0 ? " " + (groupIdx + 1) : "";
+        return List.of(OBSERVATION_VALUES_EXPR + suffix, OBSERVATION_VALUE_EXPR + suffix);
+    }
+
+    /**
+     * What ONE patient contributes to one population group, computed with exactly the rules the
+     * production evaluation applies per patient (PAT-228). The test case runner compares these
+     * values with the expectation, so a passing test means "the report counts this patient the
+     * same way" — it deliberately does not re-implement the population hierarchy.
+     *
+     * <ul>
+     *   <li>populations — effective counts after the scoring type's hierarchy (proportion /
+     *       cohort, ratio, or continuous-variable), keyed by the group's own
+     *       {@link PopulationDefinition#getPopulationType()}. Patient-based: 0 or 1.</li>
+     *   <li>observations — continuous-variable: this group's wrapper define, only when the
+     *       patient is in the effective Measure Population. Other scoring types: the unsuffixed
+     *       observation defines, which production collects once per patient and not per group —
+     *       so they are reported on the first group only.</li>
+     * </ul>
+     *
+     * @param groupDefs  all groups of the measure (the index decides the multi-group suffix)
+     * @param allResults the patient's full CQL results map
+     */
+    public TestCaseExpectedValues.GroupValues evaluateSinglePatient(
+            String scoringType, List<GroupDefinition> groupDefs, GroupDefinition group,
+            Map<String, CqlExecutionResponse.ExpressionResult> allResults) {
+        boolean isCv = ScoringTypeConstants.CONTINUOUS_VARIABLE.equals(scoringType);
+
+        // PAT-243: basis-aware — an episode-based group yields episode counts here.
+        PatientContribution contribution = contributeToGroup(scoringType, groupDefs, group, allResults);
+        Map<String, Integer> counts = contribution.counts();
+        List<Double> observations = new ArrayList<>(contribution.observations());
+
+        if (!isCv) {
+            boolean firstGroup = groupDefs == null || groupDefs.isEmpty() || groupDefs.indexOf(group) <= 0;
+            if (firstGroup) {
+                List<Double> values = extractObservationValues(allResults, OBSERVATION_VALUE_EXPR);
+                if (values.isEmpty()) {
+                    values = extractObservationValues(allResults, OBSERVATION_VALUES_EXPR);
+                }
+                observations.addAll(values);
+            }
+        }
+
+        Map<String, Integer> byType = new LinkedHashMap<>();
+        if (group.getPopulations() != null) {
+            for (PopulationDefinition pop : group.getPopulations()) {
+                if (pop.getPopulationType() == null) continue;
+                byType.put(pop.getPopulationType(), counts.getOrDefault(toDisplayName(pop.getPopulationType()), 0));
+            }
+        }
+        return TestCaseExpectedValues.GroupValues.builder()
+                .groupId(group.getGroupId())
+                .populations(byType)
+                .observations(observations)
+                .build();
     }
 
     /**
@@ -318,12 +529,30 @@ public class PopulationEvaluator {
             groupTraces.add(buildGroupTrace(null, scoringType, null, results));
         } else {
             for (GroupDefinition group : groups) {
-                groupTraces.add(buildGroupTrace(group.getGroupId(), scoringType,
-                        group.getDescription(), buildExpressionMap(group, results)));
+                GroupTrace trace = buildGroupTrace(group.getGroupId(), scoringType,
+                        group.getDescription(), buildExpressionMap(group, results));
+                applyEpisodeCounts(trace, contributeToGroup(scoringType, groups, group, results), group.getPopulationBasis());
+                groupTraces.add(trace);
             }
         }
 
         return PopulationMembershipTrace.builder().groups(groupTraces).build();
+    }
+
+    /**
+     * PAT-243 — an episode-based group's trace carries the member (episode) count per population,
+     * and "effective" means at least one episode; the Boolean raw / effective columns stay as the
+     * author's define returned them.
+     */
+    private static void applyEpisodeCounts(GroupTrace trace, PatientContribution contribution, String basis) {
+        trace.setPopulationBasis(basis);
+        if (!contribution.episodeBased() || trace.getPopulations() == null) return;
+        for (PopulationTraceEntry entry : trace.getPopulations()) {
+            Integer count = contribution.counts().get(entry.getDisplayName());
+            if (count == null) continue;
+            entry.setMemberCount(count);
+            entry.setEffectiveResult(count > 0);
+        }
     }
 
     /**

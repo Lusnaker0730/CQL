@@ -34,10 +34,10 @@ public class InterruptAwareRetrieveProvider implements RetrieveProvider {
     }
 
     @Override
-    public Iterable<Object> retrieve(
+    public Iterable<org.opencds.cqf.cql.engine.runtime.Value> retrieve(
             String context,
             String contextPath,
-            Object contextValue,
+            String contextValue,
             String dataType,
             String templateId,
             String codePath,
@@ -53,15 +53,15 @@ public class InterruptAwareRetrieveProvider implements RetrieveProvider {
                     "CQL execution timed out (interrupted during retrieve of " + dataType + ")");
         }
 
-        Iterable<Object> raw = delegate.retrieve(
+        Iterable<org.opencds.cqf.cql.engine.runtime.Value> raw = delegate.retrieve(
                 context, contextPath, contextValue,
                 dataType, templateId,
                 codePath, codes, valueSet,
                 datePath, dateLowPath, dateHighPath, dateRange);
 
         // Materialise into a bounded list — stop consuming if cap is exceeded
-        List<Object> bounded = new ArrayList<>();
-        for (Object item : raw) {
+        List<org.opencds.cqf.cql.engine.runtime.Value> bounded = new ArrayList<>();
+        for (org.opencds.cqf.cql.engine.runtime.Value item : raw) {
             // Re-check interrupt between items (cheap and catches long iteration)
             if (Thread.currentThread().isInterrupted()) {
                 throw new CqlExecutionException(

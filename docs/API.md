@@ -489,6 +489,14 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 
 ---
 
+### 3.5a 列出函式庫的 define 與函式（PAT-237）
+
+**GET** `/api/cql/libraries/{id}/expressions`
+
+由儲存的 CQL 翻譯取得（同指標的 `/cql-expressions`），回傳 `ExpressionInfo[]`：`{ name, context, accessLevel, resultType, kind: "expression" | "function", operands?: [{ name, type }] }`。`kind = function` 的項目帶 operand 簽章（型別以作者寫法呈現：`Integer`、`List<FHIR.Observation>`、`Interval<DateTime>`），builder 據此產生帶引數的呼叫元素；找不到函式庫 404，CQL 為空回 `[]`。上傳到 artifact 的外部程式庫（`/external-cql`）的 `details.definitions` 也帶同樣的 `kind` / `operands`（重新上傳才會有）。
+
+---
+
 ### 3.6 建立函式庫
 
 **POST** `/api/cql/libraries`
@@ -752,12 +760,55 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 |------|------|
 | `POST /api/measures/import/fhir` | 匯入 FHIR Measure 資源 |
 | `GET /api/measures/{id}/fhir` | 匯出為 FHIR Measure 資源 |
-| `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出完整 FHIR Bundle（Measure + Library + ValueSet） |
+| `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出交換封裝：Measure + 主要 Library（CQL + ELM）+ CQL `include` 的相依 Library + ValueSet（PAT-229，見下） |
+| `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
 | `GET /api/measures/{id}/export/elm` | 匯出 ELM JSON |
-| `POST /api/measures/import/bundle` | 匯入 FHIR Bundle |
+| `POST /api/measures/import/bundle` | 匯入 FHIR Bundle（含 PAT-236 標準 metadata 讀回） |
 | `GET /api/measures/{id}/export/hqmf` | 匯出 HQMF R2.1 XML（CMS 申報） |
 | `GET /api/measures/{id}/export/human-readable` | 匯出人類可讀 HTML 敘述文件 |
+
+所有匯出端點皆經讀取權限檢查（public / shared，或擁有者、管理員）；跨租戶一律 404。
+
+#### 交換封裝（PAT-229）
+
+封裝依 HL7 Quality Measure IG 5.0.0（STU5）、CRMI 2.0.0、Using CQL with FHIR 2.0.0：
+
+- `Bundle.type = collection`，每個 entry 的 `fullUrl` 即該資源的 canonical `url`。
+- **Measure**：絕對 canonical `url`；`library` 只有一筆，為主要 Library 的 `url|version`；母群 `criteria.language = text/cql-identifier`；group 與 population 帶 `id`；`cqfm-populationBasis`、`cqfm-scoringUnit`、measure-observation 的 `cqfm-aggregateMethod` / `cqfm-criteriaReference`；supplemental data 與 risk adjustment 以 `usage` 區分；資料需求放在 contained 的 `effective-data-requirements` Library（以 `crmi-effectiveDataRequirements` 指向），**不**放在 Measure 上。
+- **`meta.profile` 只在條件成立時宣告**（`crmi-shareablemeasure` 需 title 與 description；`crmi-publishablemeasure` 另需狀態為 active 且有日期；`computable-measure-cqfm` 需有 CQL、有效的 group，非 cohort 指標另需 improvementNotation；scoring 專屬 profile 如 `proportion-measure-cqfm` 另需母群組合符合該 scoring）。缺的內容不填預設值，而是列在 conformance 報告。
+- **`status`** 只會是 `draft` / `active` / `retired`；平台的 `in-review` 對應為 `draft`。
+- **Library**：主要 Library 帶 `text/cql` 與 `application/elm+json`、`relatedArtifact depends-on`、`parameter`、`dataRequirement`。名稱與版本取自 CQL 的 `library` 宣告，不是指標名稱。相依 Library 由 ELM `includes` 逐層找出；`FHIRHelpers` 為標準函式庫，不封裝。
+- **ValueSet**：由已載入的 IG 或 VSAC 解析得到者附完整定義；解析不到者以真實 URL 附上、`status = unknown`，並列入報告。
+- `format=xml` 為 HAPI 由同一份 JSON 轉出的完整 FHIR XML。
+- 從其他工具匯入且**未修改**的指標再匯出時，原樣回傳原資源（含本平台不認識的擴充欄位），只有 `status` 以本機生命週期為準；修改過則由定義重建，並保留原資源中平台不建模的根元素。
+- **標準 metadata（PAT-236）**：`measureTypes[]` → `Measure.type[]`（`http://terminology.hl7.org/CodeSystem/measure-type`：`process` / `outcome` / `structure` / `patient-reported-outcome` / `composite`）；`definitionTerms[]` → `Measure.definition[]`（markdown，`**term**: definition`）；`clinicalRecommendationStatement`、`approvalDate`、`lastReviewDate`、`experimental` 原名；`effectiveStart` / `effectiveEnd` → `effectivePeriod`（未填起日時沿用建立日期的舊行為）。只寫作者填了的欄位；匯入基底的同名元素只補空缺。匯入時反向讀回（`definition` 非本平台格式者整段當 definition、term 為空）。
+
+Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL` + `/fhir`；兩者皆無時使用佔位網址，報告的 `canonicalBaseConfigured` 為 `false`。
+
+`GET /api/measures/{id}/export/conformance` 回應：
+
+```json
+{
+  "profiles": ["http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/computable-measure-cqfm"],
+  "libraryProfiles": ["http://hl7.org/fhir/uv/cql/StructureDefinition/cql-library"],
+  "issues": [{ "severity": "warning", "element": "ValueSet", "message": "..." }],
+  "valueSets": [{ "url": "https://.../ValueSet/diabetes", "name": "Diabetes", "included": true, "source": "ig" }],
+  "canonicalBaseConfigured": true,
+  "exchangeReady": true
+}
+```
+
+`severity` 為 `error` / `warning` / `info`；有任何 `error`（例如 CQL 無法翻譯）時 `exchangeReady = false`，代表接收方無法由此封裝執行指標。`valueSets[].source` 為 `ig` / `vsac` / `none`。
+
+#### 匯入封裝
+
+`POST /api/measures/import/bundle`（body 為 FHIR Bundle JSON）回傳 `{ measure, librariesImported, librariesSkipped, valueSetsFound }`。
+
+- 主要 Library 依 `Measure.library` 判定：canonical URL 相符 → 名稱或 id 相符 → Bundle 內只有一個 Library。都不成立時不猜測：Library 全部存為共用 Library，指標不帶 CQL。
+- 主要 Library 的 CQL 成為指標邏輯；相依 Library 存為共用 Library，本機已有同名同版本者略過（計入 `librariesSkipped`，**不比對內容**）。
+- 匯入的指標一律為 `draft`、擁有者為呼叫者；封裝內的 `status` 不採用，須經送審與核准才可評估。同名同版本已存在時回 400。
+- body 不是 JSON 或不是 JSON 物件時回 400。
 
 ---
 
@@ -767,6 +818,13 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 |------|------|
 | `GET /api/measures/{id}/cql-expressions` | 解析 CQL 並回傳可用表達式名稱（用於母群體對應） |
 | `GET /api/measures/{id}/data-requirements` | 從 CQL/ELM 擷取 FHIR DataRequirement 資源 |
+| `GET /api/measures/{id}/builder-source` | PAT-238：指標由哪個 eCQM builder artifact 發布（`{ artifactId, artifactName, artifactVersion, ownerUsername, publishedAt, artifactUpdatedAt, measureEditedSincePublish, builderChangedSincePublish }`，後兩者在 V76 之前發布的指標為 `null`）；不是 builder 建的回 **204** |
+
+eCQM builder 的 `POST /api/ecqm/artifacts/{id}/publish` 若指標在上次發布後於指標頁被改過（CQL 或母群對應），回 **409** `{"error": "Publish Conflict"}` 且不寫入；加 `?force=true` 覆寫（PAT-238）。
+
+**發布不核准（BUG-147）**：回應 `PublishResult` 多 `measureVersion`、`measureStatus`、`newVersion`、`supersedesMeasureId`。第一次發布建立 `draft`；目標是 draft 就地更新；目標已核准（`active`）或已退役且邏輯有變 → 發布成**新的 draft 版本**（`newVersion: true`，原版本不動、繼續運作，新版本核准後取代它）；只改說明類 metadata 則就地更新、維持原狀態；目標審核中（`in-review`）且邏輯有變 → **409** `{"error": "Measure Logic Locked"}`。
+
+`PUT /api/measures/{id}` 對非 draft 指標的**邏輯**變更（CQL、母群對應、scoring、composite、components、CQL library id）回 **409** `Measure Logic Locked`，要改請先建立新版本；說明、理由、臨床指引等欄位可直接改。`POST /api/measures/{id}/approve` 會把同名的其他 `active` 版本改為 `retired`，並把它們的排程改指向新核准的版本（BUG-147）。
 
 ---
 
@@ -828,6 +886,7 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 | `/api/measures/reports/{reportId}` | GET | 取得報告 |
 | `/api/measures/reports/{reportId}` | DELETE | 刪除報告 |
 | `/api/measures/reports/{reportId}/export?format=fhir\|csv\|excel` | GET | 匯出報告 |
+| `/api/measures/reports/{reportId}/export?format=fhir` | GET | FHIR MeasureReport：`group.stratifier[]` 每分層一筆 `{code, stratum[]}`（PAT-233）；多元件分層的 stratum 另帶 `stratum.component[] {code, value}`、`value.text` 為組合（PAT-235）；補充資料 / 風險校正因子分布以平台 extension `<canonical base>/StructureDefinition/measurereport-supplemental-data` 攜帶（PAT-234：`definition` / `usage` / `description?` / 多個 `value{value,count}` / `patientsWithoutValue`）；CSV / Excel 另有「Supplemental Data」段落 / 工作表 |
 
 ---
 
@@ -865,6 +924,7 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 | `/api/measures/{measureId}/test-cases/{testCaseId}/run` | POST | 執行單一測試案例 |
 | `/api/measures/{measureId}/test-cases/run` | POST | 執行所有測試案例 |
 | `/api/measures/{measureId}/test-cases/{testCaseId}/run-with-coverage` | POST | 執行含覆蓋率測試 |
+| `/api/measures/{measureId}/test-cases/coverage` | POST | 執行全部測試案例並回報逐子句覆蓋率聯集（PAT-232；單一案例以 `run?debugMode=true` 取得 `clauseCoverage`） |
 
 **TestCase 範例：**
 
@@ -882,6 +942,32 @@ Body: MeasureEvaluationRequest（含 measureCql）。
   "sortOrder": 1
 }
 ```
+
+**結構化期望值 `expectedValues`（PAT-228，可選）**：扁平的 `expectedPopulations` 無法區分多個 population group，也不能斷言 measure observation 數值與 stratifier 落點。提供 `expectedValues` 時由它決定 pass / fail，`expectedPopulations` 不參與比對；未提供時行為與過去相同。
+
+```json
+{
+  "title": "兩次住院",
+  "patientBundleJson": "{\"resourceType\":\"Bundle\",...}",
+  "expectedValues": {
+    "groups": [
+      {
+        "groupId": "group-1",
+        "populations": { "initial-population": 1, "measure-population": 1 },
+        "observations": [2, 4],
+        "stratifiers": { "strat-elderly": "true" }
+      }
+    ]
+  }
+}
+```
+
+- `populations`：該 group 各母群**階層生效後**的計數（被分母排除的病人，分子為 0），與正式評估同一套規則；未列出的母群視為期望 0。評估目前以病人為單位，值為 0 或 1。
+- `observations`：不分順序的數值清單（浮點容差 1e-6）；省略代表不斷言，空陣列代表期望沒有數值。
+- `stratifiers`：`stratifierId` → 期望落點（criteria stratifier 為 `"true"` / `"false"`）；只比對有列出的項目。
+- 儲存時若 group / 母群 / stratifier 不存在於該指標、計數為負或數值非數字，回 **400** 並於 `details` 列出原因。
+
+執行結果（`/run`）在有 `expectedValues` 時回傳 `valueComparisons`（`groupId` / `kind` = `population`｜`observation`｜`stratifier` / `key` / `expected` / `actual` / `match`）；每次成功執行都會回傳 `actualValues`（同 `expectedValues` 的形狀），可直接作為期望值的起點。
 
 ---
 
@@ -1015,11 +1101,51 @@ Body: MeasureEvaluationRequest（含 measureCql）。
 
 | 端點 | 方法 | 說明 |
 |------|------|------|
-| `/api/fhir/ValueSet?title=` | GET | 搜尋 ValueSet |
-| `/api/fhir/ValueSet/$expand?url=&filter=` | GET | 展開 ValueSet |
-| `/api/fhir/CodeSystem/$validate-code?system=&code=&valueSet=` | GET | 驗證代碼 |
+| `/api/fhir/ValueSet?title=` | GET | 搜尋 ValueSet。本單位自有的 value set 排在最前（每個 URL 一筆：最新 active，否則最新 draft），每筆結果帶 `source`（`platform` / `remote`），平台結果另有 `version`、`status`（PAT-230） |
+| `/api/fhir/ValueSet/$expand?url=&filter=&valueSetVersion=` | GET | 展開 ValueSet。先查本單位自有的 value set（`valueSetVersion` 可釘選版本），查不到才走 IG / VSAC / 術語伺服器 |
+| `/api/fhir/CodeSystem/$validate-code?system=&code=&url=` | GET | 驗證代碼。value set 以 `url`（FHIR 標準）或 `valueSet` 傳入皆可；本單位自有的 value set 在本機判斷 |
 | `/api/fhir/CodeSystem/$lookup?system=&code=` | GET | 查詢代碼資訊 |
 | `/api/fhir/CodeSystem/$search-codes?system=&text=&maxResults=20` | GET | 搜尋代碼 |
+
+---
+
+### 5.4.1 本單位自有的 value set（PAT-230）
+
+基礎路徑 `/api/value-sets`，一律以呼叫者的租戶為範圍（他租戶的 id 回 404）。一筆資料 = 一個 value set 的一個版本，以 canonical `url` + `version` 識別。內容為明確的代碼清單；以規則定義的 value set 不在平台內求值。
+
+生命週期：`draft`（可編輯、可刪除）→ `active`（代碼凍結）→ `retired`。要修改已啟用版本的代碼，請建立新版本。CQL 以 `valueset "X": '<url>' version '1.2.0'` 釘選時解析到該版本；未釘選時解析到最新的 `active`，尚無 `active` 時解析到最新的 `draft`；`retired` 只在被釘選時解析。
+
+| 端點 | 方法 | 說明 |
+|------|------|------|
+| `/api/value-sets?search=` | GET | 清單（每個版本一筆，不含代碼） |
+| `/api/value-sets/{id}` | GET | 單一版本，含 `concepts` |
+| `/api/value-sets/{id}/versions` | GET | 同一 URL 的所有版本 |
+| `/api/value-sets` | POST | 建立（201）。`url` 留空時由 `name` 與 `FHIR_CANONICAL_BASE` 產生；`version` 預設 `1.0.0`；狀態一律 `draft`、擁有者為呼叫者（body 內的 `status` / `ownerUsername` 不採用） |
+| `/api/value-sets/{id}` | PUT | 編輯草稿（`url`、`version` 不可改）。非 `draft` 回 400 |
+| `/api/value-sets/{id}/versions` | POST | body `{ "version": "1.1.0" }`；以相同代碼建立新的 `draft`（201） |
+| `/api/value-sets/{id}/activate` | POST | `draft` → `active`。空的 value set 回 400 |
+| `/api/value-sets/{id}/retire` | POST | `active` → `retired` |
+| `/api/value-sets/{id}` | DELETE | 僅 `draft`（204） |
+| `/api/value-sets/{id}/fhir` | GET | 匯出為 FHIR R4 ValueSet（`compose` 依代碼系統分組，另附相同代碼的 `expansion`）。匯入後未修改者原樣輸出原資源，僅 `status` 以本機為準 |
+| `/api/value-sets/import/fhir` | POST | 匯入 FHIR R4 ValueSet（201，狀態 `draft`）。需有 `url` 與代碼：讀 `compose.include[].concept`；定義含規則（整個代碼系統、filter、exclude、巢狀 value set）時改用 `expansion.contains`，兩者皆無回 400。同 URL 同版本已存在回 409 |
+
+Request / response body：
+
+```json
+{
+  "url": "https://quality.example-hospital.tw/fhir/ValueSet/HbA1cOrders",
+  "version": "1.0.0",
+  "name": "HbA1cOrders",
+  "title": "HbA1c 醫令代碼",
+  "description": "...",
+  "publisher": "...",
+  "concepts": [{ "system": "http://loinc.org", "code": "4548-4", "display": "HbA1c" }]
+}
+```
+
+回應另含唯讀欄位 `id`、`status`、`conceptCount`、`origin`（`authored` / `imported`）、`ownerUsername`、`createdAt`、`updatedAt`。代碼會去除前後空白與重複（同 system + 代碼系統版本 + code，保留第一筆）；每筆都需有 `system` 與 `code`，上限 20,000 筆。驗證錯誤回 400 並在 `details` 列出所有問題。
+
+指標交換封裝（§4.2）會內嵌本單位自有 value set 的完整代碼（conformance 報告的 `source` 為 `platform`；引用到 `draft` 版本時為 warning，未釘選版本時為 info）。`POST /api/measures/import/bundle` 會把封裝內的 ValueSet 存為本租戶的 `draft` value set，回應另含 `valueSetsImported`、`valueSetsSkipped`、`warnings`：同 URL 同版本已存在者保留本機內容，沒有代碼者略過，兩者都會在 `warnings` 說明。
 
 ---
 

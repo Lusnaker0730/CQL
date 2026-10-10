@@ -65,7 +65,12 @@
     "unsavedTitle": "Unsaved Changes",
     "unsavedMessage": "You have unsaved changes. Do you want to save before leaving?",
     "discardChanges": "Discard Changes",
-    "saveAndLeave": "Save & Leave"
+    "saveAndLeave": "Save & Leave",
+    "lock": "Lock",
+    "unlock": "Unlock",
+    "lockedBy": "Locked by {{user}}",
+    "lockedUntil": "Locked by {{user}} until {{until}}",
+    "lockedWarning": "Locked by {{user}}. Saving is disabled until the lock is released or expires."
   },
   "header": {
     "backToList": "Back to Libraries",
@@ -181,7 +186,9 @@
     "step1Title": "Select Library",
     "step2Title": "Select Definition",
     "generateInclude": "Reference expression",
-    "useLibraryDefinition": "Use Library Definition"
+    "useLibraryDefinition": "Use Library Definition",
+    "functionChip": "function",
+    "functionHint": "Called with arguments you fill in on the element"
   },
   "errors": {
     "createFailed": "Failed to create library: {{error}}",
@@ -190,6 +197,8 @@
     "versionFailed": "Failed to create version: {{error}}",
     "shareFailed": "Failed to share library: {{error}}",
     "importFailed": "Failed to import library: {{error}}",
-    "exportFailed": "Failed to export library: {{error}}"
+    "exportFailed": "Failed to export library: {{error}}",
+    "lockFailed": "Failed to lock library: {{error}}",
+    "unlockFailed": "Failed to unlock library: {{error}}"
   }
 }

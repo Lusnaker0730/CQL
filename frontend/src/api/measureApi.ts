@@ -1,3 +1,4 @@
+import type { BuilderSource } from '../types/ecqm'
 import type {
   MeasureEvaluationRequest,
   MeasureEvaluationResult,
@@ -18,11 +19,16 @@ import type {
   BatchEvaluationResult,
   DataRequirementInfo,
   BatchTestCaseImportResult,
+  TestCaseDateShiftResult,
+  ApprovalReadiness,
+  TestCaseCopyResult,
   EnhancedDashboardData,
   TrendSeriesPoint,
   ThresholdAlert,
   MeasureThreshold,
   QualityReportData,
+  MeasureExportConformance,
+  MeasureClauseCoverage,
 } from '../types'
 import { api } from './client'
 
@@ -76,6 +82,12 @@ export const measureApi = {
   getMeasure: async (id: number): Promise<MeasureDefinition> => {
     const response = await api.get<MeasureDefinition>(`/measures/${id}`)
     return response.data
+  },
+
+  /** PAT-238: the eCQM builder artifact this measure was published from; null when none (204). */
+  getBuilderSource: async (id: number): Promise<BuilderSource | null> => {
+    const response = await api.get<BuilderSource | ''>(`/measures/${id}/builder-source`)
+    return response.status === 204 || !response.data ? null : (response.data as BuilderSource)
   },
 
   createMeasure: async (definition: MeasureDefinition): Promise<MeasureDefinition> => {
@@ -226,12 +238,50 @@ export const measureApi = {
     return response.data
   },
 
-  runAllTestCases: async (measureId: number, debugMode = false): Promise<TestCaseRunResult[]> => {
+  /** PAT-232: runs every test case and reports which clauses of the CQL any of them executed. */
+  getMeasureClauseCoverage: async (measureId: number): Promise<MeasureClauseCoverage> => {
+    const response = await api.post<MeasureClauseCoverage>(`/measures/${measureId}/test-cases/coverage`)
+    return response.data
+  },
+
+  runAllTestCases: async (measureId: number, debugMode = false, skipInvalid = false): Promise<TestCaseRunResult[]> => {
     const response = await api.post<TestCaseRunResult[]>(
       `/measures/${measureId}/test-cases/run`,
       null,
-      { params: { debugMode } }
+      { params: { debugMode, skipInvalid } }
     )
+    return response.data
+  },
+
+  /** PAT-245: validates the patient bundle with the FHIR validator now; returns the test case with the outcome. */
+  /** PAT-253: take (or refresh) the caller's edit lock on a test case; 409 Locked while someone else holds one. */
+  lockTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}/lock`)
+    return response.data
+  },
+
+  unlockTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}/unlock`)
+    return response.data
+  },
+
+  validateTestCase: async (measureId: number, testCaseId: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(`/measures/${measureId}/test-cases/${testCaseId}/validate`)
+    return response.data
+  },
+
+  /** PAT-246: copies the given (or all) test cases onto another measure, e.g. another version. */
+  copyTestCasesTo: async (measureId: number, targetMeasureId: number, testCaseIds: number[]): Promise<TestCaseCopyResult> => {
+    const response = await api.post<TestCaseCopyResult>(
+      `/measures/${measureId}/test-cases/copy-to/${targetMeasureId}`,
+      { testCaseIds },
+    )
+    return response.data
+  },
+
+  /** PAT-245: queues a background validation of every test case; returns how many were queued. */
+  validateAllTestCases: async (measureId: number): Promise<{ scheduled: number }> => {
+    const response = await api.post<{ scheduled: number }>(`/measures/${measureId}/test-cases/validate-all`)
     return response.data
   },
 
@@ -248,6 +298,53 @@ export const measureApi = {
     const response = await api.post<BatchTestCaseImportResult>(
       `/measures/${measureId}/test-cases/batch-import`,
       { testCases, dateShiftDays }
+    )
+    return response.data
+  },
+
+  /** PAT-247: MADiE-compatible zip — one collection Bundle per test case with a test-case-cqfm MeasureReport. */
+  exportTestCasesZip: async (measureId: number, testCaseIds?: number[]): Promise<Blob> => {
+    const response = await api.get(`/measures/${measureId}/test-cases/export`, {
+      params: testCaseIds && testCaseIds.length > 0 ? { ids: testCaseIds.join(',') } : undefined,
+      responseType: 'blob',
+    })
+    return response.data
+  },
+
+  /** PAT-248: the suite as a workbook — KEY sheet + one sheet per group, expected next to actual. */
+  exportTestCasesExcel: async (measureId: number): Promise<Blob> => {
+    const response = await api.get(`/measures/${measureId}/test-cases/export/excel`, { responseType: 'blob' })
+    return response.data
+  },
+
+  /** PAT-248: shift every date in one test case's bundle by whole years; the last run is forgotten. */
+  shiftTestCaseDates: async (measureId: number, testCaseId: number, years: number): Promise<TestCase> => {
+    const response = await api.post<TestCase>(
+      `/measures/${measureId}/test-cases/${testCaseId}/shift-dates`,
+      null,
+      { params: { years } },
+    )
+    return response.data
+  },
+
+  /** PAT-248: shift every test case of the measure by whole years. */
+  shiftAllTestCaseDates: async (measureId: number, years: number): Promise<TestCaseDateShiftResult> => {
+    const response = await api.post<TestCaseDateShiftResult>(
+      `/measures/${measureId}/test-cases/shift-dates`,
+      null,
+      { params: { years } },
+    )
+    return response.data
+  },
+
+  /** PAT-247: a zip of test case bundles (ours or MADiE's), one bundle, or a JSON array of bundles. */
+  importTestCaseBundles: async (measureId: number, file: File): Promise<BatchTestCaseImportResult> => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.post<BatchTestCaseImportResult>(
+      `/measures/${measureId}/test-cases/import-bundles`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
     )
     return response.data
   },
@@ -308,6 +405,12 @@ export const measureApi = {
   // the request body. The vestigial `currentUser` body field triggered 500 errors
   // when Jackson rejected it as unknown on WorkflowActionRequest. Body is now
   // only used for the real payload (reason on reject).
+  /** PAT-249: blockers / warnings / four-eyes verdict for the caller, before pressing submit or approve. */
+  getApprovalReadiness: async (id: number): Promise<ApprovalReadiness> => {
+    const response = await api.get<ApprovalReadiness>(`/measures/${id}/approval-readiness`)
+    return response.data
+  },
+
   submitForReview: async (id: number): Promise<MeasureDefinition> => {
     const response = await api.post<MeasureDefinition>(`/measures/${id}/submit-for-review`, {})
     return response.data
@@ -363,6 +466,12 @@ export const measureApi = {
   exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
   exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
   exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
+
+  /** PAT-229: profiles the exchange package claims, what is missing, and value set packaging status. */
+  getExportConformance: async (id: number): Promise<MeasureExportConformance> => {
+    const response = await api.get<MeasureExportConformance>(`/measures/${id}/export/conformance`)
+    return response.data
+  },
 
   importBundle: async (json: unknown): Promise<BundleImportResult> => {
     const response = await api.post<BundleImportResult>('/measures/import/bundle', json)

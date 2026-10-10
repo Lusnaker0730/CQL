@@ -12,6 +12,8 @@ public final class FhirCodeSystemConstants {
     public static final String CS_LIBRARY_TYPE = "http://terminology.hl7.org/CodeSystem/library-type";
     public static final String CS_MEASURE_SCORING = "http://terminology.hl7.org/CodeSystem/measure-scoring";
     public static final String CS_MEASURE_POPULATION = "http://terminology.hl7.org/CodeSystem/measure-population";
+    /** PAT-236: Measure.type — process | outcome | structure | patient-reported-outcome | composite. */
+    public static final String CS_MEASURE_TYPE = "http://terminology.hl7.org/CodeSystem/measure-type";
 
     // Clinical Terminology Code Systems
     public static final String CS_SNOMED_CT = "http://snomed.info/sct";

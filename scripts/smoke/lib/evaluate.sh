@@ -2,17 +2,23 @@
 # Run $evaluate-measure against a published measure. Writes full response JSON
 # to stdout for the caller's assert step to parse.
 #
-# Usage:  lib/evaluate.sh <measureId> <periodStart> <periodEnd>   e.g.  7 2020-01-01 2020-06-30
+# Usage:  lib/evaluate.sh <measureId> [periodStart] [periodEnd]   e.g.  7 2020-01-01 2020-06-30
+# PAT-242: with the period arguments empty the request names no period, so the backend falls
+# back to the measure's own Measurement Period (then the configured default / current year).
 set -euo pipefail
 
-MEASURE_ID="${1:?usage: evaluate.sh <measureId> <periodStart> <periodEnd>}"
-PERIOD_START="${2:?periodStart missing}"
-PERIOD_END="${3:?periodEnd missing}"
+MEASURE_ID="${1:?usage: evaluate.sh <measureId> [periodStart] [periodEnd]}"
+PERIOD_START="${2-}"
+PERIOD_END="${3-}"
 API_BASE="${API_BASE:-http://localhost:8080/api}"
 : "${TOKEN:?TOKEN env var must be set}"
 
+query="reportType=summary"
+[ -n "$PERIOD_START" ] && query="$query&periodStart=$PERIOD_START"
+[ -n "$PERIOD_END" ] && query="$query&periodEnd=$PERIOD_END"
+
 response=$(curl -sf -X POST \
-    "$API_BASE/measures/$MEASURE_ID/\$evaluate-measure?periodStart=$PERIOD_START&periodEnd=$PERIOD_END&reportType=summary" \
+    "$API_BASE/measures/$MEASURE_ID/\$evaluate-measure?$query" \
     -H "Authorization: Bearer $TOKEN" 2>&1) || {
     echo "evaluate failed: $response" >&2
     exit 1

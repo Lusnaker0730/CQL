@@ -6,6 +6,8 @@ import ElementSelectDropdown from './ElementSelectDropdown'
 import type { DynamicEntry } from './ElementSelectDropdown'
 import type { FormTemplateCategory, FormTemplate, ElementInstance } from '../../../types/authoring'
 import { generateId } from '../../../utils/validation'
+import { functionCallElement } from '../../../utils/libraryFunctions'
+import { useArtifactScope } from '../../../contexts/ArtifactScopeContext'
 
 interface ElementSelectProps {
   templates: FormTemplateCategory[]
@@ -17,6 +19,7 @@ interface ElementSelectProps {
 export default function ElementSelect({ templates, dynamicEntries, twcoreMode, onSelect }: ElementSelectProps) {
   const { t } = useTranslation('authoring')
   const [anchorEl, setAnchorEl] = useState<HTMLButtonElement | null>(null)
+  const { hasMeasurementPeriod } = useArtifactScope()
 
   const handleSelect = (template: FormTemplate) => {
     const newElement: ElementInstance = {
@@ -44,6 +47,19 @@ export default function ElementSelect({ templates, dynamicEntries, twcoreMode, o
   }
 
   const handleSelectDynamic = (entry: DynamicEntry) => {
+    if (entry.sourceType === 'externalCqlFunction') {
+      // PAT-237: a library function call with one argument slot per declared operand
+      onSelect(functionCallElement({
+        libraryName: entry.libraryName ?? '',
+        libraryVersion: entry.libraryVersion,
+        functionName: entry.functionName ?? entry.name,
+        operands: entry.operands ?? [],
+        resultType: entry.returnType,
+        referenceId: entry.sourceId,
+      }, hasMeasurementPeriod))
+      setAnchorEl(null)
+      return
+    }
     const newElement: ElementInstance = {
       uniqueId: generateId(),
       type: entry.sourceType === 'baseElement' ? 'baseElementRef'

@@ -89,7 +89,7 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
     }
 
     @Override
-    public Iterable<Object> retrieve(String context, String contextPath, Object contextValue,
+    public Iterable<org.opencds.cqf.cql.engine.runtime.Value> retrieve(String context, String contextPath, String contextValue,
             String dataType, String templateId, String codePath,
             Iterable<Code> codes, String valueSet, String datePath,
             String dateLowPath, String dateHighPath, Interval dateRange) {
@@ -126,7 +126,10 @@ public class PrefetchRetrieveProvider implements RetrieveProvider {
         }
 
         log.info("Retrieve result: {} {} resources (before code filter: {})", candidates.size(), dataType, beforeFilter);
-        return new ArrayList<>(candidates);
+        // cql-engine 5.x: the engine works on its own value model, not on HAPI objects.
+        List<org.opencds.cqf.cql.engine.runtime.Value> values = new ArrayList<>(candidates.size());
+        for (Resource r : candidates) values.add(com.cqlplatform.service.cql.CqlValues.fromFhir(r));
+        return values;
     }
 
     private boolean matchesCode(Resource resource, String codePath, Set<String> codes) {

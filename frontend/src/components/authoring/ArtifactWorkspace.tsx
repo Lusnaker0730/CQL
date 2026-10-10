@@ -28,6 +28,8 @@ import {
   TAB_INDEX_REVIEW_CQL, TAB_INDEX_TESTING, TAB_INDEX_SUMMARY, KEYBOARD_SHORTCUTS,
 } from '../../constants/authoringConstants'
 import { generateId } from '../../utils/validation'
+import { functionSignature } from '../../utils/libraryFunctions'
+import { ArtifactScopeProvider } from '../../contexts/ArtifactScopeContext'
 import { getModifierMissingFields } from '../../utils/modifierUtils'
 
 /**
@@ -515,6 +517,10 @@ export default function ArtifactWorkspace({
     for (const lib of externalLibraries) {
       if (!lib.details?.definitions) continue
       for (const def of lib.details.definitions) {
+        // PAT-237: a modifier is `Fn(<piped expression>)`, so only a one-operand function can be
+        // one. Metadata without `kind` predates PAT-237 — keep the old (permissive) behaviour for
+        // it rather than silently dropping modifiers an artifact may already use.
+        if (def.kind === 'expression' || (def.kind === 'function' && (def.operands?.length ?? 0) !== 1)) continue
         // Only include definitions that could act as functions/modifiers
         // (definitions with a known return type that could transform data)
         if (def.resultType && def.resultType !== 'unknown') {
@@ -569,10 +575,27 @@ export default function ArtifactWorkspace({
       })
     }
 
-    // External CQL definitions
+    // External CQL definitions — PAT-237: a function is offered as a call with arguments, not
+    // as a bare reference (which produced `"Lib"."Fn"` without parentheses and failed at publish)
     for (const lib of externalLibraries) {
       if (lib.details?.definitions) {
         for (const def of lib.details.definitions) {
+          if (def.kind === 'function') {
+            entries.push({
+              id: `ecqlfn-${lib.id}-${def.name}`,
+              name: def.name,
+              description: functionSignature(def.name, def.operands, def.resultType),
+              returnType: def.resultType || 'unknown',
+              category: 'External CQL Functions',
+              sourceType: 'externalCqlFunction',
+              sourceId: `${lib.id}:${def.name}`,
+              libraryName: lib.name,
+              libraryVersion: lib.version,
+              functionName: def.name,
+              operands: def.operands ?? [],
+            })
+            continue
+          }
           entries.push({
             id: `ecql-${lib.id}-${def.name}`,
             name: def.name,
@@ -597,6 +620,11 @@ export default function ArtifactWorkspace({
   const dataLoadFailed = !!(templatesError || modifiersError || externalLibrariesError)
 
   return (
+    <ArtifactScopeProvider
+      baseElements={localArtifact.baseElements}
+      parameters={localArtifact.parameters}
+      hasMeasurementPeriod={false}
+    >
     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       <ArtifactWorkspaceHeader
         artifact={localArtifact}
@@ -849,6 +877,8 @@ export default function ArtifactWorkspace({
 
               const baseEls = defs
                 .filter((d) => !SYSTEM_DEFS.has(d.name))
+                // PAT-237: a function needs arguments — pick it from the palette instead
+                .filter((d) => d.kind !== 'function')
                 .map((d) => ({
                   uniqueId: generateId(),
                   name: d.name,
@@ -975,5 +1005,6 @@ export default function ArtifactWorkspace({
         </DialogActions>
       </Dialog>
     </Card>
+    </ArtifactScopeProvider>
   );
 }

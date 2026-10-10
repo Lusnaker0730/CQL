@@ -160,10 +160,36 @@ public class CqlController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    /**
+     * PAT-237 — the statements of a stored library as the builder needs them: plain defines and
+     * {@code define function}s with their operand signatures. Translated on demand from the stored
+     * CQL (the same path the measure endpoint uses); the library picker used to regex-scrape the
+     * CQL text, which never saw functions.
+     */
+    @GetMapping("/libraries/{id}/expressions")
+    @Operation(summary = "List CQL Library Expressions", description = "Defines and functions (with operand signatures) of a stored library")
+    public ResponseEntity<List<CqlTranslationResponse.ExpressionInfo>> getLibraryExpressions(@PathVariable String id) {
+        return libraryService.getLibrary(id)
+                .map(lib -> {
+                    if (lib.getCqlContent() == null || lib.getCqlContent().isBlank()) {
+                        return ResponseEntity.ok(List.<CqlTranslationResponse.ExpressionInfo>of());
+                    }
+                    CqlTranslationRequest request = new CqlTranslationRequest();
+                    request.setCql(lib.getCqlContent());
+                    CqlTranslationResponse response = translationService.translate(request);
+                    List<CqlTranslationResponse.ExpressionInfo> expressions =
+                            response.getMetadata() != null && response.getMetadata().getExpressions() != null
+                                    ? response.getMetadata().getExpressions() : List.of();
+                    return ResponseEntity.ok(expressions);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/libraries")
     @Operation(summary = "Create CQL Library", description = "Creates a new CQL library")
     public ResponseEntity<CqlLibrary> createLibrary(@Valid @RequestBody LibrarySaveRequest request) {
-        CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription());
+        CqlLibrary library = libraryService.saveLibrary(request.getCql(), request.getDescription(),
+                ownershipVerifier.getCurrentUsername());
         return ResponseEntity.status(HttpStatus.CREATED).body(library);
     }
 
@@ -173,7 +199,8 @@ public class CqlController {
             @PathVariable String id,
             @Valid @RequestBody LibrarySaveRequest request) {
         libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
-        CqlLibrary library = libraryService.updateLibrary(id, request.getCql(), request.getDescription());
+        CqlLibrary library = libraryService.updateLibrary(id, request.getCql(), request.getDescription(),
+                ownershipVerifier.getCurrentUsername());
         return ResponseEntity.ok(library);
     }
 
@@ -181,8 +208,24 @@ public class CqlController {
     @Operation(summary = "Delete CQL Library", description = "Deletes a CQL library")
     public ResponseEntity<Void> deleteLibrary(@PathVariable String id) {
         libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
-        libraryService.deleteLibrary(id);
+        libraryService.deleteLibrary(id, ownershipVerifier.getCurrentUsername());
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== Edit lock (PAT-253) =====
+
+    @PostMapping("/libraries/{id}/lock")
+    @Operation(summary = "Lock CQL Library", description = "PAT-253: takes (or refreshes) the caller's edit lock on a library. Saves and deletes by anyone else are refused with 409 Locked until it is released or expires (measure.locking.timeout-minutes)")
+    public ResponseEntity<CqlLibrary> lockLibrary(@PathVariable String id) {
+        libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
+        return ResponseEntity.ok(libraryService.lockLibrary(id, ownershipVerifier.getCurrentUsername()));
+    }
+
+    @PostMapping("/libraries/{id}/unlock")
+    @Operation(summary = "Unlock CQL Library", description = "PAT-253: releases the edit lock — the holder or the owner only")
+    public ResponseEntity<CqlLibrary> unlockLibrary(@PathVariable String id) {
+        libraryService.getLibrary(id).ifPresent(lib -> ownershipVerifier.verifyOwnership(lib.getOwnerUsername()));
+        return ResponseEntity.ok(libraryService.unlockLibrary(id, ownershipVerifier.getCurrentUsername()));
     }
 
     @GetMapping("/libraries/latest/{name}")

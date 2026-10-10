@@ -55,7 +55,7 @@ const mutation = useMutation({
 ## API 層
 
 - `src/api/client.ts` — Axios instance（自動附 JWT、401 靜默刷新）
-- `src/api/xxxApi.ts` — 按領域分模組（23 個模組）
+- `src/api/xxxApi.ts` — 按領域分模組（24 個模組）
 - 基底 URL: `VITE_API_URL || '/api'`
 - Dev proxy: `/api/*` → `localhost:8080`；`/cds-services/*` 亦代理
 - 錯誤訊息用 `utils/errorUtils.extractApiError(err)`（讀 `GlobalExceptionHandler` 的 `message` / `error`）
@@ -92,7 +92,7 @@ const mutation = useMutation({
 
 公開：`/login`, `/learn`, `/templates`, `/status`, `/docs`, `/terms`, `/privacy`, `/apply`, `/forgot-password`, `/reset-password`, `/auth/okta/callback`
 
-## 自訂 Hooks（`src/hooks/`，36 files）
+## 自訂 Hooks（`src/hooks/`，37 files）
 
 核心 hooks：
 - `useCql` — 翻譯 / 驗證 CQL

@@ -8,6 +8,10 @@ import {
 } from '@mui/icons-material'
 import type { CqlTranslationResponse } from '../../types'
 import { useGenerateEcqmCql, useValidateEcqmCql, usePublishEcqm } from '../../hooks/useEcqm'
+import PublishConflictDialog from './PublishConflictDialog'
+import { isPublishConflict } from '../../utils/publishConflict'
+import { publishOutcomeMessage } from '../../utils/publishOutcome'
+import { extractApiError } from '../../utils/errorUtils'
 
 interface Props {
   artifactId: number
@@ -61,9 +65,12 @@ export default function EcqmCqlPreviewTab({ artifactId, artifactUpdatedAt, onPub
     })
   }
 
-  const handlePublish = () => {
-    publish.mutate(artifactId, {
+  const [publishConflict, setPublishConflict] = useState(false)
+  const handlePublish = (force = false) => {
+    publish.mutate({ id: artifactId, force }, {
       onSuccess: () => { onPublished?.() },
+      // PAT-238: measure-page edits since the last publish — ask before overwriting them
+      onError: (error) => { if (!force && isPublishConflict(error)) setPublishConflict(true) },
     })
   }
 
@@ -90,7 +97,7 @@ export default function EcqmCqlPreviewTab({ artifactId, artifactUpdatedAt, onPub
         </Button>
         <Button
           variant="contained" color="success" startIcon={<PublishIcon />}
-          onClick={handlePublish} disabled={publish.isPending || isStale}
+          onClick={() => handlePublish()} disabled={publish.isPending || isStale}
         >
           {publish.isPending ? t('cqlPreview.publishing') : t('cqlPreview.publishToMeasure')}
         </Button>
@@ -133,14 +140,18 @@ export default function EcqmCqlPreviewTab({ artifactId, artifactUpdatedAt, onPub
         </Alert>
       )}
 
-      {publish.isSuccess && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {t('cqlPreview.publishedSuccess', { id: publish.data.measureDefinitionId })}
-        </Alert>
+      {publish.isSuccess && (() => {
+        const outcome = publishOutcomeMessage(publish.data)
+        return <Alert severity="success" sx={{ mb: 2 }}>{t(outcome.key, outcome.params)}</Alert>
+      })()}
+      {publish.isError && !isPublishConflict(publish.error) && (
+        <Alert severity="error" sx={{ mb: 2 }}>{extractApiError(publish.error) || t('cqlPreview.publishFailed')}</Alert>
       )}
-      {publish.isError && (
-        <Alert severity="error" sx={{ mb: 2 }}>{t('cqlPreview.publishFailed')}</Alert>
-      )}
+      <PublishConflictDialog
+        open={publishConflict}
+        onCancel={() => setPublishConflict(false)}
+        onOverwrite={() => { setPublishConflict(false); handlePublish(true) }}
+      />
 
       {warnings.length > 0 && (
         <Alert severity="warning" sx={{ mb: 2 }}>

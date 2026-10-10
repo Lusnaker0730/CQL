@@ -16,5 +16,8 @@ public interface EcqmArtifactRepository extends JpaRepository<EcqmArtifactEntity
     // Phase 2 — tenant-scoped management queries.
     java.util.Optional<EcqmArtifactEntity> findByIdAndTenantId(Long id, Long tenantId);
 
+    /** PAT-238: the builder artifact a measure was published from (latest, if several ever were). */
+    java.util.Optional<EcqmArtifactEntity> findFirstByTenantIdAndPublishedMeasureIdOrderByUpdatedAtDesc(Long tenantId, Long publishedMeasureId);
+
     List<EcqmArtifactEntity> findByTenantIdAndOwnerUsername(Long tenantId, String ownerUsername);
 }

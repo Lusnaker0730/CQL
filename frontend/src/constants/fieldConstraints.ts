@@ -22,6 +22,12 @@ export const MEASURE = {
   cmsMeasureId:     { maxLength: 50 },
   reference:        { maxLength: 2000 },
   cqlContent:       { maxBytes: 524_288 }, // 512 KB
+  // PAT-236 standard metadata (MeasureDefinition + EcqmArtifactRequest carry the same limits)
+  clinicalRecommendationStatement: { maxLength: 5000 },
+  definitionTerm:   { maxLength: 200 },
+  definitionText:   { maxLength: 2000 },
+  definitionTerms:  { maxItems: 50 },
+  measureTypes:     { maxItems: 5 },
 } as const
 
 // ─── CDS Artifact ───────────────────────────────────────────────────────────────

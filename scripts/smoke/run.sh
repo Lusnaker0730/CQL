@@ -138,11 +138,45 @@ echo "── Waiting for services ──"
 bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_BACKEND_PORT}/actuator/health" "${SMOKE_BACKEND_HEALTH_TIMEOUT:-90}"
 bash "$SCRIPT_DIR/lib/wait-health.sh" "http://localhost:${SMOKE_FHIR_PORT}/fhir/metadata" "${SMOKE_FHIR_HEALTH_TIMEOUT:-60}"
 
+# BUG-144: a backend that crashes during its first boot and comes up on the container's
+# restart (`restart: unless-stopped`) looks perfectly healthy from here — every scenario
+# passes and only the log remembers. That is how the demo-measure seeding could crash the
+# first boot of a fresh database (tenant_id NOT NULL since V61, 2026-07) without anyone
+# noticing until 2026-09. The backend must come up on its FIRST start: fail the run on any
+# restart, and show why.
+echo ""
+echo "── Boot check ──"
+backend_container=$($COMPOSE ps -q backend 2>/dev/null | tr -d '\r' | head -1)
+restart_count=$(docker inspect -f '{{.RestartCount}}' "$backend_container" 2>/dev/null | tr -d '\r' || echo "?")
+if [ "$restart_count" != "0" ]; then
+    echo "ERROR: the backend did not come up on its first start (container restarts: $restart_count)." >&2
+    $COMPOSE logs --no-color backend 2>/dev/null \
+        | grep -o 'Application run failed\|Caused by: [^\\"]*' | sort -u | head -5 | sed 's/^/    /' >&2
+    exit 1
+fi
+echo "  backend came up on its first start (0 restarts)"
+
 echo ""
 echo "── Authenticating ──"
 TOKEN=$(bash "$SCRIPT_DIR/lib/auth.sh")
 export TOKEN
+# PAT-249: the reviewer who approves what admin submitted (four-eyes). Logged in ONCE here and
+# reused by approve-measure.sh / run-approval-gates.sh — the login endpoint is rate-limited and a
+# fresh login per scenario tripped it on CI from scenario 23 on.
+REVIEWER_TOKEN=$(SMOKE_USER="${SMOKE_REVIEWER:-demo}" SMOKE_PASSWORD="${SMOKE_REVIEWER_PASSWORD:-password}" bash "$SCRIPT_DIR/lib/auth.sh")
+export REVIEWER_TOKEN
 echo "  got JWT (${#TOKEN} chars)"
+
+# BUG-144, second half: a fresh installation is supposed to get the demo measure. It never
+# did — the insert was what crashed the first boot, and the restart skipped seeding because
+# the users already existed.
+demo_measures=$(curl -sf "$API_BASE/measures?search=DiabetesHbA1cRate" -H "Authorization: Bearer $TOKEN" \
+    | jq '[.[] | select(.name == "DiabetesHbA1cRate")] | length' 2>/dev/null | tr -d '\r') || demo_measures=""
+if [ "$demo_measures" != "1" ]; then
+    echo "ERROR: fresh database should hold exactly one seeded demo measure 'DiabetesHbA1cRate', found: ${demo_measures:-<request failed>}" >&2
+    exit 1
+fi
+echo "  demo measure seeded"
 
 echo ""
 echo "── Running scenarios ──"
@@ -187,8 +221,10 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                     continue 2
                 fi
             done
-            period_start=$(jq -r '.periodStart' "$expected_file")
-            period_end=$(jq -r '.periodEnd' "$expected_file")
+            # PAT-242: a scenario may leave the period out — the evaluation then runs in the
+            # measure's own Measurement Period, which is exactly what such a scenario asserts.
+            period_start=$(jq -r '.periodStart // empty' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd // empty' "$expected_file" | tr -d '\r')
 
             if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
                 failed_scenarios+=("$name"); continue
@@ -227,7 +263,20 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             eval_end_ns=$(date +%s%N)
             EVAL_ELAPSED_MS=$(( (eval_end_ns - eval_start_ns) / 1000000 ))
             export EVAL_ELAPSED_MS
-            if echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
+            scenario_ok=1
+            if ! echo "$response" | bash "$SCRIPT_DIR/lib/assert.sh" - "$expected_file" "$measure_id"; then
+                scenario_ok=0
+            fi
+            # Optional test case step (PAT-242 / PAT-243): expected.json `testCase` creates a test
+            # case against the published measure and asserts its run — status, the measurement
+            # period it reports, and per-population actuals (episode counts for an episode-based
+            # group). Runs after the evaluation so both views of the same logic are checked.
+            if [ "$(jq -r '.testCase // empty | type' "$expected_file" | tr -d '\r')" = "object" ]; then
+                if ! bash "$SCRIPT_DIR/lib/run-test-case.sh" "$measure_id" "$scenario_dir" "$expected_file"; then
+                    scenario_ok=0
+                fi
+            fi
+            if [ "$scenario_ok" = 1 ]; then
                 passed_scenarios+=("$name")
             else
                 failed_scenarios+=("$name")
@@ -325,9 +374,44 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        approval-gates)
+            # PAT-249 approval readiness gate + four-eyes: a failing test case blocks
+            # submit-for-review (409 Measure Not Ready), the owner's own approve is refused
+            # (403 Approval Not Allowed), the shared reviewer's approve lands the measure
+            # active. Everything lives in lib/run-approval-gates.sh.
+            if bash "$SCRIPT_DIR/lib/run-approval-gates.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
+        synthetic-cohort)
+            # PAT-255: 120 patients from the platform's own TW Core generator (fixed seed),
+            # evaluated by the seeded demo measure against an oracle computed in TypeScript.
+            # Everything lives in lib/run-synthetic-cohort.sh.
+            if bash "$SCRIPT_DIR/lib/run-synthetic-cohort.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
+        measure-set-locks)
+            # PAT-253 measure set lineage + edit locks: a renamed version stays in its
+            # set's history and supersedes the old active one on approve; sharing spans the
+            # set; a test case / CQL library locked by one user refuses the other's writes
+            # with 409 Locked until released. Everything lives in lib/run-measure-set-locks.sh.
+            if bash "$SCRIPT_DIR/lib/run-measure-set-locks.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         measure-status-guard)
             # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
-            # NOT the eCQM publish path, which always lands as `active`) is created
+            # the eCQM publish path lands as draft too since BUG-147) is created
             # as draft, evaluated (must be refused with 409), walked through
             # submit-for-review + approve, then evaluated again (must succeed with
             # the real cohort result). Locks that the guard keys on lifecycle
@@ -379,12 +463,302 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             rm -rf "$guard_tmp"
             ;;
 
+        measure-package)
+            # PAT-229 exchange-package round trip: publish → evaluate → export the
+            # HL7 Quality Measure IG package (JSON, XML, conformance report) →
+            # import it back as a new version → approve → evaluate. The imported
+            # measure must compute what the exported one does; before PAT-229 it
+            # arrived without its CQL and could not be evaluated at all.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            import_version=$(jq -r '.importAsVersion' "$expected_file" | tr -d '\r')
+
+            if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
+                failed_scenarios+=("$name"); continue
+            fi
+            upload_lib=$(jq -r '.uploadLibrary // empty' "$expected_file" | tr -d '\r')
+            if [ -n "$upload_lib" ]; then
+                if ! bash "$SCRIPT_DIR/lib/upload-library.sh" "$scenario_dir/$upload_lib"; then
+                    failed_scenarios+=("$name"); continue
+                fi
+            fi
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name"); continue
+            fi
+            pkg_tmp=$(mktemp -d)
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$pkg_tmp/original.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/export-package.sh" "$measure_id" "$pkg_tmp"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            # Same name + version would be refused as a duplicate: import it as the
+            # "next version the other organisation sent us".
+            jq --arg v "$import_version" \
+                '(.entry[].resource | select(.resourceType == "Measure") | .version) = $v' \
+                "$pkg_tmp/bundle.json" > "$pkg_tmp/import.json"
+            if ! bash "$SCRIPT_DIR/lib/import-package.sh" "$pkg_tmp/import.json" > "$pkg_tmp/import-result.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            imported_id=$(jq -r '.measure.id // empty' "$pkg_tmp/import-result.json" | tr -d '\r')
+            if [ -z "$imported_id" ]; then
+                echo "    ✗ import result has no .measure.id" >&2
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$imported_id"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$imported_id" "$period_start" "$period_end" > "$pkg_tmp/imported.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            package_ok=1
+            bash "$SCRIPT_DIR/lib/assert.sh" "$pkg_tmp/imported.json" "$expected_file" "$imported_id" || package_ok=0
+            bash "$SCRIPT_DIR/lib/assert-measure-package.sh" "$pkg_tmp" "$expected_file" || package_ok=0
+            if [ "$package_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                # Keep the package next to the logs: the jq assertions are hard to debug without it.
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$pkg_tmp" "$SMOKE_LOG_DIR/$name-package" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$pkg_tmp"
+            ;;
+
+        test-case-expectations)
+            # PAT-228 structured test-case expectations. An eCQM is published, then a test
+            # case is created with per-group expected populations + observation values and
+            # run (must pass), the expectation is made wrong and run again (must fail on
+            # the observation row), and an expectation for a group the measure does not
+            # have must be refused on save. Test cases evaluate an in-memory bundle against
+            # the CURRENT calendar year, so nothing is seeded into FHIR and the bundle's
+            # dates are generated here.
+            measure_file="$scenario_dir/measure.json"
+            tc_bundle_file="$scenario_dir/testcase-bundle.json"
+            for f in "$measure_file" "$tc_bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name")
+                continue
+            fi
+            tc_tmp=$(mktemp -d)
+            tc_year=$(date +%Y)
+            tc_bundle=$(sed "s/__YEAR__/$tc_year/g" "$tc_bundle_file")
+            tc_group=$(jq -r '.groupId' "$expected_file" | tr -d '\r')
+            # $1 = observation list to expect, $2 = group id, $3 = output file
+            build_test_case() {
+                jq -n --arg bundle "$tc_bundle" --arg group "$2" --argjson obs "$1" \
+                    --argjson pops "$(jq -c '.expectedPopulations' "$expected_file")" \
+                    '{title: "smoke-32 two inpatient stays", patientBundleJson: $bundle,
+                      expectedValues: {groups: [{groupId: $group, populations: $pops, observations: $obs}]}}' > "$3"
+            }
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "$tc_group" "$tc_tmp/create.json"
+            build_test_case "$(jq -c '.wrongObservations' "$expected_file")" "$tc_group" "$tc_tmp/wrong.json"
+            build_test_case "$(jq -c '.expectedObservations' "$expected_file")" "group-does-not-exist" "$tc_tmp/bad-group.json"
+
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/create.json" > "$tc_tmp/create.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            tc_id=$(sed '1,/^---HTTP_STATUS_BODY---$/d' "$tc_tmp/create.raw" | jq -r '.id // empty')
+            if [ -z "$tc_id" ]; then
+                echo "    ✗ test case was not created: $(head -c 400 "$tc_tmp/create.raw")" >&2
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            echo "  created test case #$tc_id" >&2
+            if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-pass.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" PUT "$measure_id" "/$tc_id" "$tc_tmp/wrong.json" > "$tc_tmp/update.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$tc_id/run" > "$tc_tmp/run-fail.raw" \
+                || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$tc_tmp/bad-group.json" > "$tc_tmp/bad-group.raw"; then
+                rm -rf "$tc_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            if bash "$SCRIPT_DIR/lib/assert-test-case-expectations.sh" "$tc_tmp/run-pass.raw" "$tc_tmp/run-fail.raw" \
+                    "$tc_tmp/bad-group.raw" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$tc_tmp"
+            ;;
+
+        platform-value-set)
+            # PAT-230: a value set this installation owns, used by a measure. Create +
+            # activate v1 → publish an eCQM whose numerator retrieves by that value set →
+            # evaluate (v1 codes) → create + activate v2 with one more code → evaluate the
+            # SAME measure again (unversioned reference → newest active) → the exchange
+            # package must embed the codes. Also locks the generator fix: the CQL header
+            # declares the value set's URL, not its name.
+            measure_file="$scenario_dir/measure.json"
+            bundle_file="$scenario_dir/bundle.json"
+            for f in "$measure_file" "$bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            vs_tmp=$(mktemp -d)
+            vs_ok=1
+            vs_step() { # run a step; on failure mark the scenario failed and stop the chain
+                [ "$vs_ok" = "1" ] || return 0
+                "$@" || vs_ok=0
+            }
+            vs_url=$(jq -r '.valueSet.url' "$expected_file" | tr -d '\r')
+            vs_title=$(jq -r '.valueSet.title' "$expected_file" | tr -d '\r')
+            jq '.valueSet' "$expected_file" > "$vs_tmp/create.json"
+            jq '{version: .nextVersion.version}' "$expected_file" > "$vs_tmp/new-version.json"
+            jq '.valueSet + {concepts: .nextVersion.concepts}' "$expected_file" > "$vs_tmp/update.json"
+            jq '.afterNextVersion' "$expected_file" > "$vs_tmp/expected-v2.json"
+
+            vs_step bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST /value-sets "$vs_tmp/create.json" > "$vs_tmp/created.json"'
+            v1_id=$(jq -r '.id // empty' "$vs_tmp/created.json" 2>/dev/null | tr -d '\r') || true
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/activate" > /dev/null'
+            [ "$vs_ok" = "1" ] && echo "  value set #$v1_id created and activated" >&2
+            if [ "$vs_ok" = "1" ]; then
+                measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file") || vs_ok=0
+            fi
+            vs_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$vs_tmp/eval-v1.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/versions" "$vs_tmp/new-version.json" > "$vs_tmp/v2.json"'
+            v2_id=$(jq -r '.id // empty' "$vs_tmp/v2.json" 2>/dev/null | tr -d '\r') || true
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" PUT "/value-sets/$v2_id" "$vs_tmp/update.json" > /dev/null'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v2_id/activate" > /dev/null'
+            [ "$vs_ok" = "1" ] && echo "  version $(jq -r '.nextVersion.version' "$expected_file" | tr -d '\r') (#$v2_id) activated" >&2
+            vs_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$measure_id" "$period_start" "$period_end" > "$vs_tmp/eval-v2.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/get-measure.sh" "$measure_id" > "$vs_tmp/measure.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/value-sets/$v1_id" > "$vs_tmp/v1.json"'
+            vs_step bash "$SCRIPT_DIR/lib/export-package.sh" "$measure_id" "$vs_tmp"
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/fhir/ValueSet/\$expand?url=$(jq -rn --arg u "$vs_url" "\$u|@uri")" > "$vs_tmp/expand.json"'
+            vs_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/fhir/ValueSet?title=$(jq -rn --arg u "$vs_title" "\$u|@uri")" > "$vs_tmp/search.json"'
+
+            if [ "$vs_ok" = "1" ]; then
+                echo "    — with version $(jq -r '.valueSet.version' "$expected_file" | tr -d '\r'):"
+                bash "$SCRIPT_DIR/lib/assert.sh" "$vs_tmp/eval-v1.json" "$expected_file" "$measure_id" || vs_ok=0
+                echo "    — with version $(jq -r '.nextVersion.version' "$expected_file" | tr -d '\r'):"
+                bash "$SCRIPT_DIR/lib/assert.sh" "$vs_tmp/eval-v2.json" "$vs_tmp/expected-v2.json" "$measure_id" || vs_ok=0
+                bash "$SCRIPT_DIR/lib/assert-platform-value-set.sh" "$vs_tmp" "$expected_file" || vs_ok=0
+            fi
+            if [ "$vs_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$vs_tmp" "$SMOKE_LOG_DIR/$name-files" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$vs_tmp"
+            ;;
+
+        clause-coverage)
+            # PAT-232 clause-level (Bonnie / MADiE style) coverage. The scenario-32 measure is
+            # published, two test cases are created — a patient with two inpatient stays and
+            # a patient with no encounters — and run: debug mode must carry clauseCoverage,
+            # a normal run must not, the empty patient must leave the per-encounter clauses
+            # uncovered, and POST /test-cases/coverage must union both runs over the same
+            # CQL text. Bundles use the __YEAR__ placeholder like scenario 32.
+            measure_file="$scenario_dir/measure.json"
+            full_bundle_file="$scenario_dir/bundle-with-encounters.json"
+            empty_bundle_file="$scenario_dir/bundle-no-encounters.json"
+            for f in "$measure_file" "$full_bundle_file" "$empty_bundle_file"; do
+                if [ ! -f "$f" ]; then
+                    echo "    ✗ missing $f" >&2
+                    failed_scenarios+=("$name")
+                    continue 2
+                fi
+            done
+            if ! measure_id=$(bash "$SCRIPT_DIR/lib/save-and-publish.sh" "$measure_file"); then
+                failed_scenarios+=("$name")
+                continue
+            fi
+            cc_tmp=$(mktemp -d)
+            cc_year=$(date +%Y)
+            cc_group=$(jq -r '.groupId' "$expected_file" | tr -d '\r')
+            # $1 = bundle file, $2 = key in expected.json, $3 = title, $4 = output file
+            build_cc_test_case() {
+                jq -n --arg bundle "$(sed "s/__YEAR__/$cc_year/g" "$1")" --arg group "$cc_group" --arg title "$3" \
+                    --argjson pops "$(jq -c ".[\"$2\"].expectedPopulations" "$expected_file")" \
+                    --argjson obs "$(jq -c ".[\"$2\"].expectedObservations" "$expected_file")" \
+                    '{title: $title, patientBundleJson: $bundle,
+                      expectedValues: {groups: [{groupId: $group, populations: $pops, observations: $obs}]}}' > "$4"
+            }
+            build_cc_test_case "$full_bundle_file" withEncounters "smoke-35 two inpatient stays" "$cc_tmp/create-full.json"
+            build_cc_test_case "$empty_bundle_file" noEncounters "smoke-35 no encounters" "$cc_tmp/create-empty.json"
+            cc_ok=1
+            cc_create() { # $1 = body, $2 = var name to receive the id
+                local raw id
+                raw=$(bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "" "$1") || return 1
+                id=$(echo "$raw" | sed '1,/^---HTTP_STATUS_BODY---$/d' | jq -r '.id // empty')
+                if [ -z "$id" ]; then
+                    echo "    ✗ test case was not created: $(echo "$raw" | head -c 400)" >&2
+                    return 1
+                fi
+                echo "  created test case #$id" >&2
+                printf -v "$2" '%s' "$id"
+            }
+            cc_create "$cc_tmp/create-full.json" cc_full_id || cc_ok=0
+            [ "$cc_ok" = "1" ] && { cc_create "$cc_tmp/create-empty.json" cc_empty_id || cc_ok=0; }
+            if [ "$cc_ok" = "1" ]; then
+                if ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_full_id/run?debugMode=true" > "$cc_tmp/run-full-debug.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_full_id/run" > "$cc_tmp/run-full-plain.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/$cc_empty_id/run?debugMode=true" > "$cc_tmp/run-empty-debug.raw" \
+                    || ! bash "$SCRIPT_DIR/lib/test-case-raw.sh" POST "$measure_id" "/coverage" > "$cc_tmp/coverage.raw"; then
+                    cc_ok=0
+                fi
+            fi
+            if [ "$cc_ok" = "1" ] && bash "$SCRIPT_DIR/lib/assert-clause-coverage.sh" "$cc_tmp/run-full-debug.raw" \
+                    "$cc_tmp/run-full-plain.raw" "$cc_tmp/run-empty-debug.raw" "$cc_tmp/coverage.raw"; then
+                passed_scenarios+=("$name")
+            else
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$cc_tmp" "$SMOKE_LOG_DIR/$name-files" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$cc_tmp"
+            ;;
+
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort)" >&2
             failed_scenarios+=("$name")
             ;;
     esac
 done
+
+# BUG-145: an evaluation whose report could not be saved still answers 200 with the right
+# numbers — every scenario passes while the clinical record is silently missing, and only
+# the log says so. (That is how a negative evaluation duration, rejected by the CHECK on
+# measure_report.evaluation_duration_ms, went unnoticed.) A run that lost a report is a
+# failed run.
+echo ""
+echo "── Report persistence check ──"
+lost_reports=$($COMPOSE logs --no-color backend 2>/dev/null | grep -c "Failed to save measure report" | tr -d '\r') || lost_reports=0
+if [ "${lost_reports:-0}" != "0" ]; then
+    echo "  ✗ the backend failed to save $lost_reports measure report(s):" >&2
+    $COMPOSE logs --no-color backend 2>/dev/null | grep "Failed to save measure report" \
+        | grep -o 'violates [a-z ]*constraint \\"[a-z_]*\\"\|Caused by: [^\\"]*' | sort | uniq -c | head -5 | sed 's/^/      /' >&2
+    failed_scenarios+=("report-persistence")
+else
+    echo "  ✓ every evaluated report was saved"
+fi
 
 echo ""
 echo "── Results ──"

@@ -33,6 +33,7 @@ import {
   LockOpen as LockOpenIcon,
 } from '@mui/icons-material'
 import { Menu, MenuItem } from '@mui/material'
+import MeasureExportConformanceDialog from './MeasureExportConformanceDialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MeasureDefinition } from '../../types'
 import { measureApi } from '../../api'
@@ -51,6 +52,8 @@ import VersionDiffDialog from '../editor/VersionDiffDialog'
 import MeasureShareDialog from './MeasureShareDialog'
 import AuditTrailDialog from './AuditTrailDialog'
 import MeasureValidationPanel from './MeasureValidationPanel'
+import BuilderSourceBanner from './BuilderSourceBanner'
+import ApprovalReadinessPanel from './ApprovalReadinessPanel'
 import {
   useSubmitForReview,
   useApproveMeasure,
@@ -58,9 +61,10 @@ import {
   useRetireMeasure,
   useLockMeasure,
   useUnlockMeasure,
+  useApprovalReadiness,
 } from '../../hooks/useMeasures'
 import { useNotification } from '../../hooks/useNotification'
-import { extractApiError } from '../../utils/errorUtils'
+import { extractApiError, extractApiErrorDetails } from '../../utils/errorUtils'
 import { getStoredUsername } from '../../utils/validation'
 import { MEASURE_STATUS } from '../../constants/measureConstants'
 import { ALERT_DISMISS_MS, ALERT_DISMISS_ERROR_MS } from '../../constants/timing'
@@ -80,6 +84,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [auditDialogOpen, setAuditDialogOpen] = useState(false)
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  const [conformanceOpen, setConformanceOpen] = useState(false)
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -97,8 +102,21 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const lockMutation = useLockMeasure()
   const unlockMutation = useUnlockMeasure()
 
+  // PAT-249: blockers (CQL errors, invalid / failing test cases) stop submit and approve on the
+  // server; the panel shows them first, and the buttons follow the verdict. Four-eyes: the author /
+  // submitter cannot approve — the approve button is disabled for them with the reason shown.
+  const showReadiness = measure.status === MEASURE_STATUS.DRAFT || measure.status === MEASURE_STATUS.IN_REVIEW
+  const readinessQuery = useApprovalReadiness(measure.id, showReadiness)
+  const readiness = readinessQuery.data
+  const blockedByReadiness = !!readiness && !readiness.ready
+  const blockedByFourEyes = !!readiness?.fourEyes?.selfApprovalBlocked
+
   const isLockedByOther = !!measure.lockedBy && measure.lockedBy !== currentUser
   const isLockedByMe = !!measure.lockedBy && measure.lockedBy === currentUser
+  // BUG-147: only a draft's logic (CQL, population mapping, scoring) may change; approved,
+  // in-review and retired logic is fixed — changes go into a new version (the backend refuses
+  // them with 409 "Measure Logic Locked"). Descriptive metadata stays editable.
+  const logicLocked = measure.status !== MEASURE_STATUS.DRAFT
 
   /**
    * PAT-130: shared workflow / lock action runner. Original code had two
@@ -126,7 +144,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       },
       onError: (err) => {
         const fallback = errorFallback || t('editor.errors.actionFailed')
-        setWorkflowAlert({ severity: 'error', message: extractApiError(err) || fallback })
+        // PAT-249: a 409 "Measure Not Ready" carries the blockers in details — show them.
+        const details = extractApiErrorDetails(err)
+        const message = extractApiError(err) || fallback
+        setWorkflowAlert({ severity: 'error', message: details?.length ? `${message} — ${details.join('; ')}` : message })
         setTimeout(() => setWorkflowAlert(null), ALERT_DISMISS_ERROR_MS)
       },
     })
@@ -232,6 +253,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
 
   return (
     <Paper sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {showReadiness && (
+        <ApprovalReadinessPanel
+          readiness={readiness}
+          isLoading={readinessQuery.isFetching}
+          onRefresh={() => { readinessQuery.refetch() }}
+        />
+      )}
       {workflowAlert && (
         <Alert
           severity={workflowAlert.severity}
@@ -241,10 +269,26 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           {workflowAlert.message}
         </Alert>
       )}
+      {/* PAT-238: published from the eCQM builder → link back + drift since that publish */}
+      {measure.id != null && <BuilderSourceBanner measureId={measure.id} measureUpdatedAt={measure.updatedAt} />}
       {isLockedByOther && (
         <Alert severity="warning" icon={<LockIcon />} sx={{ borderRadius: 0 }}>
           {t('editor.lockedWarning', { user: measure.lockedBy })}
           {measure.lockedAt && ` at ${new Date(measure.lockedAt).toLocaleString()}`}
+        </Alert>
+      )}
+      {logicLocked && (
+        <Alert
+          severity="info"
+          sx={{ borderRadius: 0 }}
+          data-testid="logic-locked-notice"
+          action={measure.status !== MEASURE_STATUS.IN_REVIEW && !isLockedByOther ? (
+            <Button color="inherit" size="small" onClick={() => setVersionDialogOpen(true)}>
+              {t('editor.logicLocked.createVersion')}
+            </Button>
+          ) : undefined}
+        >
+          {t(measure.status === MEASURE_STATUS.IN_REVIEW ? 'editor.logicLocked.inReview' : 'editor.logicLocked.approved')}
         </Alert>
       )}
       {measure.reviewComment && measure.status === MEASURE_STATUS.DRAFT && (
@@ -352,7 +396,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
               size="small"
               startIcon={<SubmitIcon />}
               onClick={() => handleWorkflowAction(submitMutation, t('editor.workflowMessages.submitted'))}
-              disabled={submitMutation.isPending}
+              disabled={submitMutation.isPending || blockedByReadiness}
               color="info"
               variant="outlined"
               sx={{ textTransform: 'none', fontSize: '0.75rem' }}
@@ -366,7 +410,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
                 size="small"
                 startIcon={<ApproveIcon />}
                 onClick={() => handleWorkflowAction(approveMutation, t('editor.workflowMessages.approved'))}
-                disabled={approveMutation.isPending}
+                disabled={approveMutation.isPending || blockedByReadiness || blockedByFourEyes}
                 color="success"
                 variant="outlined"
                 sx={{ textTransform: 'none', fontSize: '0.75rem' }}
@@ -424,16 +468,16 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {tab === 0 && (
-          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <MeasureDetailsTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} logicLocked={logicLocked} />
         )}
         {tab === 1 && (
-          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <MeasureCqlTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther || logicLocked} />
         )}
         {tab === 2 && (
           <DataRequirementsTab measure={measure} />
         )}
         {tab === 3 && (
-          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther} />
+          <PopulationCriteriaTab measure={measure} onMeasureUpdate={onMeasureUpdate} readOnly={isLockedByOther || logicLocked} />
         )}
         {tab === 4 && (
           <MeasureEvaluationTab measure={measure} />
@@ -532,6 +576,10 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         open={Boolean(exportAnchor)}
         onClose={() => setExportAnchor(null)}
       >
+        <MenuItem onClick={() => { setExportAnchor(null); setConformanceOpen(true) }}>
+          {t('editor.exportFormats.packageCheck')}
+        </MenuItem>
+        <Divider />
         <MenuItem onClick={() => handleExport('bundle-json')}>{t('editor.exportFormats.fhirJson')}</MenuItem>
         <MenuItem onClick={() => handleExport('bundle-xml')}>{t('editor.exportFormats.fhirXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('cql')}>{t('editor.exportFormats.cqlOnly')}</MenuItem>
@@ -539,6 +587,14 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
+      {measure.id != null && (
+        <MeasureExportConformanceDialog
+          measureId={measure.id}
+          open={conformanceOpen}
+          onClose={() => setConformanceOpen(false)}
+          onExport={(format) => { setConformanceOpen(false); void handleExport(format) }}
+        />
+      )}
       <Menu
         anchorEl={versionAnchor}
         open={Boolean(versionAnchor)}

@@ -228,6 +228,17 @@ if [ "$expected_strats_count" -gt 0 ] 2>/dev/null; then
                     fail=1
                 fi
             done < <(jq -r ".stratifiers[$i].expectedStrata[$j].populations | keys[]?" "$EXPECTED" | tr -d '\r')
+            # PAT-235: per-stratum components (optional) — exact code → value map of a multi-component stratum
+            exp_components=$(jq -c ".stratifiers[$i].expectedStrata[$j].components // empty | to_entries | sort_by(.key) | map(\"\\(.key)=\\(.value)\") | join(\",\")" "$EXPECTED" 2>/dev/null | tr -d '\r"')
+            if [ -n "$exp_components" ]; then
+                act_components=$(echo "$actual_stratum" | jq -c '(.components // []) | map({key: .code, value: .value}) | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' | tr -d '\r"')
+                if [ "$act_components" = "$exp_components" ]; then
+                    echo "    ✓ stratifier $strata_id[$sv].components: {$act_components}"
+                else
+                    echo "    ✗ stratifier $strata_id[$sv].components: {$act_components}, expected {$exp_components}" >&2
+                    fail=1
+                fi
+            fi
             # Per-stratum score (optional)
             exp_score=$(jq -r ".stratifiers[$i].expectedStrata[$j].score // empty" "$EXPECTED" | tr -d '\r')
             if [ -n "$exp_score" ]; then
@@ -247,6 +258,18 @@ if [ "$expected_strats_count" -gt 0 ] 2>/dev/null; then
                 fi
             fi
         done
+        # PAT-233: with exactStrata, the strata listed are ALL the strata (a value stratifier
+        # must not grow a 'null' / 'FHIR.code' bucket next to the real ones).
+        if [ "$(jq -r '.exactStrata // false' "$EXPECTED" | tr -d '\r')" = "true" ]; then
+            exp_set=$(jq -r ".stratifiers[$i].expectedStrata[].strataValue" "$EXPECTED" | tr -d '\r' | sort | paste -sd, -)
+            act_set=$(echo "$actual_strats_for_id" | jq -r '.strataValue' | tr -d '\r' | sort | paste -sd, -)
+            if [ "$exp_set" = "$act_set" ]; then
+                echo "    ✓ stratifier $strata_id: exactly the strata {$act_set}"
+            else
+                echo "    ✗ stratifier $strata_id: strata {$act_set}, expected exactly {$exp_set}" >&2
+                fail=1
+            fi
+        fi
     done
 fi
 
@@ -279,6 +302,46 @@ if [ "$sde_count" -gt 0 ] 2>/dev/null; then
             done
         fi
     fi
+fi
+
+# PAT-234: supplemental data / risk adjustment factors as value distributions. Each entry
+# asserts one declared element's usage, its exact value → patient-count map and the number
+# of patients without a value.
+sdr_count=$(jq -r '.supplementalDataResults // [] | length' "$EXPECTED" | tr -d '\r')
+if [ "$sdr_count" -gt 0 ] 2>/dev/null; then
+    for k in $(seq 0 $((sdr_count - 1))); do
+        sdr_def=$(jq -r ".supplementalDataResults[$k].definition" "$EXPECTED" | tr -d '\r')
+        actual_el=$(echo "$RESPONSE" | jq -c ".supplementalDataResults[]? | select(.definition == \"$sdr_def\")" 2>/dev/null | head -1)
+        if [ -z "$actual_el" ]; then
+            echo "    ✗ supplemental data $sdr_def: not in response" >&2
+            fail=1
+            continue
+        fi
+        exp_usage=$(jq -r ".supplementalDataResults[$k].usage" "$EXPECTED" | tr -d '\r')
+        act_usage=$(echo "$actual_el" | jq -r '.usage' | tr -d '\r')
+        if [ "$act_usage" = "$exp_usage" ]; then
+            echo "    ✓ supplemental data $sdr_def usage: $act_usage"
+        else
+            echo "    ✗ supplemental data $sdr_def usage: got $act_usage, expected $exp_usage" >&2
+            fail=1
+        fi
+        exp_values=$(jq -c ".supplementalDataResults[$k].values | to_entries | sort_by(.key) | map(\"\\(.key)=\\(.value)\") | join(\",\")" "$EXPECTED" | tr -d '\r"')
+        act_values=$(echo "$actual_el" | jq -c '.values | map({key: .value, value: .count}) | sort_by(.key) | map("\(.key)=\(.value)") | join(",")' | tr -d '\r"')
+        if [ "$act_values" = "$exp_values" ]; then
+            echo "    ✓ supplemental data $sdr_def values: {$act_values}"
+        else
+            echo "    ✗ supplemental data $sdr_def values: {$act_values}, expected {$exp_values}" >&2
+            fail=1
+        fi
+        exp_none=$(jq -r ".supplementalDataResults[$k].patientsWithoutValue // 0" "$EXPECTED" | tr -d '\r')
+        act_none=$(echo "$actual_el" | jq -r '.patientsWithoutValue // 0' | tr -d '\r')
+        if [ "$act_none" = "$exp_none" ]; then
+            echo "    ✓ supplemental data $sdr_def patients without value: $act_none"
+        else
+            echo "    ✗ supplemental data $sdr_def patients without value: $act_none, expected $exp_none" >&2
+            fail=1
+        fi
+    done
 fi
 
 # Idempotency check (PAT-???). Re-runs $evaluate-measure with the SAME measureId +

@@ -9,7 +9,7 @@ EcqmArtifactList.tsx              — 列表頁
 EcqmArtifactModal.tsx             — 新增 eCQM 對話框
 EcqmArtifactWorkspace.tsx         — 主工作區（★ 核心，auto-save）
 EcqmArtifactWorkspaceHeader.tsx   — Save / Publish 按鈕
-EcqmSummaryTab.tsx                — 量測摘要（CMS ID、NQF、用途）
+EcqmSummaryTab.tsx                — 量測摘要（CMS ID、NQF、用途；PAT-236 標準 metadata 段落共用 `measure/MeasureStandardMetadataFields`）
 EcqmPopulationGroupsTab.tsx       — 母群體群組管理
 EcqmPopulationGroupEditor.tsx     — 單一群組編輯
 EcqmPopulationTreeEditor.tsx      — 表達式樹建構（★ 複用 ConjunctionGroup）
@@ -43,6 +43,21 @@ eCQM 模組**複用** CDS Authoring 的以下元件：
 2. **Ratio + 雙 IP → 停用分層** — CMS 規則，啟用雙 IP 時 Stratifiers 不可用
 3. **多群組名稱** — 多群組量測自動加後綴（" 1", " 2"）避免 CQL 命名衝突
 4. **Observation 聚合方法** — Continuous Variable 必須選擇聚合方法（Count, Sum, Average, etc.）
+5. **分層兩種（PAT-233）** — `kind: 'criteria'`（預設，布林條件樹 → `true` / `false` 兩層）或 `kind: 'value'`（運算式的值就是分層，每個不同的值一層）。值型只有結構化來源 `gender`（`Patient.gender.value`）與 `ageBands`（測量期間結束時足歲、上下界含、標籤限 ASCII，`utils/ageBands.ts` 與後端同一套檢查）——**不要**加自由 CQL 文字欄位，artifact JSON 是 client 送來的，那是 CQL injection 面。此分頁編輯的是 artifact 層級 `stratifiers`，publish 時會套到每個 group（以前只映 group 層級，UI 又不編那層，做了等於沒做）
+7. **多元件分層（PAT-235）** — 分層第三種模式：`components[]`（每個元件有 `code` + 自己的條件式 / 值型編輯器，共用 `ValueSourceEditor`），病人的分層是各元件值的組合。`code` 會成為 define 名的一部分（`Stratifier <id> <code>`），`utils/stratifierComponents.ts` 與後端同一套檢查（1–50 字英數 / 空格 / `_.-`、不重複、2–10 個）；切回單一模式會清掉 `components`。指標編輯頁對多元件分層只顯示、不編輯
+6. **SDE 的用途與類型（PAT-234）** — 自訂 SDE 列多 `usage`（`supplemental-data` 預設 / `risk-adjustment-factor`）與 `kind`（`criteria` / `value`，值型共用 `ValueSourceEditor`）。切成風險校正因子時，還是預設名稱的列會自動改成 `RAF …`，作者自己取的名字不動、只提示（後端 publish 警告）。publish 依 `usage` 映進 `MeasureDefinition.supplementalData` / `riskAdjustments`——以前一個都沒映，所以評估與交換封裝都不知道指標有 SDE
+
+8. **標準 metadata（PAT-236）** — 摘要分頁最後一段「標準 Metadata（FHIR Measure）」：指標類型（複選）、實驗性、生效 / 核准 / 審閱日期、臨床建議聲明、名詞定義，與指標編輯頁共用 `components/measure/MeasureStandardMetadataFields`（`measures` namespace）。artifact 的 PUT 是部分更新，清掉的日期要送 `''` 才會清（`utils/measureMetadata.clearedDatesAsEmpty` 把元件送出的 `null` 換成 `''`）；publish 時只有 artifact 有值的欄位才覆蓋指標
+9. **程式庫函式呼叫（PAT-237）** — 母群樹的「使用程式庫定義」picker 也列函式（簽章 + `function` chip），選了變成 `externalCqlFunctionCall` 元素，引數在元素卡片上填（`FunctionArgumentsEditor`）；`EcqmArtifactWorkspace` 用 `ArtifactScopeProvider` 提供基礎元素 / 參數並宣告有 Measurement Period，所以 `Interval<DateTime>` 型的引數預設就是 `"Measurement Period"`
+
+10. **builder ↔ 指標雙向（PAT-238）** — header 的「已發布——開啟指標」chip 連到 `/measures?measure=<id>`；指標頁的 `BuilderSourceBanner` 連回 `/ecqm?artifact=<id>`（`EcqmPage` 讀這個參數後移除）。publish 回 409「Publish Conflict」代表指標在指標頁被改過：`PublishConflictDialog` 問作者，確認才 `publish({ id, force: true })`——workspace header 與 CQL 預覽分頁兩個入口都走這條
+
+14. **審核門檻（PAT-249）** — 指標頁 draft / in-review 時頂端有 `ApprovalReadinessPanel`（`useApprovalReadiness` 查 `GET …/approval-readiness`）：阻擋項（紅）、警告（黃）、測試案例通過數、四眼提示；「送審」在有阻擋項時停用、「核准」在有阻擋項或 `fourEyes.selfApprovalBlocked` 時停用；伺服器 409 `Measure Not Ready` 的 `details` 會接在錯誤提示後面。阻擋項文字以 `editor.readiness.codes.<CODE>` 翻譯、缺鍵時退回伺服器訊息。
+13. **測試案例工作流（PAT-245～248）** — 指標頁測試案例分頁：每列驗證 chip（pending 時 3 秒輪詢）、無效者展開 issue；工具列「全部驗證」、「略過無效（n）」、「平移日期…」（`TestCaseShiftDatesDialog`，整年、±100、重設執行結果）、「複製到…」（`TestCaseCopyDialog`，同名版本優先、期望值不合目標的複本在 warnings 列出）、「匯出」選單（平台 JSON / MADiE 相容 zip / Excel 期望 vs 實際）；匯入對話框遇 `.zip` 或帶 `test-case-cqfm` MeasureReport 的 bundle（`utils/testCaseBundles.isTestCaseBundle`）直接交伺服器並顯示 `warnings`，一般 bundle 仍走前端解析 + 天數平移。每列另有單一案例的平移按鈕。
+12. **Episode-based 群組（PAT-243）** — `populationBasis` 不是 `boolean` 時 `EcqmPopulationGroupEditor` 頂端有提示：每個母群都是它保留的 episode 清單，把 basis 元素放第一個、其餘元素是條件；後端對每個母群都產生清單式 CQL，評估以 episode 計數。沒有 basis 元素的 IP 會退回布林、後端 publish / 驗證都會警告。指標頁：評估結果卡片的計數欄標成「計數（Encounter episode）」並顯示 `warnings`；測試案例結果對 episode-based 群組顯示數字不顯示是 / 否（`TestCaseResult` 的 `episodeBasisByGroup`）；期望值編輯器每個群組一行說明計數意義；追蹤面板多 Episode 欄
+13. **測量期間（PAT-242）** — 摘要分頁族群基準 / 改善方向之後是共用的 `measure/MeasurementPeriodFields`；artifact 的期間會寫進產生 CQL 的 `parameter "Measurement Period"` default，publish 帶到指標；清掉的日期一樣經 `clearedDatesAsEmpty` 送 `''`
+
+11. **發布不核准（BUG-147）** — publish 結果訊息由 `utils/publishOutcome.publishOutcomeMessage` 決定：第一次發布是 draft（要到指標頁送審核准才能評估）、已核准指標的邏輯變更成為新 draft 版本、只改 metadata 則就地更新；409 `Measure Logic Locked`（審核中）直接顯示後端訊息。指標頁非 draft 時 CQL / 母群分頁唯讀、details 的 scoring 停用，提示條提供「建立新版本」
 
 ## 狀態管理
 

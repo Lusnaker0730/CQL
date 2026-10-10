@@ -1,0 +1,7 @@
+{
+  "type": "measure-set-locks",
+  "lockedError": "Locked",
+  "renamedName": "SmokeMeasureSetRenamed",
+  "libraryId": "SmokeSetLockLib-1.0.0",
+  "_note": "PAT-253 measure set + edit locks (MADiE gap item 9). The seeded demo user (ROLE_USER) owns the measure and the library; the seeded admin (ROLE_ADMIN) is the other editor. (1) POST /api/measures returns a measureSetId; approving v1 (demo submits, admin — shared on it — approves) and creating a minor version keeps the set id; renaming v2 keeps it in v1's history (2 entries, two names) and renames nothing else; a second create with the OLD name is its own set. (2) Sharing v1 reaches v2 (access is a property of the set). (3) A test case locked by demo refuses admin's PUT / DELETE / lock with 409 'Locked' (details carry lockedBy / lockExpiresAt), lets demo's own PUT through, refuses admin's unlock (not holder, not owner); after demo unlocks, admin's PUT succeeds. (4) The same for a CQL library: demo locks, admin's PUT and DELETE are 409 Locked, demo unlocks, admin's PUT succeeds. (5) Approving the renamed v2 retires v1 — supersede keys on the set, not the name. The scenario-31 CQL is reused; the test case is deleted before submit so readiness only warns NO_TEST_CASES."
+}

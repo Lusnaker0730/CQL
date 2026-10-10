@@ -3,7 +3,9 @@ package com.cqlplatform.service.measure;
 import com.cqlplatform.entity.MeasureAuditEntity;
 import com.cqlplatform.entity.MeasureDefinitionEntity;
 import com.cqlplatform.exception.CqlTranslationException;
+import com.cqlplatform.exception.ResourceLockedException;
 import com.cqlplatform.exception.ValidationException;
+import com.cqlplatform.util.EditLock;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.repository.MeasureAuditRepository;
 import com.cqlplatform.repository.MeasureDefinitionRepository;
@@ -36,6 +38,13 @@ public class MeasureDefinitionService {
     private final CqlTranslationService cqlTranslationService;
     private final com.cqlplatform.repository.TenantRepository tenantRepository;
     private final com.cqlplatform.security.OwnershipVerifier ownershipVerifier;
+    private final com.cqlplatform.repository.MeasureScheduleRepository scheduleRepository;
+    /** PAT-246: a new version starts with the previous version's test cases. */
+    private final com.cqlplatform.repository.TestCaseRepository testCaseRepository;
+    /** PAT-249: blockers stop submit / approve; four-eyes refuses the author as approver. */
+    private final ApprovalReadinessService readinessService;
+    /** PAT-253 */
+    private final MeasureSetService measureSetService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     private Long effectiveTenantId() {
@@ -82,8 +91,14 @@ public class MeasureDefinitionService {
                     definition.getStatus(), definition.getName());
         }
         definition.setStatus(DRAFT);
+        MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
+        // PAT-253: a brand-new measure opens its own version lineage (createVersionAs stays in
+        // the source's set); a measureSetId supplied in the body is ignored.
+        entity.setMeasureSetId(measureSetService.createFor(effectiveTenantId(), definition.getName()));
         // Pre-compile CQL on create, same as update — surfaces translation errors at
         // save time rather than at first evaluation.
         if (definition.getCqlContent() != null && !definition.getCqlContent().isBlank()) {
@@ -108,12 +123,9 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
-        // Check lock — only the lock holder can save while locked
-        if (entity.getLockedBy() != null && !isLockExpired(entity)) {
-            if (currentUser == null || !entity.getLockedBy().equals(currentUser)) {
-                throw new IllegalArgumentException("Measure is locked by " + entity.getLockedBy());
-            }
-        }
+        // Only the lock holder can save while the edit lock is active (PAT-253: 409 Locked,
+        // expired lock = no lock — the one rule shared with test cases and CQL libraries)
+        requireNotLockedByOther(entity, currentUser);
 
         // PAT-222: lifecycle status is NOT editable here. Until now a PUT could flip a draft
         // straight to `active` (or an active measure back to draft) without submit-for-review /
@@ -126,6 +138,24 @@ public class MeasureDefinitionService {
                             + "submit-for-review, approve, reject or retire.");
         }
 
+        MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+        MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+
+        // BUG-147: approved / in-review / retired logic is immutable. PAT-222 stopped a PUT from
+        // flipping the status, but a PUT could still rewrite the CQL of an approved measure — the
+        // evaluation guard trusts `active`, so that was unreviewed logic running as approved.
+        // Descriptive metadata stays editable; logic changes go into a new (draft) version.
+        if (!DRAFT.equals(entity.getStatus()) && MeasureLogic.changed(entity, definition.getCqlContent(),
+                definition.getGroupDefinitions(), definition.getScoringType(), definition.getCompositeScoring(),
+                definition.getComponentMeasureIds(), definition.getCqlLibraryId())) {
+            throw new com.cqlplatform.exception.MeasureLogicLockedException(id, entity.getStatus());
+        }
+
+        if (!java.util.Objects.equals(entity.getName(), definition.getName())) {
+            // PAT-253: the lineage is the set, not the name — a rename keeps the versions together
+            measureSetService.rename(entity.getMeasureSetId(), entity.getTenantId(), definition.getName());
+        }
         entity.setName(definition.getName());
         entity.setVersion(definition.getVersion());
         entity.setTitle(definition.getTitle());
@@ -160,6 +190,19 @@ public class MeasureDefinitionService {
         entity.setSupplementalDataList(definition.getSupplementalData());
         entity.setImprovementNotation(definition.getImprovementNotation());
         entity.setRateAggregation(definition.getRateAggregation());
+        // PAT-236 standard metadata
+        entity.setMeasureTypeList(definition.getMeasureTypes() != null ? definition.getMeasureTypes() : new java.util.ArrayList<>());
+        entity.setDefinitionTermList(definition.getDefinitionTerms() != null ? definition.getDefinitionTerms() : new java.util.ArrayList<>());
+        entity.setClinicalRecommendationStatement(definition.getClinicalRecommendationStatement());
+        entity.setEffectiveStart(definition.getEffectiveStart());
+        entity.setEffectiveEnd(definition.getEffectiveEnd());
+        entity.setApprovalDate(definition.getApprovalDate());
+        entity.setLastReviewDate(definition.getLastReviewDate());
+        entity.setExperimental(definition.getExperimental());
+        entity.setMeasurementPeriodStart(definition.getMeasurementPeriodStart());
+        entity.setMeasurementPeriodEnd(definition.getMeasurementPeriodEnd());
+        entity.setMeasurementPeriodStart(definition.getMeasurementPeriodStart());
+        entity.setMeasurementPeriodEnd(definition.getMeasurementPeriodEnd());
 
         // Indicator code mapping
         entity.setMohIndicatorCode(definition.getMohIndicatorCode());
@@ -246,10 +289,52 @@ public class MeasureDefinitionService {
     public MeasureDefinition createVersion(Long id, String versionType) {
         MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        return createVersionAs(id, bumpVersion(existing.getVersion(), versionType));
+    }
 
-        String newVersion = bumpVersion(existing.getVersion(), versionType);
+    /** The next minor version of {@code version} that this measure name does not use yet in the tenant. */
+    @Transactional(readOnly = true)
+    public String nextFreeMinorVersion(String name, String version) {
+        String candidate = bumpVersion(version, "minor");
+        while (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), name, candidate)) {
+            candidate = bumpVersion(candidate, "minor");
+        }
+        return candidate;
+    }
 
-        if (repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), existing.getName(), newVersion)) {
+    /** PAT-253: the next minor version after {@code existing}'s that its measure set does not use yet. */
+    @Transactional(readOnly = true)
+    public String nextFreeMinorVersion(MeasureDefinitionEntity existing) {
+        String candidate = bumpVersion(existing.getVersion(), "minor");
+        while (versionTaken(existing, candidate)) {
+            candidate = bumpVersion(candidate, "minor");
+        }
+        return candidate;
+    }
+
+    /**
+     * PAT-253: whether {@code version} is already used in {@code existing}'s lineage. Version numbers
+     * are unique within the measure set, not the name — a renamed version still counts, an unrelated
+     * measure that happens to share the name does not. Rows without a set fall back to the name.
+     */
+    @Transactional(readOnly = true)
+    public boolean versionTaken(MeasureDefinitionEntity existing, String version) {
+        return existing.getMeasureSetId() != null
+                ? repository.existsByMeasureSetIdAndVersion(existing.getMeasureSetId(), version)
+                : repository.existsByTenantIdAndNameAndVersion(effectiveTenantId(), existing.getName(), version);
+    }
+
+    /**
+     * A new draft copy of measure {@code id} with the given version (BUG-147: the eCQM builder
+     * publishes changed logic of an approved measure into one of these). Everything is copied —
+     * department, indicator codes, sharing, metadata — and the status starts as draft.
+     */
+    @Transactional
+    public MeasureDefinition createVersionAs(Long id, String newVersion) {
+        MeasureDefinitionEntity existing = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+
+        if (versionTaken(existing, newVersion)) {
             throw new IllegalArgumentException("Version already exists: " + existing.getName() + " v" + newVersion);
         }
 
@@ -263,18 +348,67 @@ public class MeasureDefinitionService {
         newEntity.setVersion(newVersion);
         newEntity.setStatus(DRAFT);
         newEntity.setTenantId(existing.getTenantId()); // version chain stays in the source tenant
+        newEntity.setMeasureSetId(existing.getMeasureSetId()); // PAT-253: same lineage
         newEntity = repository.save(newEntity);
 
-        log.info("Created version {} for measure {}", newVersion, existing.getName());
+        // PAT-246: the test cases come along (MADiE's "create draft" does the same) — the new
+        // version's logic starts identical, so every existing test still applies; run results are
+        // reset because they belong to the old version's runs.
+        int copiedTestCases = copyTestCases(existing.getId(), newEntity.getId());
+
+        log.info("Created version {} for measure {} ({} test cases copied)", newVersion, existing.getName(), copiedTestCases);
         return entityToModel(newEntity);
     }
 
+    /** PAT-246: copies every test case of {@code fromMeasureId} onto {@code toMeasureId}; returns how many. */
+    private int copyTestCases(Long fromMeasureId, Long toMeasureId) {
+        List<com.cqlplatform.entity.TestCaseEntity> sources =
+                testCaseRepository.findByMeasureDefinitionIdOrderByCreatedAtAsc(fromMeasureId);
+        if (sources.isEmpty()) return 0;
+        List<com.cqlplatform.entity.TestCaseEntity> copies = new ArrayList<>();
+        for (com.cqlplatform.entity.TestCaseEntity source : sources) {
+            copies.add(TestCaseCopies.copyOf(source, toMeasureId));
+        }
+        testCaseRepository.saveAll(copies);
+        return copies.size();
+    }
+
+    /**
+     * PAT-253: every version of the measure's set (its lineage), newest first — a rename no longer
+     * drops versions out of the history. Rows without a set (built before V79 outside the migration,
+     * e.g. in H2 tests) fall back to the pre-V79 name-based lineage.
+     */
     @Transactional(readOnly = true)
-    public List<MeasureDefinition> getHistory(String name) {
-        return repository.findByTenantIdAndName(effectiveTenantId(), name).stream()
+    public List<MeasureDefinition> getHistory(MeasureDefinition measure) {
+        return lineageOf(effectiveTenantId(), measure.getMeasureSetId(), measure.getName()).stream()
                 .sorted(Comparator.comparing(MeasureDefinitionEntity::getVersion, new SemanticVersionComparator()).reversed())
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
+    }
+
+    private List<MeasureDefinitionEntity> lineageOf(Long tenantId, Long measureSetId, String name) {
+        return measureSetId != null
+                ? repository.findByTenantIdAndMeasureSetId(tenantId, measureSetId)
+                : repository.findByTenantIdAndName(tenantId, name);
+    }
+
+    /**
+     * PAT-253: applies {@code change} to {@code entity} and to every other version in its set —
+     * access (sharing, owner, access level) is a property of the lineage, as in MADiE, so a
+     * reviewer shared on v1 can see the v2 draft without a second share. Returns the saved entity.
+     */
+    private MeasureDefinitionEntity applyAcrossSet(MeasureDefinitionEntity entity,
+                                                   java.util.function.Consumer<MeasureDefinitionEntity> change) {
+        change.accept(entity);
+        MeasureDefinitionEntity saved = repository.save(entity);
+        if (entity.getMeasureSetId() != null) {
+            for (MeasureDefinitionEntity other : repository.findByTenantIdAndMeasureSetId(entity.getTenantId(), entity.getMeasureSetId())) {
+                if (other.getId().equals(entity.getId())) continue;
+                change.accept(other);
+                repository.save(other);
+            }
+        }
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -363,8 +497,10 @@ public class MeasureDefinitionService {
     }
 
     private MeasureDefinition entityToModel(MeasureDefinitionEntity entity) {
+        boolean locked = EditLock.isActive(entity.getLockedBy(), entity.getLockedAt(), lockTimeoutMinutes);
         return MeasureDefinition.builder()
                 .id(entity.getId())
+                .measureSetId(entity.getMeasureSetId())
                 .name(entity.getName())
                 .version(entity.getVersion())
                 .title(entity.getTitle())
@@ -384,8 +520,9 @@ public class MeasureDefinitionService {
                 .accessLevel(entity.getAccessLevel())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
-                .lockedBy(entity.getLockedBy())
-                .lockedAt(entity.getLockedAt())
+                .lockedBy(locked ? entity.getLockedBy() : null)
+                .lockedAt(locked ? entity.getLockedAt() : null)
+                .lockExpiresAt(locked ? EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes) : null)
                 .reviewedBy(entity.getReviewedBy())
                 .approvedBy(entity.getApprovedBy())
                 .reviewComment(entity.getReviewComment())
@@ -408,6 +545,19 @@ public class MeasureDefinitionService {
                 .supplementalData(entity.getSupplementalDataList())
                 .improvementNotation(entity.getImprovementNotation())
                 .rateAggregation(entity.getRateAggregation())
+                // PAT-236 standard metadata
+                .measureTypes(entity.getMeasureTypeList())
+                .definitionTerms(entity.getDefinitionTermList())
+                .clinicalRecommendationStatement(entity.getClinicalRecommendationStatement())
+                .effectiveStart(entity.getEffectiveStart())
+                .effectiveEnd(entity.getEffectiveEnd())
+                .approvalDate(entity.getApprovalDate())
+                .lastReviewDate(entity.getLastReviewDate())
+                .experimental(entity.getExperimental())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
+                .measurementPeriodStart(entity.getMeasurementPeriodStart())
+                .measurementPeriodEnd(entity.getMeasurementPeriodEnd())
                 // Indicator code mapping
                 .mohIndicatorCode(entity.getMohIndicatorCode())
                 .nhiaP4pCode(entity.getNhiaP4pCode())
@@ -424,16 +574,16 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-
-        List<String> shared = new ArrayList<>(entity.getSharedWithList());
-        if (!shared.contains(targetUsername)) {
-            shared.add(targetUsername);
-        }
-        entity.setSharedWithList(shared);
-        if ("private".equals(entity.getAccessLevel())) {
-            entity.setAccessLevel("shared");
-        }
-        entity = repository.save(entity);
+        entity = applyAcrossSet(entity, member -> {
+            List<String> shared = new ArrayList<>(member.getSharedWithList());
+            if (!shared.contains(targetUsername)) {
+                shared.add(targetUsername);
+            }
+            member.setSharedWithList(shared);
+            if ("private".equals(member.getAccessLevel())) {
+                member.setAccessLevel("shared");
+            }
+        });
         recordAudit(id, "SHARE", currentUser, "Shared with " + targetUsername, null, null);
         log.info("Shared measure {} with user {}", id, targetUsername);
 
@@ -448,14 +598,14 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-
-        List<String> shared = new ArrayList<>(entity.getSharedWithList());
-        shared.remove(targetUsername);
-        entity.setSharedWithList(shared);
-        if (shared.isEmpty() && "shared".equals(entity.getAccessLevel())) {
-            entity.setAccessLevel("private");
-        }
-        entity = repository.save(entity);
+        entity = applyAcrossSet(entity, member -> {
+            List<String> shared = new ArrayList<>(member.getSharedWithList());
+            shared.remove(targetUsername);
+            member.setSharedWithList(shared);
+            if (shared.isEmpty() && "shared".equals(member.getAccessLevel())) {
+                member.setAccessLevel("private");
+            }
+        });
         recordAudit(id, "UNSHARE", currentUser, "Removed sharing for " + targetUsername, null, null);
         return entityToModel(entity);
     }
@@ -465,10 +615,8 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-
         String oldOwner = entity.getOwnerUsername();
-        entity.setOwnerUsername(newOwner);
-        entity = repository.save(entity);
+        entity = applyAcrossSet(entity, member -> member.setOwnerUsername(newOwner));
         recordAudit(id, "TRANSFER", currentUser, "Transferred from " + oldOwner + " to " + newOwner, oldOwner, newOwner);
         log.info("Transferred measure {} from {} to {}", id, currentUser, newOwner);
         return entityToModel(entity);
@@ -479,10 +627,8 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
-
         String oldLevel = entity.getAccessLevel();
-        entity.setAccessLevel(accessLevel);
-        entity = repository.save(entity);
+        entity = applyAcrossSet(entity, member -> member.setAccessLevel(accessLevel));
         recordAudit(id, "ACCESS_CHANGE", currentUser, "Access level changed", oldLevel, accessLevel);
         return entityToModel(entity);
     }
@@ -494,9 +640,7 @@ public class MeasureDefinitionService {
         MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
 
-        if (entity.getLockedBy() != null && !isLockExpired(entity) && !entity.getLockedBy().equals(currentUser)) {
-            throw new IllegalArgumentException("Measure is already locked by " + entity.getLockedBy());
-        }
+        requireNotLockedByOther(entity, currentUser); // re-locking by the holder refreshes the lock
 
         entity.setLockedBy(currentUser);
         entity.setLockedAt(java.time.LocalDateTime.now());
@@ -519,7 +663,10 @@ public class MeasureDefinitionService {
         boolean isLockHolder = entity.getLockedBy().equals(currentUser);
         boolean isOwner = entity.getOwnerUsername() == null || entity.getOwnerUsername().equals(currentUser);
         if (!isLockHolder && !isOwner) {
-            throw new IllegalArgumentException("Only the lock holder or owner can unlock this measure");
+            throw new ResourceLockedException("Measure", id, entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes),
+                    "Measure " + id + " is locked by " + entity.getLockedBy()
+                            + "; only the lock holder or the owner can unlock it.");
         }
 
         String previousHolder = entity.getLockedBy();
@@ -531,9 +678,12 @@ public class MeasureDefinitionService {
         return entityToModel(entity);
     }
 
-    private boolean isLockExpired(MeasureDefinitionEntity entity) {
-        if (entity.getLockedAt() == null) return true;
-        return entity.getLockedAt().plusMinutes(lockTimeoutMinutes).isBefore(java.time.LocalDateTime.now());
+    /** PAT-253: 409 Locked while someone other than {@code currentUser} holds an active edit lock ({@link EditLock}). */
+    private void requireNotLockedByOther(MeasureDefinitionEntity entity, String currentUser) {
+        if (EditLock.isHeldByOther(entity.getLockedBy(), entity.getLockedAt(), currentUser, lockTimeoutMinutes)) {
+            throw new ResourceLockedException("Measure", entity.getId(), entity.getLockedBy(),
+                    EditLock.expiresAt(entity.getLockedAt(), lockTimeoutMinutes));
+        }
     }
 
     @Transactional(readOnly = true)
@@ -568,6 +718,7 @@ public class MeasureDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkOwner(entity, currentUser);
         validateTransition(entity.getStatus(), IN_REVIEW);
+        readinessService.requireReady(entity, "be submitted for review");
 
         String oldStatus = entity.getStatus();
         entity.setStatus(IN_REVIEW);
@@ -587,6 +738,8 @@ public class MeasureDefinitionService {
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
         checkReviewer(entity, currentUser);
         validateTransition(entity.getStatus(), ACTIVE);
+        readinessService.requireFourEyes(entity, currentUser);
+        readinessService.requireReady(entity, "be approved");
 
         String oldStatus = entity.getStatus();
         entity.setStatus(ACTIVE);
@@ -597,11 +750,20 @@ public class MeasureDefinitionService {
         entity = repository.save(entity);
         recordAudit(id, "APPROVE", currentUser, "Approved and set to active", oldStatus, ACTIVE);
         log.info("Measure {} approved by {}", id, currentUser);
+        supersedeOtherActiveVersions(entity, currentUser);
 
         // Notify the measure owner
         notificationService.notifyMeasureApproved(currentUser, entity.getOwnerUsername(), entity.getName(), id);
 
         return entityToModel(entity);
+    }
+
+    /** PAT-249: what stands between the measure and its approval, with the four-eyes verdict for {@code currentUser}. */
+    @Transactional(readOnly = true)
+    public com.cqlplatform.model.measure.ApprovalReadiness getApprovalReadiness(Long id, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        return readinessService.check(entity, currentUser);
     }
 
     @Transactional
@@ -640,6 +802,28 @@ public class MeasureDefinitionService {
         recordAudit(id, "RETIRE", currentUser, "Retired", oldStatus, RETIRED);
         log.info("Measure {} retired by {}", id, currentUser);
         return entityToModel(entity);
+    }
+
+    /**
+     * BUG-147 — approving a new version replaces the approved one: every other {@code active}
+     * version of the same measure (tenant + name) is retired, and the evaluation schedules that
+     * pointed at it move to the newly approved version, so scheduled runs keep going on approved
+     * logic instead of hitting the lifecycle guard.
+     */
+    private void supersedeOtherActiveVersions(MeasureDefinitionEntity approved, String currentUser) {
+        // PAT-253: the lineage is the measure set (name-based only for rows without one)
+        for (MeasureDefinitionEntity other : lineageOf(approved.getTenantId(), approved.getMeasureSetId(), approved.getName())) {
+            if (other.getId().equals(approved.getId()) || !ACTIVE.equals(other.getStatus())) continue;
+            other.setStatus(RETIRED);
+            repository.save(other);
+            recordAudit(other.getId(), "SUPERSEDE", currentUser,
+                    "Retired: superseded by v" + approved.getVersion() + " (measure " + approved.getId() + ")", ACTIVE, RETIRED);
+            for (com.cqlplatform.entity.MeasureScheduleEntity schedule : scheduleRepository.findByMeasureDefinitionId(other.getId())) {
+                schedule.setMeasureDefinitionId(approved.getId());
+                scheduleRepository.save(schedule);
+            }
+            log.info("Measure {} v{} superseded by {} v{}", other.getId(), other.getVersion(), approved.getId(), approved.getVersion());
+        }
     }
 
     private void validateTransition(String currentStatus, String targetStatus) {
@@ -722,6 +906,19 @@ public class MeasureDefinitionService {
                 .supplementalDataList(model.getSupplementalData())
                 .improvementNotation(model.getImprovementNotation())
                 .rateAggregation(model.getRateAggregation())
+                // PAT-236 standard metadata
+                .measureTypeList(model.getMeasureTypes() != null ? model.getMeasureTypes() : new java.util.ArrayList<>())
+                .definitionTermList(model.getDefinitionTerms() != null ? model.getDefinitionTerms() : new java.util.ArrayList<>())
+                .clinicalRecommendationStatement(model.getClinicalRecommendationStatement())
+                .effectiveStart(model.getEffectiveStart())
+                .effectiveEnd(model.getEffectiveEnd())
+                .approvalDate(model.getApprovalDate())
+                .lastReviewDate(model.getLastReviewDate())
+                .experimental(model.getExperimental())
+                .measurementPeriodStart(model.getMeasurementPeriodStart())
+                .measurementPeriodEnd(model.getMeasurementPeriodEnd())
+                .measurementPeriodStart(model.getMeasurementPeriodStart())
+                .measurementPeriodEnd(model.getMeasurementPeriodEnd())
                 // Indicator code mapping
                 .mohIndicatorCode(model.getMohIndicatorCode())
                 .nhiaP4pCode(model.getNhiaP4pCode())

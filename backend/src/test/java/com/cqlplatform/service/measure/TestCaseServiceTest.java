@@ -40,6 +40,9 @@ class TestCaseServiceTest {
     @Mock
     private PopulationEvaluator populationEvaluator;
 
+    @Mock
+    private TestCaseValidationService validationService;
+
     // Shared across test methods — forR4() is expensive (~300ms) and stateless for parsing.
     private static final FhirContext SHARED_FHIR_CTX = FhirContext.forR4();
 
@@ -376,5 +379,187 @@ class TestCaseServiceTest {
 
         assertThat(comparisons).isNotNull();
         assertThat(comparisons.get(0).isMatch()).isFalse();
+    }
+
+    // PAT-242 — a test case runs in the measure's own Measurement Period when it has one, and the
+    // run result says which period was used; a measure without one runs in the current calendar
+    // year, exactly as before.
+    @Test
+    void runTestCase_usesTheMeasuresMeasurementPeriod_andReportsIt() {
+        TestCaseEntity entity = createEntity(1L, 10L, "MP TC");
+        entity.setExpectedPopulationMap(Map.of("InPopulation", true));
+        MeasureDefinition measure = createMeasure(10L);
+        measure.setMeasurementPeriodStart(java.time.LocalDate.of(2024, 1, 1));
+        measure.setMeasurementPeriodEnd(java.time.LocalDate.of(2024, 12, 31));
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(definitionService.getById(10L)).thenReturn(Optional.of(measure));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        org.mockito.ArgumentCaptor<CqlExecutionRequest> sent = org.mockito.ArgumentCaptor.forClass(CqlExecutionRequest.class);
+        when(cqlExecutionService.executeWithProvider(sent.capture(), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(CqlExecutionResponse.builder().success(true)
+                        .results(Map.of("InPopulation", CqlExecutionResponse.ExpressionResult.builder()
+                                .name("InPopulation").value(true).valueType("Boolean").displayValue("true").build()))
+                        .build());
+
+        TestCaseRunResult result = service.runTestCase(1L);
+
+        assertThat(result.getMeasurementPeriodStart()).isEqualTo(java.time.LocalDate.of(2024, 1, 1));
+        assertThat(result.getMeasurementPeriodEnd()).isEqualTo(java.time.LocalDate.of(2024, 12, 31));
+        org.opencds.cqf.cql.engine.runtime.Interval period =
+                (org.opencds.cqf.cql.engine.runtime.Interval) sent.getValue().getParameters().get("Measurement Period");
+        assertThat(((org.opencds.cqf.cql.engine.runtime.DateTime) period.getStart()).getDateTime().getYear()).isEqualTo(2024);
+        assertThat(((org.opencds.cqf.cql.engine.runtime.DateTime) period.getEnd()).getDateTime().getMonthValue()).isEqualTo(12);
+    }
+
+    @Test
+    void measurementPeriod_fallsBackToTheCurrentCalendarYear() {
+        java.time.LocalDate[] period = TestCaseService.measurementPeriod(createMeasure(10L));
+
+        int year = java.time.Year.now().getValue();
+        assertThat(period[0]).isEqualTo(java.time.LocalDate.of(year, 1, 1));
+        assertThat(period[1]).isEqualTo(java.time.LocalDate.of(year, 12, 31));
+    }
+
+    // ===== PAT-245 — FHIR validation of the patient bundle =====
+
+    @Test
+    void create_marksTheBundlePending_andSchedulesValidation() {
+        when(definitionService.getById(10L)).thenReturn(Optional.of(createMeasure(10L)));
+        when(repository.save(any())).thenAnswer(inv -> { TestCaseEntity e = inv.getArgument(0); e.setId(1L); return e; });
+
+        service.create(10L, TestCase.builder().title("New TC").patientBundleJson("{}").build());
+
+        org.mockito.ArgumentCaptor<TestCaseEntity> saved = org.mockito.ArgumentCaptor.forClass(TestCaseEntity.class);
+        verify(validationService).markPending(saved.capture());
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void update_revalidatesOnlyWhenTheBundleChanged_orWasNeverValidated() {
+        TestCaseEntity entity = createEntity(1L, 10L, "TC");
+        entity.setValidationStatus("valid");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        // same bundle, already validated → untouched
+        service.update(1L, TestCase.builder().title("TC").patientBundleJson(entity.getPatientBundleJson()).build());
+        verify(validationService, never()).markPending(any());
+        verify(validationService, never()).scheduleValidation(any());
+
+        // a changed bundle → pending + scheduled
+        service.update(1L, TestCase.builder().title("TC").patientBundleJson("{\"resourceType\":\"Bundle\",\"entry\":[]}").build());
+        verify(validationService).markPending(entity);
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void runAllTestCases_skipInvalid_leavesOutInvalidCases_butRunsPendingAndUnvalidatedOnes() {
+        TestCaseEntity valid = createEntity(1L, 10L, "valid");
+        valid.setValidationStatus("valid");
+        TestCaseEntity invalid = createEntity(2L, 10L, "invalid");
+        invalid.setValidationStatus("invalid");
+        TestCaseEntity pending = createEntity(3L, 10L, "pending");
+        pending.setValidationStatus("pending");
+        TestCaseEntity never = createEntity(4L, 10L, "never");
+        when(definitionService.getById(10L)).thenReturn(Optional.of(createMeasure(10L)));
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(valid, invalid, pending, never));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(cqlExecutionService.executeWithProvider(any(CqlExecutionRequest.class), any(PrefetchRetrieveProvider.class)))
+                .thenReturn(CqlExecutionResponse.builder().success(true)
+                        .results(Map.of("InPopulation", CqlExecutionResponse.ExpressionResult.builder()
+                                .name("InPopulation").value(true).valueType("Boolean").build()))
+                        .build());
+
+        List<TestCaseRunResult> results = service.runAllTestCases(10L, false, true);
+
+        assertThat(results).extracting(TestCaseRunResult::getTestCaseTitle).containsExactly("valid", "pending", "never");
+        assertThat(service.runAllTestCases(10L, false, false)).hasSize(4);
+    }
+
+    // ===== PAT-246 — copy to another measure =====
+
+    @Test
+    void copyTo_copiesTheChosenTestCases_andDropsAnExpectationThatDoesNotFitTheTarget() {
+        MeasureDefinition target = createMeasure(20L);
+        target.setGroupDefinitions(List.of(GroupDefinition.builder().groupId("group-1")
+                .populations(List.of(PopulationDefinition.builder().populationType("initial-population").criteriaExpression("IP").build()))
+                .build()));
+        when(definitionService.getById(20L)).thenReturn(Optional.of(target));
+        TestCaseEntity fits = createEntity(1L, 10L, "fits");
+        fits.setExpectedValues("{\"groups\":[{\"groupId\":\"group-1\",\"populations\":{\"initial-population\":1}}]}");
+        TestCaseEntity wrongGroup = createEntity(2L, 10L, "wrong group");
+        wrongGroup.setExpectedValues("{\"groups\":[{\"groupId\":\"group-9\",\"populations\":{\"initial-population\":1}}]}");
+        TestCaseEntity notChosen = createEntity(3L, 10L, "not chosen");
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(fits, wrongGroup, notChosen));
+        when(repository.save(any())).thenAnswer(inv -> { TestCaseEntity e = inv.getArgument(0); e.setId(100L + e.getTitle().length()); return e; });
+
+        TestCaseCopyResult result = service.copyTo(10L, 20L, List.of(1L, 2L));
+
+        assertThat(result.getCopied()).extracting(TestCase::getTitle).containsExactly("fits", "wrong group");
+        assertThat(result.getCopied()).allSatisfy(tc -> {
+            assertThat(tc.getMeasureDefinitionId()).isEqualTo(20L);
+            assertThat(tc.getStatus()).isEqualTo("pending");
+        });
+        assertThat(result.getCopied().get(0).getExpectedValues()).isNotNull();
+        assertThat(result.getCopied().get(1).getExpectedValues()).isNull();
+        assertThat(result.getWarnings()).hasSize(1);
+        assertThat(result.getWarnings().get(0)).contains("wrong group").contains("group-9");
+    }
+
+    @Test
+    void copyTo_sameMeasure_isRefused() {
+        assertThatThrownBy(() -> service.copyTo(10L, 10L, null))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+    }
+
+    // ===== PAT-248: shift dates =====
+
+    @Test
+    void shiftDates_shiftsTheBundle_forgetsTheLastRun_andRevalidates() {
+        TestCaseEntity entity = createEntity(1L, 10L, "shift me");
+        entity.setStatus("pass");
+        entity.setLastRunAt(LocalDateTime.now());
+        entity.setLastRunResultJson("{\"status\":\"pass\"}");
+        entity.setLastRunActualPopulationMap(new LinkedHashMap<>(Map.of("initial-population", true)));
+        entity.setValidationStatus("valid");
+        when(repository.findById(1L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(dateShiftService.shiftYears(entity.getPatientBundleJson(), 1)).thenReturn("{\"resourceType\":\"Bundle\",\"shifted\":true}");
+
+        TestCase result = service.shiftDates(1L, 1);
+
+        assertThat(result.getPatientBundleJson()).contains("\"shifted\":true");
+        assertThat(result.getStatus()).isEqualTo("pending");
+        assertThat(result.getLastRunAt()).isNull();
+        assertThat(result.getLastRunResultJson()).isNull();
+        assertThat(result.getLastRunActualPopulations()).isEmpty();
+        assertThat(result.getExpectedPopulations()).as("the expectation describes the story, not the dates").containsEntry("initial-population", true);
+        verify(validationService).markPending(entity);
+        verify(validationService).scheduleValidation(1L);
+    }
+
+    @Test
+    void shiftAllDates_shiftsEveryTestCaseOfTheMeasure_andRefusesZeroOrAbsurdYears() {
+        TestCaseEntity a = createEntity(1L, 10L, "a");
+        TestCaseEntity b = createEntity(2L, 10L, "b");
+        TestCaseEntity empty = createEntity(3L, 10L, "no bundle");
+        empty.setPatientBundleJson(null);
+        when(repository.findByMeasureDefinitionIdOrderByCreatedAtAsc(10L)).thenReturn(List.of(a, b, empty));
+        when(dateShiftService.shiftYears(anyString(), eq(-2))).thenAnswer(inv -> inv.getArgument(0) + "/*-2y*/");
+
+        TestCaseDateShiftResult result = service.shiftAllDates(10L, -2);
+
+        assertThat(result.getShifted()).isEqualTo(2);
+        assertThat(result.getTestCaseIds()).containsExactly(1L, 2L);
+        assertThat(result.getYears()).isEqualTo(-2);
+        assertThat(a.getPatientBundleJson()).endsWith("/*-2y*/");
+        assertThat(b.getStatus()).isEqualTo("pending");
+        verify(repository).saveAll(List.of(a, b, empty));
+        verify(validationService).scheduleValidation(1L);
+        verify(validationService).scheduleValidation(2L);
+        verify(validationService, never()).scheduleValidation(3L);
+
+        assertThatThrownBy(() -> service.shiftAllDates(10L, 0)).isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+        assertThatThrownBy(() -> service.shiftDates(1L, 101)).isInstanceOf(com.cqlplatform.exception.ValidationException.class);
     }
 }

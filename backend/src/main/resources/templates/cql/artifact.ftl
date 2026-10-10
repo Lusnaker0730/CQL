@@ -8,7 +8,7 @@ ${inc}
 
 <#if valueSets?has_content>
 <#list valueSets as vs>
-valueset "${vs.identifier}": '${vs.uri}'
+valueset "${vs.identifier}": '${vs.uri}'<#if vs.version?has_content> version '${vs.version}'</#if>
 </#list>
 
 </#if>

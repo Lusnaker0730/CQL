@@ -37,6 +37,20 @@ public class EcqmArtifactResponse {
     private String disclaimer;
     private String supplementalDataGuidance;
 
+    // PAT-236 standard metadata
+    private List<String> measureTypes;
+    private List<Map<String, Object>> definitionTerms;
+    private String clinicalRecommendationStatement;
+    private java.time.LocalDate effectiveStart;
+    private java.time.LocalDate effectiveEnd;
+    private java.time.LocalDate approvalDate;
+    private java.time.LocalDate lastReviewDate;
+    private Boolean experimental;
+
+    // PAT-242 measurement period
+    private java.time.LocalDate measurementPeriodStart;
+    private java.time.LocalDate measurementPeriodEnd;
+
     private List<Map<String, Object>> populationGroups;
     private List<Map<String, Object>> supplementalData;
     private List<Map<String, Object>> stratifiers;
@@ -44,6 +58,8 @@ public class EcqmArtifactResponse {
     private List<Map<String, Object>> parameters;
 
     private Long publishedMeasureId;
+    /** PAT-238: when the artifact was last published (null = never, or before V76). */
+    private java.time.LocalDateTime publishedAt;
     private String ownerUsername;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

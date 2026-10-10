@@ -57,6 +57,40 @@ class EcqmCqlBuilderTest {
         return tree;
     }
 
+    /** An episode element: the generic Encounter retrieve, optionally with an AgeRange condition beside it. */
+    private Map<String, Object> encounterTree(boolean withAgeCondition) {
+        Map<String, Object> enc = new LinkedHashMap<>();
+        enc.put("id", "GenericEncounter_vsac");
+        enc.put("name", "All Encounters");
+        enc.put("type", "GenericEncounter_vsac");
+        enc.put("returnType", "list_of_encounters");
+        enc.put("fields", List.of(Map.of("id", "element_name", "type", "string", "value", "All Encounters")));
+        enc.put("modifiers", new ArrayList<>());
+        Map<String, Object> tree = emptyTree();
+        ((List<Object>) tree.get("childInstances")).add(enc);
+        if (withAgeCondition) {
+            ((List<Object>) tree.get("childInstances")).addAll((List<Object>) populationTree().get("childInstances"));
+        }
+        return tree;
+    }
+
+    private Map<String, Object> episodeProportionGroup() {
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("groupId", "group-1");
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", encounterTree(false));
+        pops.put("denominator", encounterTree(true));
+        pops.put("numerator", encounterTree(false));
+        group.put("populations", pops);
+        Map<String, Object> obs = new LinkedHashMap<>();
+        obs.put("observationId", "obs-1");
+        obs.put("criteria", populationTree());
+        obs.put("aggregateMethod", "Count");
+        obs.put("populationRef", "denominator");
+        group.put("observations", List.of(obs));
+        return group;
+    }
+
     private Map<String, Object> proportionGroup() {
         Map<String, Object> group = new LinkedHashMap<>();
         group.put("groupId", "group-1");
@@ -204,11 +238,34 @@ class EcqmCqlBuilderTest {
 
     @Test
     void buildEcqmCql_continuousVariable_episodeBased_shouldUseResourceParam() {
+        Map<String, Object> group = cvGroup();
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", encounterTree(false));
+        pops.put("measure-population", encounterTree(true));
+        group.put("populations", pops);
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "CVEpisode", "1.0.0", "continuous-variable", "Encounter",
+                List.of(group), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("define function \"Measure Observation\"(Encounter \"Encounter\"):");
+        assertThat(result.cql()).contains("(\"Measure Population\") MP return \"Measure Observation\"(MP)");
+        assertThat(result.cql()).contains("[Encounter] _ep where");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    // PAT-243: a continuous-variable Measure Population with no Encounter element cannot be iterated
+    // as episodes — the function takes the Patient and the wrapper tests the Boolean, instead of the
+    // untranslatable `(Boolean) MP return …` this used to emit.
+    @Test
+    void buildEcqmCql_continuousVariable_episodeBasedWithoutAnEncounterElement_fallsBackToThePatientForm_andWarns() {
         CqlBuildResult result = builder.buildEcqmCql(
                 "CVEpisode", "1.0.0", "continuous-variable", "Encounter",
                 List.of(cvGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
 
-        assertThat(result.cql()).contains("define function \"Measure Observation\"(Encounter \"Encounter\"):");
+        assertThat(result.cql()).contains("define function \"Measure Observation\"(Patient \"Patient\"):");
+        assertThat(result.cql()).contains("if \"Measure Population\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).anyMatch(w -> w.contains("Initial Population") && w.contains("returns a Boolean"));
     }
 
     // ===== Cohort tests =====
@@ -275,6 +332,170 @@ class EcqmCqlBuilderTest {
 
         assertThat(result.cql()).contains("// Age group stratifier");
         assertThat(result.cql()).contains("define \"Stratifier age\":");
+    }
+
+    // PAT-233 — value stratifiers: the define returns the stratum itself.
+
+    /** The FreeMarker templates carry the working copy's line endings; compare on LF. */
+    private static String lf(CqlBuildResult result) {
+        return result.cql().replace("\r\n", "\n");
+    }
+
+    private static Map<String, Object> valueStratifier(String id, String source, List<Map<String, Object>> bands) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("source", source);
+        if (bands != null) value.put("bands", bands);
+        Map<String, Object> strat = new LinkedHashMap<>();
+        strat.put("stratifierId", id);
+        strat.put("kind", "value");
+        strat.put("value", value);
+        return strat;
+    }
+
+    private static Map<String, Object> band(String label, Object min, Object max) {
+        Map<String, Object> band = new LinkedHashMap<>();
+        band.put("label", label);
+        if (min != null) band.put("min", min);
+        if (max != null) band.put("max", max);
+        return band;
+    }
+
+    @Test
+    void valueStratifier_gender_returnsThePatientGenderString() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("sex", "gender", null)), "R4");
+
+        assertThat(lf(result)).contains("define \"Stratifier sex\":\n  Patient.gender.value");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void valueStratifier_ageBands_isACaseOverTheMeasurementPeriodAge() {
+        List<Map<String, Object>> bands = List.of(
+                band("18-49", 18, 49), band("50-64", "50", "64"), band("65+", 65, null), band("child", null, 17));
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("age", "ageBands", bands)), "R4");
+
+        String age = "AgeInYearsAt(end of \"Measurement Period\")";
+        assertThat(lf(result)).contains("define \"Stratifier age\":\n  case\n"
+                + "    when " + age + " >= 18 and " + age + " <= 49 then '18-49'\n"
+                + "    when " + age + " >= 50 and " + age + " <= 64 then '50-64'\n"
+                + "    when " + age + " >= 65 then '65+'\n"
+                + "    when " + age + " <= 17 then 'child'\n"
+                + "    else null\n  end");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void valueStratifier_isAlsoEmittedForAGroupLevelStratifier_withTheGroupSuffix() {
+        Map<String, Object> group1 = proportionGroup();
+        group1.put("stratifiers", List.of(valueStratifier("sex", "gender", null)));
+        CqlBuildResult result = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(group1, proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(lf(result)).contains("define \"Stratifier sex 1\":\n  Patient.gender.value");
+    }
+
+    // PAT-235 — a multi-component stratifier is one define per component, "Stratifier <id> <code>".
+    @Test
+    void componentStratifier_emitsOneDefinePerComponent_andDropsTheWholeStratifierOnABadComponent() {
+        Map<String, Object> sexByAge = new LinkedHashMap<>();
+        sexByAge.put("stratifierId", "sex-age");
+        sexByAge.put("description", "Sex by age band");
+        sexByAge.put("components", List.of(
+                Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")),
+                Map.of("code", "age", "kind", "value", "value", Map.of("source", "ageBands", "bands", List.of(band("65+", 65, null)))),
+                Map.of("code", "elderly", "criteria", populationTree())));
+        Map<String, Object> group1 = proportionGroup();
+        group1.put("stratifiers", List.of(sexByAge));
+
+        CqlBuildResult top = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(sexByAge), "R4");
+        assertThat(lf(top)).contains("// Sex by age band")
+                .contains("define \"Stratifier sex-age sex\":\n  Patient.gender.value")
+                .contains("define \"Stratifier sex-age age\":\n  case\n")
+                .contains("define \"Stratifier sex-age elderly\":\n  ")
+                .doesNotContain("define \"Stratifier sex-age\":");
+        assertThat(top.warnings()).isEmpty();
+
+        CqlBuildResult grouped = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                List.of(group1, proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+        assertThat(lf(grouped)).contains("define \"Stratifier sex-age sex 1\":").contains("define \"Stratifier sex-age age 1\":");
+
+        for (Map<String, Object> bad : List.of(
+                Map.of("code", "a<b", "kind", "value", "value", Map.of("source", "gender")),   // code not plain
+                Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")),   // duplicate code
+                Map.of("code", "zip", "kind", "value", "value", Map.of("source", "postal")))) { // unbuildable
+            Map<String, Object> strat = new LinkedHashMap<>(sexByAge);
+            strat.put("components", List.of(Map.of("code", "sex", "kind", "value", "value", Map.of("source", "gender")), bad));
+            CqlBuildResult result = builder.buildEcqmCql("M", "1.0.0", "proportion", "boolean",
+                    List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(strat), "R4");
+            assertThat(result.cql()).as("bad " + bad).doesNotContain("define \"Stratifier sex-age");
+            assertThat(result.warnings()).as("bad " + bad).anyMatch(w -> w.contains("Stratifier sex-age"));
+        }
+    }
+
+    // PAT-234 — a custom SDE element can be a value expression too (a risk adjustment factor
+    // such as an age band), and a RAF define should be named "RAF …" (QM IG 3.19).
+    @Test
+    void supplementalData_valueKindAndRafNaming() {
+        Map<String, Object> raf = new LinkedHashMap<>();
+        raf.put("name", "RAF Age Band");
+        raf.put("usage", "risk-adjustment-factor");
+        raf.put("kind", "value");
+        raf.put("value", Map.of("source", "ageBands", "bands", List.of(band("65+", 65, null))));
+        Map<String, Object> badName = new LinkedHashMap<>();
+        badName.put("name", "Diabetes");
+        badName.put("usage", "risk-adjustment-factor");
+        badName.put("criteria", populationTree());
+        Map<String, Object> plainSde = new LinkedHashMap<>();
+        plainSde.put("name", "Sex Value");
+        plainSde.put("kind", "value");
+        plainSde.put("value", Map.of("source", "gender"));
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "SdeMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(raf, badName, plainSde), List.of(), "R4");
+
+        String age = "AgeInYearsAt(end of \"Measurement Period\")";
+        assertThat(lf(result)).contains("define \"RAF Age Band\":\n  case\n    when " + age + " >= 65 then '65+'\n    else null\n  end");
+        assertThat(lf(result)).contains("define \"Diabetes\":\n  ");
+        assertThat(lf(result)).contains("define \"Sex Value\":\n  Patient.gender.value");
+        assertThat(result.warnings()).singleElement().asString()
+                .contains("Risk adjustment factor 'Diabetes'").contains("RAF");
+    }
+
+    @Test
+    void valueStratifier_rejectsBadBandsAndUnknownSources_withoutEmittingADefine() {
+        List<List<Map<String, Object>>> bad = List.of(
+                List.of(),                                              // no bands
+                List.of(band("a<b", 1, 2)),                             // label not plain text
+                List.of(band("x", null, null)),                         // no bound at all
+                List.of(band("x", 60, 40)),                             // min > max
+                List.of(band("x", 18, 1000)),                           // beyond a human age
+                List.of(band("x", 18.5, 40)),                           // not whole years
+                List.of(band("x", "abc", 40)),                          // not a number
+                List.of(band("same", 0, 17), band("same", 18, 64)));    // duplicate label → one stratum
+        for (List<Map<String, Object>> bands : bad) {
+            CqlBuildResult result = builder.buildEcqmCql(
+                    "StratMeasure", "1.0.0", "proportion", "boolean",
+                    List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                    List.of(valueStratifier("age", "ageBands", bands)), "R4");
+            assertThat(result.cql()).as("bands " + bands).doesNotContain("define \"Stratifier age\"");
+            assertThat(result.warnings()).as("bands " + bands).anyMatch(w -> w.contains("Stratifier age"));
+        }
+
+        CqlBuildResult unknown = builder.buildEcqmCql(
+                "StratMeasure", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(),
+                List.of(valueStratifier("zip", "postalCode", null)), "R4");
+        assertThat(unknown.cql()).doesNotContain("define \"Stratifier zip\"");
+        assertThat(unknown.warnings()).anyMatch(w -> w.contains("unknown value source 'postalCode'"));
     }
 
     // ===== Validation tests =====
@@ -373,5 +594,123 @@ class EcqmCqlBuilderTest {
 
         // Should produce valid CQL library even if defines are skipped (empty trees produce "null")
         assertThat(result.cql()).contains("library EmptyTreeMeasure");
+    }
+
+    // ===== PAT-237: library function call inside a population =====
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void buildEcqmCql_functionCallInPopulation_emitsIncludeAndCall_withMeasurementPeriodArgument() {
+        Map<String, Object> hba1c = new LinkedHashMap<>();
+        hba1c.put("uniqueId", "be_hba1c");
+        hba1c.put("name", "HbA1c Results");
+        hba1c.put("returnType", "boolean");
+        // a base element is itself an element the engine can render — here an AgeRange, the
+        // simplest one; what matters for the call is the name the index resolves the id to
+        hba1c.put("type", "AgeRange");
+        hba1c.put("fields", List.of(
+                Map.of("id", "element_name", "type", "string", "value", "HbA1c Results"),
+                Map.of("id", "min_age", "type", "string", "value", "18"),
+                Map.of("id", "max_age", "type", "string", "value", ""),
+                Map.of("id", "unit_of_time", "type", "string", "value", "year")));
+        hba1c.put("modifiers", new ArrayList<>());
+
+        List<Map<String, Object>> args = List.of(
+                Map.of("name", "observations", "mode", "element", "operand_id", "be_hba1c"),
+                Map.of("name", "period", "mode", "measurementPeriod"),
+                Map.of("name", "threshold", "mode", "literal", "literal_type", "Decimal", "literal_value", "7.0"));
+        Map<String, Object> call = new LinkedHashMap<>();
+        call.put("uniqueId", "fn-1");
+        call.put("type", "externalCqlFunctionCall");
+        call.put("name", "Controlled");
+        call.put("returnType", "boolean");
+        call.put("fields", List.of(
+                Map.of("id", "element_name", "type", "string", "value", "Controlled"),
+                Map.of("id", "library_name", "type", "string", "value", "HospitalCommon", "static", true),
+                Map.of("id", "library_version", "type", "string", "value", "2.0.0", "static", true),
+                Map.of("id", "function_name", "type", "string", "value", "Most Recent Below", "static", true),
+                Map.of("id", "arguments", "type", "functionArguments", "value", args)));
+        call.put("modifiers", new ArrayList<>());
+        Map<String, Object> tree = emptyTree();
+        ((List<Object>) tree.get("childInstances")).add(call);
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("groupId", "group-1");
+        Map<String, Object> pops = new LinkedHashMap<>();
+        pops.put("initial-population", populationTree());
+        pops.put("denominator", populationTree());
+        pops.put("numerator", tree);
+        group.put("populations", pops);
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "FnMeasure", "1.0.0", "proportion", "boolean",
+                List.of(group), List.of(hba1c), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("include HospitalCommon version '2.0.0' called HospitalCommon");
+        assertThat(result.cql()).contains(
+                "\"HospitalCommon\".\"Most Recent Below\"(\"HbA1c Results\", \"Measurement Period\", 7.0)");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    // ===== PAT-242 — the artifact's Measurement Period is the parameter default =====
+
+    @Test
+    void buildEcqmCql_withMeasurementPeriod_bakesItIntoTheParameterDefault() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "MP", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4",
+                java.time.LocalDate.of(2024, 1, 1), java.time.LocalDate.of(2024, 12, 31));
+
+        assertThat(result.cql()).contains("parameter \"Measurement Period\" Interval<DateTime>");
+        assertThat(result.cql()).contains("default Interval[@2024-01-01T00:00:00.0, @2024-12-31T23:59:59.999]");
+        assertThat(result.cql()).doesNotContain("2025-01-01");
+    }
+
+    @Test
+    void buildEcqmCql_withoutMeasurementPeriod_keepsTheTemplateDefault() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "MP", "1.0.0", "proportion", "boolean",
+                List.of(proportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("default Interval[@2025-01-01T00:00:00.0, @2025-12-31T23:59:59.999]");
+    }
+
+    // ===== PAT-243 — every population of an episode-based group is an episode list =====
+
+    @Test
+    void episodeBasedProportion_everyPopulationIsAnEpisodeList_andTheObservationWrapperUsesExists() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Episodes", "1.0.0", "proportion", "Encounter",
+                List.of(episodeProportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        String cql = result.cql();
+        assertThat(cql).contains("define \"Initial Population\":");
+        assertThat(cql).contains("[Encounter] _ep where");           // the denominator keeps its AgeRange as a filter
+        assertThat(cql).doesNotContain("exists([Encounter");          // no population collapses the list to a Boolean
+        assertThat(cql).contains("if exists \"Denominator\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).isEmpty();
+    }
+
+    @Test
+    void episodeBasedProportion_initialPopulationWithoutAnEncounterElement_staysBoolean_andWarns() {
+        Map<String, Object> group = episodeProportionGroup();
+        ((Map<String, Object>) group.get("populations")).put("initial-population", populationTree());
+
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Episodes", "1.0.0", "proportion", "Encounter",
+                List.of(group), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("AgeInYearsAt");
+        assertThat(result.warnings()).anyMatch(w -> w.contains("\"Initial Population\"") && w.contains("count patients, not Encounter episodes"));
+    }
+
+    @Test
+    void patientBasedProportion_isUnchanged_populationsStayBoolean() {
+        CqlBuildResult result = builder.buildEcqmCql(
+                "Patients", "1.0.0", "proportion", "boolean",
+                List.of(episodeProportionGroup()), List.of(), List.of(), List.of(), List.of(), "R4");
+
+        assertThat(result.cql()).contains("exists([Encounter])");
+        assertThat(result.cql()).contains("if \"Denominator\" then \"Measure Observation\"(Patient) else null");
+        assertThat(result.warnings()).isEmpty();
     }
 }
