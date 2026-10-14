@@ -12,6 +12,7 @@ import CqlEditor from '../editor/CqlEditor'
 import type { CqlEditorHandle } from '../editor/CqlEditor'
 import { measureApi, cqlApi } from '../../api'
 import { useUnsavedChangesGuard } from '../../hooks/useUnsavedChangesGuard'
+import { useLibrariesMetadata } from '../../hooks/useCql'
 import ImportCqlFromLibraryDialog from './ImportCqlFromLibraryDialog'
 import type { MeasureDefinition } from '../../types'
 import { AUTOSAVE_DEBOUNCE_MS } from '../../constants/timing'
@@ -33,6 +34,8 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
   const [restoredDraft, setRestoredDraft] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const cqlEditorRef = useRef<CqlEditorHandle>(null)
+  // PAT-258: saved libraries for include-alias completion in the measure's CQL
+  const { data: libraryMetadata } = useLibrariesMetadata()
   // Local mirror of editor content — updated via onContentChanged callback
   const [localContent, setLocalContent] = useState('')
 
@@ -199,7 +202,7 @@ export default function MeasureCqlTab({ measure, onMeasureUpdate, readOnly }: Me
         </Alert>
       )}
       <Box sx={{ flex: 1, minHeight: 0 }}>
-        <CqlEditor ref={cqlEditorRef} height="100%" readOnly={readOnly} onContentChanged={handleContentChanged} />
+        <CqlEditor ref={cqlEditorRef} height="100%" readOnly={readOnly} libraryMetadata={libraryMetadata} onContentChanged={handleContentChanged} />
       </Box>
       <ImportCqlFromLibraryDialog
         open={importDialogOpen}

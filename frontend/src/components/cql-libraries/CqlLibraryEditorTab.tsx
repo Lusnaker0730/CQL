@@ -4,8 +4,9 @@ import { Box, Stack, Alert, CircularProgress, Typography } from '@mui/material'
 import Editor, { type BeforeMount, type OnMount } from '../common/MonacoEditor'
 import type { editor } from 'monaco-editor'
 import { alpha } from '@mui/material/styles'
-import { registerCqlLanguage } from '../../utils/cqlSyntax'
+import { registerCqlLanguage, updateLibraryCatalog } from '../../utils/cqlSyntax'
 import { cqlApi } from '../../api/cqlApi'
+import { useLibrariesMetadata } from '../../hooks/useCql'
 import GradientButton from '../common/GradientButton'
 import { usePreferences } from '../../hooks/usePreferences'
 import type { CqlError } from '../../types'
@@ -38,6 +39,12 @@ export default function CqlLibraryEditorTab({
   validationSuccessRef.current = validationSuccess
 
   const displayErrors = externalErrors ?? validationErrors
+
+  // PAT-258: the other saved libraries, so `include … called X` then `X.` completes X's defines / functions
+  const { data: libraryMetadata } = useLibrariesMetadata()
+  useEffect(() => {
+    if (libraryMetadata) updateLibraryCatalog(libraryMetadata)
+  }, [libraryMetadata])
 
   const handleBeforeMount: BeforeMount = useCallback((monaco) => {
     registerCqlLanguage(monaco)

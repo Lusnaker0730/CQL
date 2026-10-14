@@ -5,7 +5,7 @@ import { Box, CircularProgress } from '@mui/material'
 import { alpha } from '@mui/material/styles'
 import { EDITOR_HEIGHT } from '../../constants/layout'
 import { useDispatch, useSelector } from 'react-redux'
-import { registerCqlLanguage } from '../../utils/cqlSyntax'
+import { registerCqlLanguage, updateLibraryCatalog } from '../../utils/cqlSyntax'
 import type { LibraryInfo } from '../../utils/cqlSyntax'
 import { setCqlContent, setCursorPosition, setGoToLine } from '../../store/editorSlice'
 import type { RootState } from '../../store'
@@ -71,6 +71,7 @@ export default forwardRef<CqlEditorHandle, CqlEditorProps>(function CqlEditor({
         expressions: m.expressions,
         functions: m.functions,
       }))
+      updateLibraryCatalog(librariesRef.current)   // PAT-258: reaches the already-registered provider
     }
   }, [libraryMetadata])
 
