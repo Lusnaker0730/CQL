@@ -765,6 +765,10 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
 | `GET /api/measures/{id}/export/elm` | 匯出 ELM JSON |
 | `POST /api/measures/import/bundle` | 匯入 FHIR Bundle（含 PAT-236 標準 metadata 讀回） |
+| `GET /api/measures/page` | PAT-257：清單分頁——`search` / `department` / `status=draft,active` / `scope=all\|mine\|shared\|public` / `sort=field,asc\|desc`（預設 `updatedAt,desc`）/ `page` / `size`（1–200，預設 25），回 `{content, page, size, totalElements, totalPages}` |
+| `GET /api/measures/{id}/terminology` | PAT-260：CQL 引用的 value set 與各自的解析（`platform` / `external`、CQL 版本、釘選版本、目前解析版本與狀態、平台現有版本清單）；`pinnable` = 是否為 draft |
+| `POST /api/measures/{id}/terminology/pin` | PAT-260：釘選。body `{url, version?}` 釘一個（`version` 空 = 釘到目前解析版本）；無 body = 全部未釘選的平台 value set 釘到目前版本。非 draft → 409 `Measure Logic Locked` |
+| `POST /api/measures/{id}/terminology/unpin` | PAT-260：解除釘選。body `{url}` 解一個；無 body = 全部解除（POST 不是 DELETE：`DELETE /api/measures/**` 為 admin 限定） |
 | `GET /api/measures/{id}/export/hqmf` | 匯出 HQMF R2.1 XML（CMS 申報） |
 | `GET /api/measures/{id}/export/human-readable` | 匯出人類可讀 HTML 敘述文件 |
 
@@ -782,6 +786,8 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 - **ValueSet**：由已載入的 IG 或 VSAC 解析得到者附完整定義；解析不到者以真實 URL 附上、`status = unknown`，並列入報告。
 - `format=xml` 為 HAPI 由同一份 JSON 轉出的完整 FHIR XML。
 - 從其他工具匯入且**未修改**的指標再匯出時，原樣回傳原資源（含本平台不認識的擴充欄位），只有 `status` 以本機生命週期為準；修改過則由定義重建，並保留原資源中平台不建模的根元素。
+- **複合指標（PAT-259）**：`compositeScoring` → `Measure.compositeScoring`（`http://terminology.hl7.org/CodeSystem/composite-measure-scoring`：`opportunity` / `all-or-nothing` / `linear` / `weighted`）；每個元件 → `relatedArtifact {type: composed-of, display, resource: <元件 canonical>|<version>}`，weighted 時加 `extension cqfm-weight valueDecimal`（缺 = 1）。匯入依 canonical 的 id part + version（再退 display + version）解成同租戶的指標 → `componentMeasureIds` / `componentWeights`；解不開的留成一般 reference。
+- **術語釘選（PAT-260）**：`valueSetVersions`（url → version）疊到 `relatedArtifact depends-on` 的 `resource`（`url|version`；CQL 自己寫的 version 優先），included library 亦同；匯入把帶版本的 value set depends-on（`/ValueSet/` 或 display 以 `Value set` 開頭）讀回成 `valueSetVersions`。評估回應與 `measure_report.terminology_versions` 記每個引用實際用到的版本（非平台 = `external`）。
 - **metadata 補欄（PAT-256）**：`ecqmTitle` → `Measure.identifier`（type `short-name`，`use: usual`）；`endorsementId` → `Measure.identifier`（type `endorser`，`use: official`，`assigner.display` = `endorser`）——type 的 system 為 THO `http://terminology.hl7.org/CodeSystem/artifact-identifier-type`；`endorser` → `Measure.endorser[0].name`；`riskAdjustmentDescription` → `Measure.riskAdjustment`；`supplementalDataGuidance` → `Measure.extension`（`http://hl7.org/fhir/us/cqfmeasures/StructureDefinition/cqfm-supplementalDataGuidance`，子 extension `usage` = `supplemental-data`、`guidance` = valueMarkdown）。匯入全部讀回；背書只有 `Measure.endorser` 沒 identifier 時也讀得到 `endorser`。
 - **標準 metadata（PAT-236）**：`measureTypes[]` → `Measure.type[]`（`http://terminology.hl7.org/CodeSystem/measure-type`：`process` / `outcome` / `structure` / `patient-reported-outcome` / `composite`）；`definitionTerms[]` → `Measure.definition[]`（markdown，`**term**: definition`）；`clinicalRecommendationStatement`、`approvalDate`、`lastReviewDate`、`experimental` 原名；`effectiveStart` / `effectiveEnd` → `effectivePeriod`（未填起日時沿用建立日期的舊行為）。只寫作者填了的欄位；匯入基底的同名元素只補空缺。匯入時反向讀回（`definition` 非本平台格式者整段當 definition、term 為空）。
 
