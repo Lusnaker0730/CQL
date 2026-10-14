@@ -1,0 +1,14 @@
+{
+  "name": "SmokeCompositeWeighted",
+  "version": "1.0.0",
+  "title": "Smoke composite (weighted)",
+  "description": "PAT-259 composite measure with weighted scoring over components A and B; componentMeasureIds are injected by run.sh.",
+  "status": "draft",
+  "scoringType": "composite",
+  "compositeScoring": "weighted",
+  "componentMeasureIds": [],
+  "componentWeights": {
+    "a": 3,
+    "b": 1
+  }
+}

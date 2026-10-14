@@ -27,6 +27,7 @@ import java.util.stream.StreamSupport;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * PAT-229 — the exported Measure follows the HL7 Quality Measure IG 5.0.0 / CRMI 2.0.0, claims
@@ -622,5 +623,111 @@ class CqfmMeasureBuilderTest {
 
         assertThat(authored.path("effectivePeriod").path("start").asText()).isEqualTo("2026-01-01");
         assertThat(authored.path("effectivePeriod").has("end")).isFalse();
+    }
+
+    // ===== PAT-259 — composite: composed-of components with cqfm-weight, read back by canonical =====
+
+    @Test
+    void composite_exportsComponentsAsComposedOfCanonicals_withWeights_andReadsThemBack() {
+        MeasureDefinition def = proportion()
+                .scoringType(ScoringTypeConstants.COMPOSITE).compositeScoring("weighted")
+                .componentMeasureIds(List.of(2L, 3L))
+                .componentWeights(java.util.Map.of("2", 0.7))
+                .componentMeasures(List.of(
+                        MeasureDefinition.ComponentRef.builder().measureId(2L).name("HbA1cControl").version("1.0.0").title("HbA1c control").weight(0.7).build(),
+                        MeasureDefinition.ComponentRef.builder().measureId(3L).name("BloodPressureControl").version("2.0.0").build()))
+                .build();
+
+        ObjectNode measure = build(def, new MeasureExportConformance());
+
+        assertThat(measure.path("compositeScoring").path("coding").get(0).path("code").asText()).isEqualTo("weighted");
+        List<JsonNode> composedOf = new java.util.ArrayList<>();
+        for (JsonNode ra : measure.path("relatedArtifact")) if ("composed-of".equals(ra.path("type").asText())) composedOf.add(ra);
+        assertThat(composedOf).hasSize(2);
+        assertThat(composedOf.get(0).path("resource").asText()).isEqualTo(canonical.measureUrl("HbA1cControl") + "|1.0.0");
+        assertThat(composedOf.get(0).path("display").asText()).isEqualTo("HbA1c control");
+        assertThat(composedOf.get(0).path("extension").get(0).path("url").asText()).isEqualTo(CqfmConstants.EXT_WEIGHT);
+        assertThat(composedOf.get(0).path("extension").get(0).path("valueDecimal").asDouble()).isEqualTo(0.7);
+        assertThat(composedOf.get(1).path("extension").get(0).path("valueDecimal").asDouble()).isEqualTo(1.0);   // unset weight = 1
+        // the author's citation reference is still there
+        List<String> citations = new java.util.ArrayList<>();
+        for (JsonNode ra : measure.path("relatedArtifact")) if (ra.has("citation")) citations.add(ra.path("citation").asText());
+        assertThat(citations).contains("ADA 2026 Standards");
+
+        Measure parsed = FhirContext.forR4Cached().newJsonParser()
+                .setParserErrorHandler(new StrictErrorHandler())
+                .parseResource(Measure.class, measure.toString());
+        assertThat(parsed.getRelatedArtifact()).hasSize(3);
+
+        // read back: the canonical's id part + version resolves to this tenant's measures
+        MeasureDefinitionService definitions = mock(MeasureDefinitionService.class);
+        when(definitions.getByNameAndVersion("HbA1cControl", "1.0.0"))
+                .thenReturn(java.util.Optional.of(MeasureDefinition.builder().id(12L).build()));
+        when(definitions.getByNameAndVersion("BloodPressureControl", "2.0.0"))
+                .thenReturn(java.util.Optional.of(MeasureDefinition.builder().id(13L).build()));
+        FhirMeasureService service = new FhirMeasureService(definitions, mock(CqlTranslationService.class),
+                mock(DataRequirementExtractor.class), builder, libraryBuilder);
+
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+
+        assertThat(readBack.getScoringType()).isEqualTo(ScoringTypeConstants.COMPOSITE);
+        assertThat(readBack.getCompositeScoring()).isEqualTo("weighted");
+        assertThat(readBack.getComponentMeasureIds()).containsExactly(12L, 13L);
+        assertThat(readBack.getComponentWeights()).containsEntry("12", 0.7).containsEntry("13", 1.0);
+        assertThat(readBack.getReferences()).extracting(MeasureDefinition.MeasureReference::getReference)
+                .containsExactly("ADA 2026 Standards");   // resolved components are not duplicated as citations
+    }
+
+    @Test
+    void composite_componentThatDoesNotResolve_staysAPlainReference() {
+        MeasureDefinition def = proportion()
+                .scoringType(ScoringTypeConstants.COMPOSITE).compositeScoring("opportunity")
+                .componentMeasureIds(List.of(2L, 3L))
+                .componentMeasures(List.of(
+                        MeasureDefinition.ComponentRef.builder().measureId(2L).name("Known").version("1.0.0").build(),
+                        MeasureDefinition.ComponentRef.builder().measureId(3L).name("Elsewhere").version("9.9.9").title("Lives in another tenant").build()))
+                .build();
+        ObjectNode measure = build(def, new MeasureExportConformance());
+        // opportunity: no weight extension at all
+        for (JsonNode ra : measure.path("relatedArtifact")) assertThat(ra.has("extension")).isFalse();
+
+        MeasureDefinitionService definitions = mock(MeasureDefinitionService.class);
+        when(definitions.getByNameAndVersion("Known", "1.0.0")).thenReturn(java.util.Optional.of(MeasureDefinition.builder().id(2L).build()));
+        FhirMeasureService service = new FhirMeasureService(definitions, mock(CqlTranslationService.class),
+                mock(DataRequirementExtractor.class), builder, libraryBuilder);
+
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+
+        assertThat(readBack.getComponentMeasureIds()).containsExactly(2L);
+        assertThat(readBack.getComponentWeights()).isNull();
+        assertThat(readBack.getReferences()).extracting(MeasureDefinition.MeasureReference::getReference)
+                .contains("Lives in another tenant");
+    }
+
+    // ===== PAT-260 — a versioned value set dependency (url|version) is read back as a terminology pin =====
+
+    @Test
+    void import_readsVersionedValueSetDependenciesAsPins_andKeepsOtherDependenciesAsReferences() {
+        ObjectNode measure = build(proportion().build(), new MeasureExportConformance());
+        ObjectNode pinned = measure.withArrayProperty("relatedArtifact").addObject();
+        pinned.put("type", "depends-on").put("display", "Value set HbA1c Orders")
+                .put("resource", "https://hospital.example.tw/fhir/ValueSet/HbA1cOrders|1.0.0");
+        ObjectNode floating = measure.withArrayProperty("relatedArtifact").addObject();
+        floating.put("type", "depends-on").put("display", "Value set Diabetes")
+                .put("resource", "http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.103.12.1001");
+        ObjectNode library = measure.withArrayProperty("relatedArtifact").addObject();
+        library.put("type", "depends-on").put("display", "Library FHIRHelpers")
+                .put("resource", "http://hl7.org/fhir/uv/cql/Library/FHIRHelpers|4.0.1");
+
+        FhirMeasureService service = new FhirMeasureService(mock(MeasureDefinitionService.class),
+                mock(CqlTranslationService.class), mock(DataRequirementExtractor.class), builder, libraryBuilder);
+        MeasureDefinition readBack = service.parseFhirMeasure(measure);
+
+        assertThat(readBack.getValueSetVersions()).containsExactly(
+                java.util.Map.entry("https://hospital.example.tw/fhir/ValueSet/HbA1cOrders", "1.0.0"));
+        // the unversioned value set and the library stay ordinary references
+        assertThat(readBack.getReferences()).extracting(MeasureDefinition.MeasureReference::getReference)
+                .contains("Value set Diabetes", "Library FHIRHelpers")
+                .doesNotContain("Value set HbA1c Orders");
     }
 }

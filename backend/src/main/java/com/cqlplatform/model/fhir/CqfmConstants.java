@@ -60,6 +60,8 @@ public final class CqfmConstants {
     public static final String EXT_SUPPLEMENTAL_DATA_GUIDANCE = QM + "cqfm-supplementalDataGuidance";
     public static final String SDG_USAGE = "usage";
     public static final String SDG_GUIDANCE = "guidance";
+    /** PAT-259: valueDecimal on a composite's {@code composed-of} relatedArtifact — the component's weight. */
+    public static final String EXT_WEIGHT = QM + "cqfm-weight";
 
     /** Id of the contained module-definition Library referenced by {@link #EXT_EFFECTIVE_DATA_REQUIREMENTS}. */
     public static final String EFFECTIVE_DATA_REQUIREMENTS_ID = "effective-data-requirements";

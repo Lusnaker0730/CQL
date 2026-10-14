@@ -345,8 +345,8 @@ public class CqlExecutionService {
             log.debug("Using FHIR server URL: {} (authenticated connection={})",
                     fhirServerUrl, connection != null ? connection.getId() : "none");
 
-            // Setup terminology provider
-            TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
+            // Setup terminology provider (PAT-260: with the measure's terminology pins, if any)
+            TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl, request.getValueSetVersions());
 
             // Setup data provider - use prefetch if available, auto-prefetch for patient context, otherwise REST
             ComparableR4FhirModelResolver modelResolver = SHARED_MODEL_RESOLVER;
@@ -863,7 +863,7 @@ public class CqlExecutionService {
                     : (request.getFhirServerUrl() != null ? request.getFhirServerUrl() : defaultFhirServerUrl);
 
             long t1 = System.currentTimeMillis();
-            TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl);
+            TerminologyProvider terminologyProvider = terminologyService.createTerminologyProvider(fhirServerUrl, request.getValueSetVersions());
             long t2 = System.currentTimeMillis();
             ComparableR4FhirModelResolver modelResolver = SHARED_MODEL_RESOLVER;
             long t3 = System.currentTimeMillis();

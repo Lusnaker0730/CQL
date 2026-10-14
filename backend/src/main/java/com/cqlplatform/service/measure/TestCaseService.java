@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
 
 @Service
 @RequiredArgsConstructor
@@ -515,6 +516,10 @@ public class TestCaseService {
                                               boolean debugMode, boolean clauseCoverage) {
         long startTime = System.currentTimeMillis();
 
+        if (ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(measure.getScoringType())) {
+            return executeCompositeTestCase(entity, measure, debugMode, startTime);   // PAT-259
+        }
+
         if (measure.getCqlContent() == null || measure.getCqlContent().isBlank()) {
             return TestCaseRunResult.builder()
                     .testCaseId(entity.getId())
@@ -538,6 +543,7 @@ public class TestCaseService {
             execRequest.setParameters(buildMeasurementPeriodParams(period));
             execRequest.setDebugMode(debugMode);
             execRequest.setClauseCoverage(clauseCoverage);
+            execRequest.setValueSetVersions(measure.getValueSetVersions());   // PAT-260: same pins as the evaluation
 
             CqlExecutionResponse execResponse = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
 
@@ -613,6 +619,89 @@ public class TestCaseService {
             return errorResult(entity, "BUNDLE_PARSE", e, debugMode, startTime);
         } catch (Exception e) {
             log.error("Failed to execute test case '{}' in phase {}", entity.getTitle(), currentPhase, e);
+            return errorResult(entity, currentPhase, e, debugMode, startTime);
+        }
+    }
+
+    /**
+     * PAT-259: a composite has no CQL of its own — every component's CQL runs against the same patient bundle,
+     * each component becomes one group of the actual values ({@code component-<id>:<groupId>}) and the
+     * {@code composite-summary} group applies the scoring method to this patient (see {@link CompositeTestCases}).
+     * The pass / fail verdict comes from the structured expectation only; a legacy boolean map cannot
+     * describe components.
+     */
+    private TestCaseRunResult executeCompositeTestCase(TestCaseEntity entity, MeasureDefinition composite,
+                                                       boolean debugMode, long startTime) {
+        String currentPhase = "BUNDLE_PARSE";
+        try {
+            List<Long> ids = composite.getComponentMeasureIds() == null ? List.of() : composite.getComponentMeasureIds();
+            if (ids.isEmpty()) {
+                return TestCaseRunResult.builder()
+                        .testCaseId(entity.getId()).testCaseTitle(entity.getTitle())
+                        .status("error").errorMessage("Composite measure has no component measures").build();
+            }
+            String patientId = extractPatientIdFromBundle(entity.getPatientBundleJson());
+            List<Resource> resources = parseBundleResources(entity.getPatientBundleJson());
+            PrefetchRetrieveProvider bundleProvider = new PrefetchRetrieveProvider(resources, patientId);
+            LocalDate[] period = measurementPeriod(composite);
+
+            currentPhase = "CQL_EXECUTION";
+            List<TestCaseExpectedValues.GroupValues> groups = new ArrayList<>();
+            List<CompositeTestCases.ComponentMembership> memberships = new ArrayList<>();
+            for (Long componentId : ids) {
+                MeasureDefinition component = definitionService.getById(componentId)
+                        .orElseThrow(() -> new IllegalArgumentException("Component measure not found: " + componentId));
+                if (component.getCqlContent() == null || component.getCqlContent().isBlank()) {
+                    throw new IllegalArgumentException("Component measure '" + component.getName() + "' has no CQL content");
+                }
+                CqlExecutionRequest execRequest = new CqlExecutionRequest();
+                execRequest.setCql(component.getCqlContent());
+                execRequest.setPatientId(patientId);
+                execRequest.setParameters(buildMeasurementPeriodParams(period));
+                execRequest.setValueSetVersions(component.getValueSetVersions());   // PAT-260
+                CqlExecutionResponse response = cqlExecutionService.executeWithProvider(execRequest, bundleProvider);
+                if (!response.isSuccess()) {
+                    throw new IllegalStateException("Component '" + component.getName() + "': "
+                            + (response.getErrors() != null ? String.join("; ", response.getErrors()) : "Execution failed"));
+                }
+                TestCaseExpectedValues values = buildActualValues(component, response);
+                Double weight = composite.getComponentWeights() != null ? composite.getComponentWeights().get(componentId.toString()) : null;
+                memberships.add(CompositeTestCases.membership(componentId, values, weight));
+                if (values != null && values.getGroups() != null) {
+                    for (TestCaseExpectedValues.GroupValues g : values.getGroups()) {
+                        g.setGroupId(CompositeTestCases.componentGroupId(componentId, g.getGroupId()));
+                        groups.add(g);
+                    }
+                }
+            }
+
+            currentPhase = "POPULATION_EVAL";
+            groups.add(0, CompositeTestCases.summary(composite.getCompositeScoring(), memberships));
+            TestCaseExpectedValues actualValues = TestCaseExpectedValues.builder().groups(groups).build();
+            TestCaseExpectedValues expectedValues = readExpectedValuesStrict(entity.getExpectedValues());
+            Map<String, Boolean> legacyExpected = entity.getExpectedPopulationMap();
+
+            TestCaseRunResult.TestCaseRunResultBuilder b = TestCaseRunResult.builder()
+                    .testCaseId(entity.getId())
+                    .testCaseTitle(entity.getTitle())
+                    .expectedPopulations(legacyExpected)
+                    .actualPopulations(Map.of())
+                    .actualValues(actualValues)
+                    .measurementPeriodStart(period[0])
+                    .measurementPeriodEnd(period[1]);
+            if (expectedValues != null && !expectedValues.isEmpty()) {
+                List<TestCaseRunResult.ValueComparison> valueComparisons = compareValues(expectedValues, actualValues);
+                boolean allMatch = valueComparisons.stream().allMatch(TestCaseRunResult.ValueComparison::isMatch);
+                b.status(allMatch ? "pass" : "fail").expectedValues(expectedValues).valueComparisons(valueComparisons);
+            } else {
+                // nothing structured to compare against: a legacy boolean map cannot describe components
+                b.status(legacyExpected == null || legacyExpected.isEmpty() ? "pass" : "fail").comparisons(List.of());
+            }
+            return b.executionTimeMs(System.currentTimeMillis() - startTime).build();
+        } catch (BundleParseException e) {
+            return errorResult(entity, "BUNDLE_PARSE", e, debugMode, startTime);
+        } catch (Exception e) {
+            log.error("Failed to execute composite test case '{}' in phase {}", entity.getTitle(), currentPhase, e);
             return errorResult(entity, currentPhase, e, debugMode, startTime);
         }
     }
@@ -733,6 +822,17 @@ public class TestCaseService {
     // ===== Structured expected values (PAT-228) =====
 
     /** The id a group is addressed by; groups without one are numbered like the evaluation does. */
+    /** PAT-259: the groups a composite's expectation may name (components are loaded; a missing one is skipped). */
+    private List<GroupDefinition> compositeGroupDefinitions(MeasureDefinition composite) {
+        List<MeasureDefinition> components = new ArrayList<>();
+        if (composite.getComponentMeasureIds() != null) {
+            for (Long id : composite.getComponentMeasureIds()) {
+                definitionService.getById(id).ifPresent(components::add);
+            }
+        }
+        return CompositeTestCases.groupDefinitions(composite, components);
+    }
+
     static String effectiveGroupId(GroupDefinition group, int index) {
         return group.getGroupId() != null && !group.getGroupId().isBlank()
                 ? group.getGroupId() : "group-" + (index + 1);
@@ -860,8 +960,9 @@ public class TestCaseService {
     private void validateExpectedValues(MeasureDefinition measure, TestCaseExpectedValues expected) {
         if (expected == null || expected.isEmpty()) return;
 
-        List<GroupDefinition> groups = measure.getGroupDefinitions() != null
-                ? measure.getGroupDefinitions() : List.of();
+        List<GroupDefinition> groups = ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(measure.getScoringType())
+                ? compositeGroupDefinitions(measure)   // PAT-259: component groups + composite-summary
+                : measure.getGroupDefinitions() != null ? measure.getGroupDefinitions() : List.of();
         Map<String, GroupDefinition> byId = new LinkedHashMap<>();
         for (int i = 0; i < groups.size(); i++) {
             byId.put(effectiveGroupId(groups.get(i), i), groups.get(i));

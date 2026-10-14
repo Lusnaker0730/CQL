@@ -72,6 +72,37 @@ public class MeasureEvaluationResult {
      */
     private Integer evaluatedPatientCount;
 
+    /** PAT-259: for a composite measure, one entry per component in declared order; null otherwise. */
+    private List<ComponentScore> componentScores;
+
+    /**
+     * PAT-260: which version of each value set this evaluation resolved — the CQL version, else the measure's
+     * pin, else the newest active platform version; {@code external} for a value set the platform does not
+     * own (IG / VSAC / remote). Null when the measure references no value set.
+     */
+    private Map<String, String> terminologyVersions;
+
+    /** PAT-259: what one component contributed to a composite evaluation. */
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ComponentScore {
+        private Long measureId;
+        private String measureName;
+        private String version;
+        /** The component group the composite read (its first group; QM IG cqfm-groupId is not modelled). */
+        private String groupId;
+        /** The weight used by weighted scoring (1 when none was set); null for the other methods. */
+        private Double weight;
+        private Double score;
+        private Integer initialPopulation;
+        private Integer denominator;
+        private Integer denominatorExclusions;
+        private Integer numerator;
+        private String status;
+    }
+
     @Data
     @Builder
     @NoArgsConstructor

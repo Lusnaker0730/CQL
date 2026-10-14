@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -70,6 +71,31 @@ public class MeasureDefinition {
 
     @Size(max = 50)
     private List<Long> componentMeasureIds;
+
+    /** PAT-259: weights for the {@code weighted} composite scoring method, keyed by component measure id (as a string). */
+    @Size(max = 50)
+    private Map<String, Double> componentWeights;
+
+    /** PAT-259: read-only — the components resolved to name / version / title / status (+ weight). Ignored on input. */
+    private List<ComponentRef> componentMeasures;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ComponentRef {
+        private Long measureId;
+        private String name;
+        private String version;
+        private String title;
+        private String status;
+        private Double weight;
+    }
+    /**
+     * PAT-260: terminology pins — value set URL → version the measure evaluates with when its CQL names no
+     * version (an explicit CQL {@code version '…'} still wins). Measure logic: editable in draft only.
+     */
+    private Map<String, String> valueSetVersions;
     private String createdBy;
     private String ownerUsername;
     @Size(max = 100)

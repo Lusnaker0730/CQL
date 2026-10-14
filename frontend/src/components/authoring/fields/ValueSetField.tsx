@@ -144,7 +144,7 @@ export default function ValueSetField({
                   {vs.name}{' '}
                   <Typography component="span" variant="caption" sx={{
                     color: "text.secondary"
-                  }}>({vs.oid})</Typography>
+                  }}>({vs.oid}{vs.version ? ` · v${vs.version}` : ''})</Typography>
                 </Typography>
                 <Tooltip title={t('valueSetField.remove')}>
                   <IconButton size="small" onClick={() => handleRemoveValueSet(i)} aria-label={t('valueSetField.removeValueSet')}>
@@ -292,8 +292,9 @@ function AddValueSetDialog({
     })).filter(entry => entry.categories.length > 0)
   }, [twcoreCatalog, twcoreFilter])
 
-  const handleSelectFromSearch = (vs: { url: string; name: string; title: string }) => {
-    onAdd({ oid: vs.url, name: vs.title || vs.name })
+  const handleSelectFromSearch = (vs: { url: string; name: string; title: string; source?: string; version?: string }) => {
+    // PAT-260: a platform value set is pinned to the version picked, so the generated CQL declares `version '…'`
+    onAdd({ oid: vs.url, name: vs.title || vs.name, ...(vs.source === 'platform' && vs.version ? { version: vs.version } : {}) })
     handleReset()
     onClose()
   }

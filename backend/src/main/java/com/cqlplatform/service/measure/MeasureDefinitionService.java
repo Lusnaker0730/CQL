@@ -50,7 +50,7 @@ public class MeasureDefinitionService {
     private final MeasureSetService measureSetService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
-    private Long effectiveTenantId() {
+    public Long effectiveTenantId() {
         Long tenantId = com.cqlplatform.security.TenantContext.getCurrentTenantId();
         if (tenantId != null) {
             return tenantId;
@@ -97,6 +97,8 @@ public class MeasureDefinitionService {
         MeasureMetadataRules.requireOrderedEffectivePeriod(definition.getEffectiveStart(), definition.getEffectiveEnd());
         MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
         MeasureMetadataRules.requireOrderedMeasurementPeriod(definition.getMeasurementPeriodStart(), definition.getMeasurementPeriodEnd());
+
+        validateComposite(definition, null);   // PAT-259
 
         MeasureDefinitionEntity entity = modelToEntity(definition);
         // PAT-253: a brand-new measure opens its own version lineage (createVersionAs stays in
@@ -151,9 +153,11 @@ public class MeasureDefinitionService {
         // Descriptive metadata stays editable; logic changes go into a new (draft) version.
         if (!DRAFT.equals(entity.getStatus()) && MeasureLogic.changed(entity, definition.getCqlContent(),
                 definition.getGroupDefinitions(), definition.getScoringType(), definition.getCompositeScoring(),
-                definition.getComponentMeasureIds(), definition.getCqlLibraryId())) {
+                definition.getComponentMeasureIds(), definition.getCqlLibraryId(), definition.getValueSetVersions())) {
             throw new com.cqlplatform.exception.MeasureLogicLockedException(id, entity.getStatus());
         }
+
+        validateComposite(definition, id);   // PAT-259
 
         if (!java.util.Objects.equals(entity.getName(), definition.getName())) {
             // PAT-253: the lineage is the set, not the name — a rename keeps the versions together
@@ -174,6 +178,8 @@ public class MeasureDefinitionService {
         entity.setGroupDefinitionList(definition.getGroupDefinitions());
         entity.setCompositeScoring(definition.getCompositeScoring());
         entity.setComponentMeasureIdList(definition.getComponentMeasureIds());
+        entity.setComponentWeightMap(weightMap(definition.getComponentWeights()));   // PAT-259
+        entity.setValueSetVersionMap(pinMap(definition.getValueSetVersions()));      // PAT-260
         entity.setSetting(definition.getSetting());
 
         // Enhanced metadata
@@ -316,6 +322,134 @@ public class MeasureDefinitionService {
                 .totalElements(result.getTotalElements())
                 .totalPages(result.getTotalPages())
                 .build();
+    }
+
+    // ===== PAT-260: terminology pins =====
+
+    private static Map<String, String> pinMap(Map<String, String> pins) {
+        Map<String, String> out = new java.util.LinkedHashMap<>();
+        if (pins != null) {
+            pins.forEach((url, version) -> {
+                if (url != null && !url.isBlank() && version != null && !version.isBlank()) out.put(url.trim(), version.trim());
+            });
+        }
+        return out;
+    }
+
+    /**
+     * Replaces the terminology pins (value set URL → version). Pins are measure logic: outside draft a change
+     * is refused like any other logic edit (BUG-147, 409 Measure Logic Locked); the edit lock applies.
+     */
+    @Transactional
+    public MeasureDefinition updateValueSetVersions(Long id, Map<String, String> pins, String currentUser) {
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        requireNotLockedByOther(entity, currentUser);
+        Map<String, String> next = pinMap(pins);
+        Map<String, String> current = entity.getValueSetVersionMap() == null ? Map.of() : entity.getValueSetVersionMap();
+        if (!DRAFT.equals(entity.getStatus()) && !current.equals(next)) {
+            throw new com.cqlplatform.exception.MeasureLogicLockedException(id, entity.getStatus());
+        }
+        entity.setValueSetVersionMap(new java.util.LinkedHashMap<>(next));
+        entity = repository.save(entity);
+        recordAudit(id, "PIN_TERMINOLOGY", currentUser,
+                next.isEmpty() ? "Cleared terminology pins" : "Pinned " + next.size() + " value set version(s): " + next, null, null);
+        return entityToModel(entity);
+    }
+
+    // ===== PAT-259: composite measures =====
+
+    /**
+     * A composite names at least two existing, non-composite components of this tenant, never itself,
+     * each at most once; its scoring method is one of the four QM IG methods (blank = opportunity,
+     * normalised to lower case); weights, when given, key on a component and are positive numbers.
+     */
+    void validateComposite(MeasureDefinition definition, Long selfId) {
+        if (!ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(definition.getScoringType())) return;
+        String raw = definition.getCompositeScoring();
+        String method = raw == null || raw.isBlank() ? ScoringTypeConstants.COMPOSITE_OPPORTUNITY : raw.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!ScoringTypeConstants.COMPOSITE_SCORING_METHODS.contains(method)) {
+            throw new ValidationException("Unknown composite scoring method '" + raw + "' (expected opportunity, all-or-nothing, linear or weighted)");
+        }
+        definition.setCompositeScoring(method);
+        List<Long> ids = definition.getComponentMeasureIds() == null ? List.of() : definition.getComponentMeasureIds();
+        if (ids.size() < 2) {
+            throw new ValidationException("A composite measure needs at least two component measures");
+        }
+        if (new java.util.HashSet<>(ids).size() != ids.size()) {
+            throw new ValidationException("A component measure is listed more than once");
+        }
+        if (selfId != null && ids.contains(selfId)) {
+            throw new ValidationException("A composite measure cannot be its own component");
+        }
+        Map<Long, MeasureDefinitionEntity> found = new java.util.HashMap<>();
+        for (MeasureDefinitionEntity c : repository.findByTenantIdAndIdIn(effectiveTenantId(), ids)) found.put(c.getId(), c);
+        for (Long id : ids) {
+            MeasureDefinitionEntity c = found.get(id);
+            if (c == null) throw new ValidationException("Component measure " + id + " was not found");
+            if (ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(c.getScoringType())) {
+                throw new ValidationException("Component measure " + id + " (" + c.getName() + ") is itself a composite; composites cannot be nested");
+            }
+        }
+        if (definition.getComponentWeights() != null) {
+            for (Map.Entry<String, Double> w : definition.getComponentWeights().entrySet()) {
+                Long key;
+                try {
+                    key = Long.valueOf(w.getKey());
+                } catch (NumberFormatException e) {
+                    throw new ValidationException("Component weight key '" + w.getKey() + "' is not a measure id");
+                }
+                if (!ids.contains(key)) throw new ValidationException("Component weight for " + key + " does not match a component");
+                if (w.getValue() == null || w.getValue().isNaN() || w.getValue().isInfinite() || w.getValue() <= 0) {
+                    throw new ValidationException("Component weight for " + key + " must be a positive number");
+                }
+            }
+        }
+    }
+
+    private static Map<Long, Double> weightMap(Map<String, Double> weights) {
+        Map<Long, Double> out = new java.util.LinkedHashMap<>();
+        if (weights != null) {
+            for (Map.Entry<String, Double> e : weights.entrySet()) {
+                try {
+                    out.put(Long.valueOf(e.getKey()), e.getValue());
+                } catch (NumberFormatException ignored) {
+                    // validateComposite rejects non-numeric keys before this runs
+                }
+            }
+        }
+        return out;
+    }
+
+    private static Map<String, Double> weightKeys(Map<Long, Double> weights) {
+        if (weights == null || weights.isEmpty()) return null;
+        Map<String, Double> out = new java.util.LinkedHashMap<>();
+        weights.forEach((k, v) -> out.put(String.valueOf(k), v));
+        return out;
+    }
+
+    /** The components of a composite resolved to name / version / title / status (+ weight), in declared order; null otherwise. */
+    private List<MeasureDefinition.ComponentRef> componentRefs(MeasureDefinitionEntity entity) {
+        List<Long> ids = entity.getComponentMeasureIdList();
+        if (!ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(entity.getScoringType()) || ids == null || ids.isEmpty()) return null;
+        Map<Long, MeasureDefinitionEntity> byId = new java.util.HashMap<>();
+        Long tenantId = entity.getTenantId() != null ? entity.getTenantId() : effectiveTenantId();
+        List<MeasureDefinitionEntity> components = repository.findByTenantIdAndIdIn(tenantId, ids);
+        if (components != null) for (MeasureDefinitionEntity c : components) byId.put(c.getId(), c);
+        Map<Long, Double> weights = entity.getComponentWeightMap();
+        List<MeasureDefinition.ComponentRef> refs = new ArrayList<>();
+        for (Long id : ids) {
+            MeasureDefinitionEntity c = byId.get(id);
+            refs.add(MeasureDefinition.ComponentRef.builder()
+                    .measureId(id)
+                    .name(c != null ? c.getName() : null)
+                    .version(c != null ? c.getVersion() : null)
+                    .title(c != null ? c.getTitle() : null)
+                    .status(c != null ? c.getStatus() : null)
+                    .weight(weights != null ? weights.get(id) : null)
+                    .build());
+        }
+        return refs;
     }
 
     @Transactional
@@ -556,6 +690,10 @@ public class MeasureDefinitionService {
                 .groupDefinitions(entity.getGroupDefinitionList())
                 .compositeScoring(entity.getCompositeScoring())
                 .componentMeasureIds(entity.getComponentMeasureIdList())
+                .componentWeights(weightKeys(entity.getComponentWeightMap()))        // PAT-259
+                .valueSetVersions(entity.getValueSetVersionMap() == null || entity.getValueSetVersionMap().isEmpty()
+                        ? null : new java.util.LinkedHashMap<>(entity.getValueSetVersionMap()))   // PAT-260
+                .componentMeasures(componentRefs(entity))
                 .createdBy(entity.getCreatedBy())
                 .ownerUsername(entity.getOwnerUsername())
                 .sharedWith(entity.getSharedWithList())
@@ -929,6 +1067,8 @@ public class MeasureDefinitionService {
                 .groupDefinitionList(model.getGroupDefinitions())
                 .compositeScoring(model.getCompositeScoring())
                 .componentMeasureIdList(model.getComponentMeasureIds())
+                .componentWeightMap(weightMap(model.getComponentWeights()))          // PAT-259
+                .valueSetVersionMap(pinMap(model.getValueSetVersions()))              // PAT-260
                 .createdBy(model.getCreatedBy())
                 .ownerUsername(model.getOwnerUsername())
                 .sharedWithList(model.getSharedWith())

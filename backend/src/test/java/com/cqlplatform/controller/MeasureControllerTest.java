@@ -47,6 +47,9 @@ class MeasureControllerTest {
     @MockitoBean
     private com.cqlplatform.service.ecqm.EcqmPublishService ecqmPublishService;
 
+    @MockitoBean
+    private com.cqlplatform.service.terminology.MeasureTerminologyService terminologyService;
+
     @Test
     @WithMockUser
     void evaluateMeasure_shouldReturn200() throws Exception {
@@ -246,5 +249,38 @@ class MeasureControllerTest {
         mockMvc.perform(get("/api/measures/page").param("sort", "name,sideways")).andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/measures/page").param("scope", "everyone")).andExpect(status().isBadRequest());
         verify(definitionService, times(1)).listPage(any(), anyInt(), anyInt(), any(), anyBoolean());
+    }
+
+    // ===== PAT-260 — terminology endpoints =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void terminology_describePinAndUnpin_delegateToTheService() throws Exception {
+        com.cqlplatform.model.measure.MeasureTerminology view = com.cqlplatform.model.measure.MeasureTerminology.builder()
+                .measureId(5L).status("draft").pinnable(true)
+                .items(List.of(com.cqlplatform.model.measure.MeasureTerminology.Item.builder()
+                        .name("HbA1c").url("https://h/ValueSet/HbA1c").source("platform").resolvedVersion("1.0.0").pinned(false)
+                        .versions(List.of()).build()))
+                .build();
+        when(terminologyService.describe(5L)).thenReturn(view);
+        when(terminologyService.pin(eq(5L), any(), any(), any())).thenReturn(view);
+        when(terminologyService.unpin(eq(5L), any(), any())).thenReturn(view);
+
+        mockMvc.perform(get("/api/measures/5/terminology"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinnable").value(true))
+                .andExpect(jsonPath("$.items[0].url").value("https://h/ValueSet/HbA1c"));
+
+        mockMvc.perform(post("/api/measures/5/terminology/pin").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://h/ValueSet/HbA1c\",\"version\":\"1.0.0\"}"))
+                .andExpect(status().isOk());
+        verify(terminologyService).pin(5L, "https://h/ValueSet/HbA1c", "1.0.0", "alice");
+
+        mockMvc.perform(post("/api/measures/5/terminology/pin")).andExpect(status().isOk());
+        verify(terminologyService).pin(5L, null, null, "alice");
+
+        mockMvc.perform(post("/api/measures/5/terminology/unpin").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://h/ValueSet/HbA1c\"}")).andExpect(status().isOk());
+        verify(terminologyService).unpin(5L, "https://h/ValueSet/HbA1c", "alice");
     }
 }

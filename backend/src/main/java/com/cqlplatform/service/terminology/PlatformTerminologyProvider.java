@@ -35,11 +35,25 @@ public class PlatformTerminologyProvider implements TerminologyProvider {
     private final PlatformValueSetService valueSets;
     private final TerminologyProvider delegate;
     private final Map<String, Optional<List<PlatformValueSet.Concept>>> resolved = new HashMap<>();
+    /** PAT-260: the measure's pins (url → version), consulted when the CQL reference names no version. */
+    private final Map<String, String> pins;
 
     public PlatformTerminologyProvider(Long tenantId, PlatformValueSetService valueSets, TerminologyProvider delegate) {
+        this(tenantId, valueSets, delegate, null);
+    }
+
+    public PlatformTerminologyProvider(Long tenantId, PlatformValueSetService valueSets, TerminologyProvider delegate,
+                                       Map<String, String> pins) {
         this.tenantId = tenantId;
         this.valueSets = valueSets;
         this.delegate = delegate;
+        this.pins = pins == null ? Map.of() : pins;
+    }
+
+    /** PAT-260: the version a reference resolves with — its own, else the measure's pin, else none (newest active). */
+    String effectiveVersion(ValueSetInfo info) {
+        if (info.getVersion() != null && !info.getVersion().isBlank()) return info.getVersion();
+        return pins.get(info.getId());
     }
 
     @Override
@@ -75,12 +89,13 @@ public class PlatformTerminologyProvider implements TerminologyProvider {
 
     private synchronized Optional<List<PlatformValueSet.Concept>> concepts(ValueSetInfo info) {
         if (info == null || info.getId() == null) return Optional.empty();
-        String key = info.getId() + "|" + (info.getVersion() == null ? "" : info.getVersion());
+        String version = effectiveVersion(info);
+        String key = info.getId() + "|" + (version == null ? "" : version);
         return resolved.computeIfAbsent(key, k -> {
-            Optional<Resolved> found = valueSets.resolve(tenantId, info.getId(), info.getVersion());
+            Optional<Resolved> found = valueSets.resolve(tenantId, info.getId(), version);
             found.ifPresent(r -> log.info("Value set {} resolved from the platform store: version {} ({}, {} codes{})",
                     info.getId(), r.valueSet().getVersion(), r.valueSet().getStatus(), r.valueSet().getConcepts().size(),
-                    r.pinned() ? ", pinned" : ""));
+                    r.pinned() ? (info.getVersion() != null ? ", pinned in CQL" : ", pinned by the measure") : ""));
             return found.map(r -> r.valueSet().getConcepts());
         });
     }

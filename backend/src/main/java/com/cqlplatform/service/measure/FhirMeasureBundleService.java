@@ -100,7 +100,7 @@ public class FhirMeasureBundleService {
             Map<String, ValueSetRef> valueSets = new LinkedHashMap<>();
             export.dependencies().valueSets().forEach(vs -> valueSets.putIfAbsent(vs.url(), vs));
             for (Include include : export.dependencies().includes()) {
-                collectIncludedLibrary(include, entries, visited, valueSets, report);
+                collectIncludedLibrary(include, entries, visited, valueSets, report, definition.getValueSetVersions());
             }
 
             for (ValueSetRef vs : valueSets.values()) {
@@ -136,7 +136,8 @@ public class FhirMeasureBundleService {
     }
 
     private void collectIncludedLibrary(Include include, ArrayNode entries, Set<String> visited,
-                                        Map<String, ValueSetRef> valueSets, MeasureExportConformance report) {
+                                        Map<String, ValueSetRef> valueSets, MeasureExportConformance report,
+                                        Map<String, String> pins) {
         String name = include.path() != null ? include.path() : include.localIdentifier();
         if (name == null || !visited.add(name)) return;
 
@@ -154,7 +155,9 @@ public class FhirMeasureBundleService {
             return;
         }
         CqlLibrary lib = found.get();
-        ElmDependencies deps = libraryBuilder.readDependencies(lib.getElmJson());
+        // PAT-260: the measure's pins apply to the included library's unversioned references too
+        ElmDependencies deps = com.cqlplatform.service.terminology.TerminologyPins.withPins(
+                libraryBuilder.readDependencies(lib.getElmJson()), pins);
         addEntry(entries, libraryBuilder.buildLogicLibrary(
                 new LibrarySource(lib.getName(), lib.getVersion(), null, lib.getDescription(), "active",
                         lib.getUpdatedAt() != null ? lib.getUpdatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE) : null,
@@ -162,7 +165,7 @@ public class FhirMeasureBundleService {
                 deps, List.of()));
         deps.valueSets().forEach(vs -> valueSets.putIfAbsent(vs.url(), vs));
         for (Include nested : deps.includes()) {
-            collectIncludedLibrary(nested, entries, visited, valueSets, report);
+            collectIncludedLibrary(nested, entries, visited, valueSets, report, pins);
         }
     }
 

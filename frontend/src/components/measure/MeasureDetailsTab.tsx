@@ -34,9 +34,12 @@ import {
   MEASURE_STATUS_OPTIONS,
   SCORING_TYPE_OPTIONS,
   MEASURE_SETTING_OPTIONS,
-  COMPOSITE_SCORING_OPTIONS,
+  COMPOSITE_SCORING_METHODS,
+  DEFAULT_COMPOSITE_SCORING,
   DEFAULT_REFERENCE_TYPE,
 } from '../../constants/measureConstants'
+import CompositeComponentsEditor from './CompositeComponentsEditor'
+import MeasureTerminologySection from './MeasureTerminologySection'
 import type { MeasureDefinition, MeasureReference } from '../../types'
 import DepartmentSelector from '../common/DepartmentSelector'
 import IndicatorMappingSection from './IndicatorMappingSection'
@@ -295,19 +298,35 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, 
                   showAll={false}
                 />
               </Stack>
-              {form.compositeScoring && (
-                <TextField
-                  label={t('details.fields.compositeScoring')}
-                  select
-                  size="small"
-                  fullWidth
-                  value={form.compositeScoring || ''}
-                  onChange={(e) => updateField('compositeScoring', e.target.value)}
-                >
-                  {COMPOSITE_SCORING_OPTIONS.map((opt) => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                  ))}
-                </TextField>
+              {form.scoringType === 'composite' && (
+                /* PAT-259: the composite's method and components are measure logic — locked outside draft */
+                <Stack spacing={1.5} data-testid="composite-section">
+                  <TextField
+                    label={t('details.fields.compositeScoring')}
+                    select
+                    size="small"
+                    fullWidth
+                    value={form.compositeScoring || DEFAULT_COMPOSITE_SCORING}
+                    onChange={(e) => updateField('compositeScoring', e.target.value)}
+                    disabled={logicLocked}
+                    helperText={t(`details.composite.methodHelp.${form.compositeScoring || DEFAULT_COMPOSITE_SCORING}`)}
+                  >
+                    {COMPOSITE_SCORING_METHODS.map((method) => (
+                      <MenuItem key={method} value={method}>{t(`details.composite.methods.${method}`)}</MenuItem>
+                    ))}
+                  </TextField>
+                  <CompositeComponentsEditor
+                    selfId={measure.id}
+                    componentMeasureIds={form.componentMeasureIds ?? []}
+                    componentWeights={form.componentWeights}
+                    method={form.compositeScoring || DEFAULT_COMPOSITE_SCORING}
+                    disabled={logicLocked}
+                    onChange={(ids, weights) => {
+                      setForm((prev) => ({ ...prev, componentMeasureIds: ids, componentWeights: weights }))
+                      setIsDirty(true)
+                    }}
+                  />
+                </Stack>
               )}
             </Stack>
           </AccordionDetails>
@@ -430,6 +449,11 @@ export default function MeasureDetailsTab({ measure, onMeasureUpdate, readOnly, 
             </Stack>
           </AccordionDetails>
         </Accordion>
+
+        {/* PAT-260: terminology pins (the value sets the CQL references, and which version each one evaluates with) */}
+        {measure.id != null && measure.scoringType !== 'composite' && (
+          <MeasureTerminologySection measureId={measure.id} logicLocked={logicLocked || readOnly} />
+        )}
 
         {/* Steward & Developers */}
         <Accordion>

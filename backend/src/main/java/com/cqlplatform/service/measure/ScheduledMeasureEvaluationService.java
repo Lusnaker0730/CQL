@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +30,8 @@ public class ScheduledMeasureEvaluationService {
     private final MeasureScheduleRepository scheduleRepository;
     private final MeasureDefinitionService definitionService;
     private final MeasureEvaluationService evaluationService;
+    /** PAT-259: composites are aggregated from their components instead of run as CQL. */
+    private final CompositeMeasureService compositeMeasureService;
     private final MeasureDefinitionRepository measureDefinitionRepository;
 
     @Value("${measure.scheduling.enabled:true}")
@@ -81,7 +84,7 @@ public class ScheduledMeasureEvaluationService {
             request.setFhirServerUrl(schedule.getFhirServerUrl());
             request.setReportType("summary");
 
-            evaluationService.evaluateMeasure(request, definition.getId(), definition);
+            evaluateDefinition(definition, request);
 
             schedule.setLastRunAt(LocalDateTime.now());
             schedule.setLastRunStatus(com.cqlplatform.model.measure.EvaluationStatusConstants.COMPLETE);
@@ -203,7 +206,7 @@ public class ScheduledMeasureEvaluationService {
         request.setFhirServerUrl(schedule.getFhirServerUrl());
         request.setReportType("summary");
 
-        MeasureEvaluationResult result = evaluationService.evaluateMeasure(request, definition.getId(), definition);
+        MeasureEvaluationResult result = evaluateDefinition(definition, request);
 
         schedule.setLastRunAt(LocalDateTime.now());
         schedule.setLastRunStatus(result.getStatus());
@@ -211,5 +214,12 @@ public class ScheduledMeasureEvaluationService {
         scheduleRepository.save(schedule);
 
         return result;
+    }
+
+    /** PAT-259: the one place a scheduled run decides between the CQL path and the composite aggregation. */
+    private MeasureEvaluationResult evaluateDefinition(MeasureDefinition definition, MeasureEvaluationRequest request) {
+        return ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(definition.getScoringType())
+                ? compositeMeasureService.evaluateComposite(definition, request)
+                : evaluationService.evaluateMeasure(request, definition.getId(), definition);
     }
 }

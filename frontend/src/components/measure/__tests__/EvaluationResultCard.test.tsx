@@ -120,3 +120,48 @@ describe('EvaluationResultCard — episode-based groups and warnings', () => {
     expect(screen.queryByTestId('evaluation-warnings')).not.toBeInTheDocument()
   })
 })
+
+// PAT-259 — a composite result lists what every component contributed.
+describe('EvaluationResultCard — composite components', () => {
+  it('shows one row per component with numerator / effective denominator and score; weights only when set', () => {
+    render(<EvaluationResultCard result={{
+      ...base,
+      componentScores: [
+        { measureId: 2, measureName: 'HbA1c', version: '1.0.0', score: 50, numerator: 1, denominator: 3, denominatorExclusions: 1, weight: 0.7 },
+        { measureId: 3, measureName: 'BloodPressure', version: '2.0.0', status: 'error' },
+      ],
+    }} />)
+
+    const table = screen.getByRole('table', { name: 'evaluationResult.components.title' })
+    const rows = within(table).getAllByRole('row')
+    expect(rows).toHaveLength(3)
+    expect(rows[1]).toHaveTextContent('HbA1c v1.0.0')
+    expect(rows[1]).toHaveTextContent('1 / 2')          // denominator − exclusions
+    expect(rows[1]).toHaveTextContent('50.0%')
+    expect(rows[1]).toHaveTextContent('0.7')
+    expect(rows[2]).toHaveTextContent('BloodPressure v2.0.0')
+    expect(rows[2]).toHaveTextContent('evaluationResult.components.failed')
+    expect(within(rows[2]).getAllByText('evaluationResult.na').length).toBeGreaterThan(0)
+  })
+
+  it('renders no component table for an ordinary measure', () => {
+    render(<EvaluationResultCard result={base} />)
+    expect(screen.queryByTestId('component-scores')).not.toBeInTheDocument()
+  })
+})
+
+// PAT-260 — the value set versions a run resolved are listed; external ones are marked.
+describe('EvaluationResultCard — terminology versions', () => {
+  it('shows one chip per value set with the version used', () => {
+    render(<EvaluationResultCard result={{
+      ...base,
+      terminologyVersions: {
+        'https://hospital.example.tw/fhir/ValueSet/HbA1cOrders': '1.0.0',
+        'http://cts.nlm.nih.gov/fhir/ValueSet/2.16.840.1.113883.3.464.1003.103.12.1001': 'external',
+      },
+    }} />)
+    const box = screen.getByTestId('terminology-versions')
+    expect(box).toHaveTextContent('HbA1cOrders · v1.0.0')
+    expect(box).toHaveTextContent('evaluationResult.terminologyVersions.external')
+  })
+})

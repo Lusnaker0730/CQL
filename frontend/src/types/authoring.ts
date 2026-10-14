@@ -173,6 +173,8 @@ export interface ValueSetReference {
   name: string
   oid: string
   steward?: string
+  /** PAT-260: a platform value set version the author pinned; the generated CQL declares `version '…'`. */
+  version?: string
 }
 
 export interface CodeReference {

@@ -23,6 +23,14 @@ public final class MeasureLogic {
     public static boolean changed(MeasureDefinitionEntity current, String cql, List<GroupDefinition> groups,
                                   String scoringType, String compositeScoring, List<Long> componentMeasureIds,
                                   String cqlLibraryId) {
+        return changed(current, cql, groups, scoringType, compositeScoring, componentMeasureIds, cqlLibraryId,
+                current.getValueSetVersionMap());
+    }
+
+    /** PAT-260: the terminology pins are logic too — a different pin evaluates with different codes. */
+    public static boolean changed(MeasureDefinitionEntity current, String cql, List<GroupDefinition> groups,
+                                  String scoringType, String compositeScoring, List<Long> componentMeasureIds,
+                                  String cqlLibraryId, java.util.Map<String, String> valueSetVersions) {
         if (!PublishedContent.hash(current.getCqlContent(), current.getGroupDefinitionList())
                 .equals(PublishedContent.hash(cql, groups))) {
             return true;
@@ -30,7 +38,12 @@ public final class MeasureLogic {
         return !Objects.equals(blankToNull(current.getScoringType()), blankToNull(scoringType))
                 || !Objects.equals(blankToNull(current.getCompositeScoring()), blankToNull(compositeScoring))
                 || !Objects.equals(emptyToNull(current.getComponentMeasureIdList()), emptyToNull(componentMeasureIds))
-                || !Objects.equals(blankToNull(current.getCqlLibraryId()), blankToNull(cqlLibraryId));
+                || !Objects.equals(blankToNull(current.getCqlLibraryId()), blankToNull(cqlLibraryId))
+                || !Objects.equals(emptyMapToNull(current.getValueSetVersionMap()), emptyMapToNull(valueSetVersions));
+    }
+
+    private static java.util.Map<String, String> emptyMapToNull(java.util.Map<String, String> map) {
+        return map == null || map.isEmpty() ? null : map;
     }
 
     private static String blankToNull(String s) {

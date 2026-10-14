@@ -38,6 +38,9 @@ public class CqlExecutionRequest {
      */
     private Long connectionId;
 
+    /** PAT-260: value set URL → version to use when the CQL declares no version (the measure's terminology pins). */
+    private Map<String, String> valueSetVersions;
+
     /** Pre-compiled ELM JSON — if present, skips CQL-to-ELM translation at runtime. */
     private String elmJson;
 

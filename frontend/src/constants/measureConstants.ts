@@ -62,12 +62,11 @@ export const MEASURE_SETTING_OPTIONS: { value: string; label: string }[] = [
   { value: 'home-health', label: 'Home Health' },
 ]
 
-// --- Composite Scoring ---
+// --- Composite Scoring (PAT-259: the four QM IG methods; labels come from i18n `measures:details.composite.methods.*`) ---
 
-export const COMPOSITE_SCORING_OPTIONS: { value: string; label: string }[] = [
-  { value: 'opportunity', label: 'Opportunity' },
-  { value: 'linear', label: 'Linear' },
-]
+export const COMPOSITE_SCORING_METHODS = ['opportunity', 'all-or-nothing', 'linear', 'weighted'] as const
+export type CompositeScoringMethod = (typeof COMPOSITE_SCORING_METHODS)[number]
+export const DEFAULT_COMPOSITE_SCORING: CompositeScoringMethod = 'opportunity'
 
 // --- Defaults ---
 

@@ -464,15 +464,33 @@ public class CqfmMeasureBuilder {
     }
 
     private void addRelatedArtifacts(ObjectNode measure, MeasureDefinition def, MeasureExportConformance report) {
-        if (def.getReferences() == null) return;
         ArrayNode related = MAPPER.createArrayNode();
-        for (MeasureDefinition.MeasureReference ref : def.getReferences()) {
-            if (!notBlank(ref.getReference())) continue;
-            String type = ref.getType() != null ? ref.getType().toLowerCase(Locale.ROOT) : "citation";
-            if (!RELATED_ARTIFACT_TYPES.contains(type)) type = "citation";
-            ObjectNode artifact = related.addObject();
-            artifact.put("type", type);
-            artifact.put("citation", ref.getReference());
+        // PAT-259 (QM IG 5.10): a composite's components are `composed-of` canonicals, the weight of a
+        // weighted composite travels as cqfm-weight on the same relatedArtifact.
+        if (ScoringTypeConstants.COMPOSITE.equals(def.getScoringType()) && def.getComponentMeasures() != null) {
+            boolean weighted = ScoringTypeConstants.COMPOSITE_WEIGHTED.equals(def.getCompositeScoring());
+            for (MeasureDefinition.ComponentRef component : def.getComponentMeasures()) {
+                if (!notBlank(component.getName())) continue;
+                ObjectNode artifact = related.addObject();
+                artifact.put("type", "composed-of");
+                artifact.put("display", notBlank(component.getTitle()) ? component.getTitle() : component.getName());
+                artifact.put("resource", FhirCanonicalResolver.versioned(canonical.measureUrl(component.getName()), component.getVersion()));
+                if (weighted) {
+                    ObjectNode weight = artifact.putArray("extension").addObject();
+                    weight.put("url", CqfmConstants.EXT_WEIGHT);
+                    weight.put("valueDecimal", component.getWeight() != null ? component.getWeight() : 1.0);
+                }
+            }
+        }
+        if (def.getReferences() != null) {
+            for (MeasureDefinition.MeasureReference ref : def.getReferences()) {
+                if (!notBlank(ref.getReference())) continue;
+                String type = ref.getType() != null ? ref.getType().toLowerCase(Locale.ROOT) : "citation";
+                if (!RELATED_ARTIFACT_TYPES.contains(type)) type = "citation";
+                ObjectNode artifact = related.addObject();
+                artifact.put("type", type);
+                artifact.put("citation", ref.getReference());
+            }
         }
         if (!related.isEmpty()) measure.set("relatedArtifact", related);
     }

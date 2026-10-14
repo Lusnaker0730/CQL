@@ -43,6 +43,11 @@ public class ApprovalReadinessService {
     private final TestCaseRepository testCaseRepository;
     private final CqlTranslationService cqlTranslationService;
     private final MeasureAuditRepository auditRepository;
+    /** PAT-259: composites are checked on their components instead of CQL. */
+    private final com.cqlplatform.repository.MeasureDefinitionRepository measureRepository;
+    /** PAT-260: reads the value sets the stored ELM references, and whether the platform owns them. */
+    private final CqfmLibraryBuilder libraryBuilder;
+    private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
     /** {@code measure.review.four-eyes}: author / submitter may not approve (default on). */
     @Setter
@@ -51,10 +56,16 @@ public class ApprovalReadinessService {
 
     public ApprovalReadinessService(TestCaseRepository testCaseRepository,
                                     CqlTranslationService cqlTranslationService,
-                                    MeasureAuditRepository auditRepository) {
+                                    MeasureAuditRepository auditRepository,
+                                    com.cqlplatform.repository.MeasureDefinitionRepository measureRepository,
+                                    CqfmLibraryBuilder libraryBuilder,
+                                    com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets) {
         this.testCaseRepository = testCaseRepository;
         this.cqlTranslationService = cqlTranslationService;
         this.auditRepository = auditRepository;
+        this.measureRepository = measureRepository;
+        this.libraryBuilder = libraryBuilder;
+        this.platformValueSets = platformValueSets;
     }
 
     /** The full picture for {@code measure}, with the four-eyes verdict for {@code currentUser} (may be null). */
@@ -64,6 +75,7 @@ public class ApprovalReadinessService {
 
         int[] cqlCounts = checkCql(measure, blockers, warnings);
         ApprovalReadiness.TestCaseSummary summary = checkTestCases(measure, blockers, warnings);
+        checkTerminology(measure, warnings);   // PAT-260
         ApprovalReadiness.FourEyes eyes = fourEyes(measure, currentUser);
 
         return ApprovalReadiness.builder()
@@ -105,6 +117,9 @@ public class ApprovalReadinessService {
 
     /** @return {errorCount, warningCount} */
     private int[] checkCql(MeasureDefinitionEntity measure, List<ApprovalReadiness.Item> blockers, List<ApprovalReadiness.Item> warnings) {
+        if (com.cqlplatform.model.measure.ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(measure.getScoringType())) {
+            return checkComponents(measure, blockers);   // PAT-259: no CQL of its own
+        }
         String cql = measure.getCqlContent();
         if (cql == null || cql.isBlank()) {
             blockers.add(item(ApprovalReadiness.CQL_MISSING, 0, "The measure has no CQL", List.of()));
@@ -201,6 +216,65 @@ public class ApprovalReadinessService {
                 .submittedBy(submittedBy)
                 .selfApprovalBlocked(blocked)
                 .build();
+    }
+
+    /**
+     * PAT-259: a composite is approvable when it names at least two components of this tenant and every
+     * one of them is active — otherwise the component guard refuses the very first evaluation.
+     */
+    private int[] checkComponents(MeasureDefinitionEntity measure, List<ApprovalReadiness.Item> blockers) {
+        List<Long> ids = measure.getComponentMeasureIdList() == null ? List.of() : measure.getComponentMeasureIdList();
+        if (ids.size() < 2) {
+            blockers.add(item(ApprovalReadiness.COMPONENTS_MISSING, 0,
+                    "A composite measure needs at least two component measures", List.of()));
+            return new int[] {0, 0};
+        }
+        java.util.Map<Long, MeasureDefinitionEntity> byId = new java.util.HashMap<>();
+        List<MeasureDefinitionEntity> found = measureRepository.findByTenantIdAndIdIn(measure.getTenantId(), ids);
+        if (found != null) for (MeasureDefinitionEntity c : found) byId.put(c.getId(), c);
+        List<String> missing = new ArrayList<>();
+        List<String> inactive = new ArrayList<>();
+        for (Long id : ids) {
+            MeasureDefinitionEntity c = byId.get(id);
+            if (c == null) missing.add("measure " + id);
+            else if (!com.cqlplatform.model.measure.MeasureStatusConstants.ACTIVE.equals(c.getStatus())) {
+                inactive.add(c.getName() + " v" + c.getVersion() + " (" + c.getStatus() + ")");
+            }
+        }
+        if (!missing.isEmpty()) {
+            blockers.add(item(ApprovalReadiness.COMPONENTS_MISSING, missing.size(),
+                    missing.size() + " component measure(s) not found", missing));
+        }
+        if (!inactive.isEmpty()) {
+            blockers.add(item(ApprovalReadiness.COMPONENT_NOT_ACTIVE, inactive.size(),
+                    inactive.size() + " component measure(s) not active", inactive));
+        }
+        return new int[] {0, 0};
+    }
+
+    /**
+     * PAT-260: a platform value set referenced without a CQL version or a pin follows whatever version is active
+     * when the measure runs — a warning (the author may want that), not a blocker.
+     */
+    private void checkTerminology(MeasureDefinitionEntity measure, List<ApprovalReadiness.Item> warnings) {
+        if (libraryBuilder == null || platformValueSets == null) return;
+        try {
+            java.util.Map<String, String> pins = measure.getValueSetVersionMap() == null ? java.util.Map.of() : measure.getValueSetVersionMap();
+            List<String> unpinned = new ArrayList<>();
+            for (var use : com.cqlplatform.service.terminology.TerminologyPins.valueSetsOf(libraryBuilder.readDependencies(measure.getElmJson()))) {
+                if (use.cqlVersion() != null || pins.containsKey(use.url())) continue;
+                if (platformValueSets.resolve(measure.getTenantId(), use.url(), null).isPresent()) {
+                    unpinned.add(use.name() != null ? use.name() : use.url());
+                }
+            }
+            if (!unpinned.isEmpty()) {
+                warnings.add(item(ApprovalReadiness.TERMINOLOGY_UNPINNED, unpinned.size(),
+                        unpinned.size() + " platform value set(s) referenced without a version or pin — their codes follow the newest active version",
+                        unpinned));
+            }
+        } catch (Exception e) {
+            log.warn("Could not check the terminology pins of measure {}", measure.getId(), e);
+        }
     }
 
     private static ApprovalReadiness.Item item(String code, int count, String message, List<String> names) {

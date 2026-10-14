@@ -116,4 +116,25 @@ class PlatformTerminologyProviderTest {
 
         verify(valueSets, never()).resolve(org.mockito.ArgumentMatchers.eq(99L), any(), any());
     }
+
+    // ===== PAT-260 — the measure's pins fill in the version a CQL reference does not name =====
+
+    @Test
+    void aMeasurePin_isUsedForAnUnversionedReference_andAnExplicitCqlVersionStillWins() {
+        when(valueSets.resolve(TENANT, URL, "1.0.0")).thenReturn(Optional.of(new Resolved(
+                PlatformValueSet.builder().id(1L).url(URL).version("1.0.0").status("retired").concepts(List.of(
+                        Concept.builder().system(NHI).code("09006C").build())).build(), true)));
+        when(valueSets.resolve(TENANT, URL, "2.0.0")).thenReturn(Optional.of(new Resolved(
+                PlatformValueSet.builder().id(2L).url(URL).version("2.0.0").status("active").concepts(List.of(
+                        Concept.builder().system(NHI).code("09006C").build(),
+                        Concept.builder().system(NHI).code("09139C").build())).build(), true)));
+        PlatformTerminologyProvider pinned = new PlatformTerminologyProvider(TENANT, valueSets, delegate, java.util.Map.of(URL, "1.0.0"));
+
+        // unversioned reference → the pin (1.0.0, one code)
+        assertThat(pinned.in(code(NHI, "09006C"), ref(URL))).isTrue();
+        assertThat(pinned.in(code(NHI, "09139C"), ref(URL))).isFalse();
+        // a version named in the CQL beats the pin
+        assertThat(pinned.in(code(NHI, "09139C"), new ValueSetInfo().withId(URL).withVersion("2.0.0"))).isTrue();
+        org.mockito.Mockito.verify(valueSets, org.mockito.Mockito.never()).resolve(TENANT, URL, null);
+    }
 }

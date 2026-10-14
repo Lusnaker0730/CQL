@@ -102,12 +102,17 @@ public class FhirTerminologyService {
      * of it, so call this on the request thread (where the tenant is known), once per evaluation.
      */
     public TerminologyProvider createTerminologyProvider(String terminologyServerUrl) {
+        return createTerminologyProvider(terminologyServerUrl, null);
+    }
+
+    /** PAT-260: the same provider, with the measure's terminology pins (url → version) for unversioned references. */
+    public TerminologyProvider createTerminologyProvider(String terminologyServerUrl, java.util.Map<String, String> pins) {
         TerminologyProvider shared = sharedTerminologyProvider(terminologyServerUrl);
         if (platformValueSets == null) return shared;
         // No tenant can be determined (unseeded database): there are no platform value sets to consult.
         return platformValueSets.lookupTenantId()
                 .<TerminologyProvider>map(tenantId -> new com.cqlplatform.service.terminology.PlatformTerminologyProvider(
-                        tenantId, platformValueSets, shared))
+                        tenantId, platformValueSets, shared, pins))
                 .orElse(shared);
     }
 

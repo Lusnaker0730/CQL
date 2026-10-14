@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import com.cqlplatform.model.measure.ScoringTypeConstants;
 
 /**
  * Evaluates multiple measures sequentially and returns per-measure results.
@@ -23,6 +24,8 @@ public class BatchEvaluationService {
 
     private final MeasureEvaluationService evaluationService;
     private final MeasureDefinitionService definitionService;
+    /** PAT-259: composites have no CQL of their own — they are routed to the component aggregation. */
+    private final CompositeMeasureService compositeMeasureService;
 
     public record BatchEvaluationRequest(
             @NotEmpty List<Long> measureIds,
@@ -61,7 +64,9 @@ public class BatchEvaluationService {
                     evalRequest.setPeriodEnd(LocalDate.parse(request.periodEnd()));
                 }
 
-                MeasureEvaluationResult result = evaluationService.evaluateMeasure(evalRequest, measureId, def);
+                MeasureEvaluationResult result = ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(def.getScoringType())
+                        ? compositeMeasureService.evaluateComposite(def, evalRequest)
+                        : evaluationService.evaluateMeasure(evalRequest, measureId, def);
                 result.setMeasureName(def.getTitle() != null ? def.getTitle() : def.getName());
                 results.add(result);
 

@@ -40,6 +40,9 @@ class ApprovalReadinessServiceTest {
     @Mock private TestCaseRepository testCaseRepository;
     @Mock private CqlTranslationService cqlTranslationService;
     @Mock private MeasureAuditRepository auditRepository;
+    @Mock private com.cqlplatform.repository.MeasureDefinitionRepository measureRepository;
+    @Mock private CqfmLibraryBuilder libraryBuilder;
+    @Mock private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
     private ApprovalReadinessService service;
 
@@ -47,7 +50,7 @@ class ApprovalReadinessServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ApprovalReadinessService(testCaseRepository, cqlTranslationService, auditRepository);
+        service = new ApprovalReadinessService(testCaseRepository, cqlTranslationService, auditRepository, measureRepository, libraryBuilder, platformValueSets);
         service.setFourEyes(true);
         lenient().when(auditRepository.findFirstByMeasureIdAndActionOrderByCreatedAtDesc(any(), eq("SUBMIT_FOR_REVIEW")))
                 .thenReturn(Optional.empty());
@@ -213,5 +216,81 @@ class ApprovalReadinessServiceTest {
         assertThat(notPassing.getCode()).isEqualTo(ApprovalReadiness.TEST_CASE_NOT_PASSING);
         assertThat(notPassing.getCount()).isEqualTo(7);
         assertThat(notPassing.getItems()).hasSize(6).last().isEqualTo("… and 2 more");
+    }
+
+    // ===== PAT-259 — a composite is checked on its components, not on CQL =====
+
+    @Test
+    void composite_blocksOnAnInactiveOrMissingComponent_andNeverTranslatesCql() {
+        MeasureDefinitionEntity composite = measure("owner");
+        composite.setScoringType("composite");
+        composite.setCqlContent(null);
+        composite.setComponentMeasureIdList(new java.util.ArrayList<>(java.util.List.of(2L, 3L, 4L)));
+        MeasureDefinitionEntity active = MeasureDefinitionEntity.builder().id(2L).name("HbA1c").version("1.0.0").status("active").build();
+        MeasureDefinitionEntity draft = MeasureDefinitionEntity.builder().id(3L).name("BP").version("2.0.0").status("draft").build();
+        when(measureRepository.findByTenantIdAndIdIn(any(), any())).thenReturn(java.util.List.of(active, draft));
+
+        com.cqlplatform.model.measure.ApprovalReadiness readiness = service.check(composite, "reviewer");
+
+        assertThat(readiness.isReady()).isFalse();
+        assertThat(readiness.getBlockers()).extracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getCode)
+                .containsExactlyInAnyOrder(com.cqlplatform.model.measure.ApprovalReadiness.COMPONENTS_MISSING,
+                        com.cqlplatform.model.measure.ApprovalReadiness.COMPONENT_NOT_ACTIVE);
+        assertThat(readiness.getBlockers()).flatExtracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getItems)
+                .contains("measure 4", "BP v2.0.0 (draft)");
+        org.mockito.Mockito.verifyNoInteractions(cqlTranslationService);
+    }
+
+    @Test
+    void composite_withEveryComponentActive_hasNoCqlOrComponentBlocker() {
+        MeasureDefinitionEntity composite = measure("owner");
+        composite.setScoringType("composite");
+        composite.setCqlContent(null);
+        composite.setComponentMeasureIdList(new java.util.ArrayList<>(java.util.List.of(2L, 3L)));
+        when(measureRepository.findByTenantIdAndIdIn(any(), any())).thenReturn(java.util.List.of(
+                MeasureDefinitionEntity.builder().id(2L).name("A").version("1").status("active").build(),
+                MeasureDefinitionEntity.builder().id(3L).name("B").version("1").status("active").build()));
+
+        com.cqlplatform.model.measure.ApprovalReadiness readiness = service.check(composite, "reviewer");
+
+        assertThat(readiness.getBlockers()).extracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getCode)
+                .doesNotContain(com.cqlplatform.model.measure.ApprovalReadiness.CQL_MISSING,
+                        com.cqlplatform.model.measure.ApprovalReadiness.CQL_ERRORS,
+                        com.cqlplatform.model.measure.ApprovalReadiness.COMPONENTS_MISSING,
+                        com.cqlplatform.model.measure.ApprovalReadiness.COMPONENT_NOT_ACTIVE);
+        org.mockito.Mockito.verifyNoInteractions(cqlTranslationService);
+    }
+
+    // ===== PAT-260 — a platform value set referenced without a version or pin is a warning, not a blocker =====
+
+    @Test
+    void anUnpinnedPlatformValueSet_isAWarning_andAPinSilencesIt() {
+        MeasureDefinitionEntity m = measure("owner");
+        m.setElmJson("{\"library\":{}}");
+        when(libraryBuilder.readDependencies(any())).thenReturn(new CqfmLibraryBuilder.ElmDependencies(java.util.List.of(),
+                java.util.List.of(new CqfmLibraryBuilder.ValueSetRef("HbA1c Orders", "https://h/ValueSet/HbA1c", null),
+                        new CqfmLibraryBuilder.ValueSetRef("Diabetes", "http://cts.nlm.nih.gov/fhir/ValueSet/x", null),
+                        new CqfmLibraryBuilder.ValueSetRef("Fixed", "https://h/ValueSet/Fixed", "1.0.0")),
+                java.util.List.of(), java.util.List.of()));
+        when(platformValueSets.resolve(any(), org.mockito.ArgumentMatchers.eq("https://h/ValueSet/HbA1c"), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(java.util.Optional.of(new com.cqlplatform.service.terminology.PlatformValueSetService.Resolved(
+                        com.cqlplatform.model.terminology.PlatformValueSet.builder().id(1L).version("1.0.0").status("active").build(), false)));
+        when(platformValueSets.resolve(any(), org.mockito.ArgumentMatchers.eq("http://cts.nlm.nih.gov/fhir/ValueSet/x"), org.mockito.ArgumentMatchers.isNull()))
+                .thenReturn(java.util.Optional.empty());
+
+        com.cqlplatform.model.measure.ApprovalReadiness unpinned = service.check(m, "reviewer");
+        assertThat(unpinned.getWarnings())
+                .filteredOn(i -> com.cqlplatform.model.measure.ApprovalReadiness.TERMINOLOGY_UNPINNED.equals(i.getCode()))
+                .singleElement()
+                .satisfies(i -> {
+                    assertThat(i.getCount()).isEqualTo(1);               // the external one and the CQL-versioned one do not count
+                    assertThat(i.getItems()).containsExactly("HbA1c Orders");
+                });
+        assertThat(unpinned.getBlockers()).extracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getCode)
+                .doesNotContain(com.cqlplatform.model.measure.ApprovalReadiness.TERMINOLOGY_UNPINNED);
+
+        m.setValueSetVersionMap(new java.util.LinkedHashMap<>(java.util.Map.of("https://h/ValueSet/HbA1c", "1.0.0")));
+        assertThat(service.check(m, "reviewer").getWarnings()).extracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getCode)
+                .doesNotContain(com.cqlplatform.model.measure.ApprovalReadiness.TERMINOLOGY_UNPINNED);
     }
 }

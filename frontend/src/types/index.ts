@@ -479,6 +479,56 @@ export interface MeasureEvaluationRequest {
   fhirServerUrl?: string
 }
 
+/** PAT-260: how one value set the measure's CQL references resolves today. */
+export interface MeasureTerminologyItem {
+  name?: string
+  url: string
+  cqlVersion?: string | null
+  pinnedVersion?: string | null
+  source: 'platform' | 'external'
+  resolvedVersion?: string | null
+  resolvedStatus?: string | null
+  pinned: boolean
+  versions: MeasureTerminologyVersion[]
+}
+export interface MeasureTerminologyVersion {
+  id: number
+  version: string
+  status: string
+  conceptCount?: number
+}
+export interface MeasureTerminology {
+  measureId: number
+  status: string
+  pinnable: boolean
+  items: MeasureTerminologyItem[]
+}
+
+/** PAT-259: a composite's component as the server resolves it. */
+export interface ComponentRef {
+  measureId: number
+  name?: string
+  version?: string
+  title?: string
+  status?: string
+  weight?: number
+}
+
+/** PAT-259: what one component contributed to a composite evaluation. */
+export interface ComponentScore {
+  measureId: number
+  measureName?: string
+  version?: string
+  groupId?: string
+  weight?: number
+  score?: number
+  initialPopulation?: number
+  denominator?: number
+  denominatorExclusions?: number
+  numerator?: number
+  status?: string
+}
+
 export interface MeasureEvaluationResult {
   measureId: string
   measureName?: string
@@ -487,6 +537,10 @@ export interface MeasureEvaluationResult {
   periodEnd: string
   reportType: string
   groups: MeasureGroupResult[]
+  /** PAT-259: present for a composite measure — one entry per component, in declared order. */
+  componentScores?: ComponentScore[]
+  /** PAT-260: value set URL → version this run resolved (`external` when the platform does not own it). */
+  terminologyVersions?: Record<string, string>
   supplementalData?: Record<string, unknown>
   /** PAT-234: declared supplemental data / risk adjustment factors as value distributions. */
   supplementalDataResults?: SupplementalDataResult[]
@@ -606,6 +660,12 @@ export interface MeasureDefinition extends MeasureStandardMetadata, MeasurementP
   groupDefinitions?: GroupDefinition[]
   compositeScoring?: string
   componentMeasureIds?: number[]
+  /** PAT-259: weights for the `weighted` composite method, keyed by component measure id. */
+  componentWeights?: Record<string, number>
+  /** PAT-259: read-only — the components resolved by the server (name / version / title / status / weight). */
+  componentMeasures?: ComponentRef[]
+  /** PAT-260: terminology pins — value set URL → version used when the CQL names none (draft-only, measure logic). */
+  valueSetVersions?: Record<string, string>
   setting?: string
   createdBy?: string
   createdAt?: string

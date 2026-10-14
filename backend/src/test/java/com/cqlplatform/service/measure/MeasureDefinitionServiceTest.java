@@ -908,4 +908,121 @@ class MeasureDefinitionServiceTest {
         assertThat(copy.getStatus()).isEqualTo("pending");
         assertThat(copy.getLastRunResultJson()).isNull();
     }
+
+    // ===== PAT-259 — composite validation on save =====
+
+    private static MeasureDefinition compositeDef(String method, java.util.List<Long> ids, java.util.Map<String, Double> weights) {
+        return MeasureDefinition.builder()
+                .name("Composite").version("1.0.0").scoringType("composite")
+                .compositeScoring(method).componentMeasureIds(ids).componentWeights(weights)
+                .build();
+    }
+
+    private MeasureDefinitionEntity component(long id, String name, String scoringType) {
+        MeasureDefinitionEntity e = createEntity(id, name, "1.0.0");
+        e.setScoringType(scoringType);
+        e.setTenantId(7L);
+        return e;
+    }
+
+    @Test
+    void create_composite_needsAtLeastTwoComponents_andNoNesting() {
+        assertThatThrownBy(() -> service.create(compositeDef("opportunity", java.util.List.of(2L), null)))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("at least two");
+
+        when(repository.findByTenantIdAndIdIn(7L, java.util.List.of(2L, 3L)))
+                .thenReturn(java.util.List.of(component(2L, "A", "proportion"), component(3L, "B", "composite")));
+        assertThatThrownBy(() -> service.create(compositeDef("opportunity", java.util.List.of(2L, 3L), null)))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("nested");
+
+        assertThatThrownBy(() -> service.create(compositeDef("opportunity", java.util.List.of(2L, 2L), null)))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("more than once");
+
+        assertThatThrownBy(() -> service.create(compositeDef("average", java.util.List.of(2L, 3L), null)))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("Unknown composite scoring method");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_composite_rejectsWeightsThatDoNotNameAComponent_orAreNotPositive() {
+        when(repository.findByTenantIdAndIdIn(7L, java.util.List.of(2L, 3L)))
+                .thenReturn(java.util.List.of(component(2L, "A", "proportion"), component(3L, "B", "proportion")));
+
+        assertThatThrownBy(() -> service.create(compositeDef("weighted", java.util.List.of(2L, 3L), java.util.Map.of("9", 1.0))))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("does not match a component");
+        assertThatThrownBy(() -> service.create(compositeDef("weighted", java.util.List.of(2L, 3L), java.util.Map.of("2", 0.0))))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("positive");
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void create_composite_valid_normalisesTheMethod_storesWeights_andResolvesComponents() {
+        when(repository.findByTenantIdAndIdIn(eq(7L), any()))
+                .thenReturn(java.util.List.of(component(2L, "HbA1c", "proportion"), component(3L, "BP", "proportion")));
+        when(ownershipVerifier.getCurrentUsername()).thenReturn("alice");
+        when(repository.save(any())).thenAnswer(inv -> {
+            MeasureDefinitionEntity e = inv.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition result = service.create(compositeDef(" Weighted ", java.util.List.of(2L, 3L), java.util.Map.of("2", 0.5, "3", 1.5)));
+
+        org.mockito.ArgumentCaptor<MeasureDefinitionEntity> saved = org.mockito.ArgumentCaptor.forClass(MeasureDefinitionEntity.class);
+        verify(repository).save(saved.capture());
+        assertThat(saved.getValue().getCompositeScoring()).isEqualTo("weighted");
+        assertThat(saved.getValue().getComponentMeasureIdList()).containsExactly(2L, 3L);
+        assertThat(saved.getValue().getComponentWeightMap()).containsEntry(2L, 0.5).containsEntry(3L, 1.5);
+        assertThat(result.getComponentWeights()).containsEntry("2", 0.5);
+        assertThat(result.getComponentMeasures()).extracting(c -> c.getName() + "@" + c.getWeight())
+                .containsExactly("HbA1c@0.5", "BP@1.5");
+    }
+
+    // ===== PAT-260 — terminology pins are measure logic =====
+
+    @Test
+    void updateValueSetVersions_savesOnADraft_andRefusesAChangeOutsideDraft() {
+        MeasureDefinitionEntity draft = createEntity(1L, "M", "1.0.0");
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(draft));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+
+        MeasureDefinition result = service.updateValueSetVersions(1L, java.util.Map.of("https://h/ValueSet/A", "1.0.0"), "owner");
+
+        assertThat(result.getValueSetVersions()).containsEntry("https://h/ValueSet/A", "1.0.0");
+        assertThat(draft.getValueSetVersionMap()).containsEntry("https://h/ValueSet/A", "1.0.0");
+
+        MeasureDefinitionEntity active = createEntity(2L, "M", "2.0.0");
+        active.setStatus("active");
+        active.setValueSetVersionMap(new java.util.LinkedHashMap<>(java.util.Map.of("https://h/ValueSet/A", "1.0.0")));
+        when(repository.findByIdAndTenantId(2L, 7L)).thenReturn(Optional.of(active));
+
+        assertThatThrownBy(() -> service.updateValueSetVersions(2L, java.util.Map.of("https://h/ValueSet/A", "2.0.0"), "owner"))
+                .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class);
+        // the same pins again are not a change
+        assertThat(service.updateValueSetVersions(2L, java.util.Map.of("https://h/ValueSet/A", "1.0.0"), "owner")).isNotNull();
+    }
+
+    @Test
+    void update_changingThePinsOfAnActiveMeasure_isLockedLikeAnyOtherLogicChange() {
+        MeasureDefinitionEntity active = createEntity(3L, "M", "1.0.0");
+        active.setStatus("active");
+        active.setCqlContent("library M version '1.0.0'");
+        active.setValueSetVersionMap(new java.util.LinkedHashMap<>(java.util.Map.of("https://h/ValueSet/A", "1.0.0")));
+        when(repository.findByIdAndTenantId(3L, 7L)).thenReturn(Optional.of(active));
+
+        MeasureDefinition edit = MeasureDefinition.builder().name("M").version("1.0.0").status("active").scoringType("proportion")
+                .cqlContent("library M version '1.0.0'")
+                .valueSetVersions(java.util.Map.of("https://h/ValueSet/A", "2.0.0")).build();
+
+        assertThatThrownBy(() -> service.update(3L, edit, "owner"))
+                .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class);
+    }
 }

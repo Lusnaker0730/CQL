@@ -86,7 +86,9 @@ public class FhirMeasureService {
             }
         }
 
-        ElmDependencies deps = libraryBuilder.readDependencies(elmJson);
+        // PAT-260: an unversioned reference the measure pins is exported as url|version
+        ElmDependencies deps = com.cqlplatform.service.terminology.TerminologyPins.withPins(
+                libraryBuilder.readDependencies(elmJson), definition.getValueSetVersions());
         List<DataRequirementInfo> requirements = List.of();
         if (elmJson != null) {
             try {
@@ -341,7 +343,37 @@ public class FhirMeasureService {
             if (author.hasNonNull("name")) developers.add(author.get("name").asText());
         }
         List<MeasureDefinition.MeasureReference> references = new ArrayList<>();
+        List<Long> componentIds = new ArrayList<>();
+        Map<String, Double> componentWeights = new java.util.LinkedHashMap<>();
+        Map<String, String> valueSetVersions = new java.util.LinkedHashMap<>();
         for (JsonNode artifact : json.path("relatedArtifact")) {
+            // PAT-260: a versioned value set dependency (url|version) becomes a terminology pin
+            if ("depends-on".equals(artifact.path("type").asText("")) && artifact.hasNonNull("resource")) {
+                String resource = artifact.path("resource").asText("");
+                int bar = resource.indexOf('|');
+                boolean valueSet = resource.contains("/ValueSet/") || artifact.path("display").asText("").startsWith("Value set");
+                if (valueSet && bar > 0 && bar < resource.length() - 1) {
+                    valueSetVersions.put(resource.substring(0, bar), resource.substring(bar + 1));
+                    continue;
+                }
+            }
+            // PAT-259: a `composed-of` canonical is a component measure — resolved here to a measure of this tenant;
+            // one that does not resolve stays a plain reference so nothing is lost
+            if ("composed-of".equals(artifact.path("type").asText("")) && artifact.hasNonNull("resource")) {
+                Long componentId = resolveComponent(artifact);
+                if (componentId != null) {
+                    componentIds.add(componentId);
+                    String weight = extensionValue(artifact, CqfmConstants.EXT_WEIGHT, "valueDecimal");
+                    if (weight != null && !weight.isBlank()) {
+                        try {
+                            componentWeights.put(componentId.toString(), Double.valueOf(weight));
+                        } catch (NumberFormatException ignored) {
+                            // a weight that is not a number is simply not carried
+                        }
+                    }
+                    continue;
+                }
+            }
             String text = artifact.path("citation").asText(artifact.path("display").asText(artifact.path("url").asText(null)));
             if (text == null || text.isBlank()) continue;
             references.add(MeasureDefinition.MeasureReference.builder()
@@ -362,6 +394,11 @@ public class FhirMeasureService {
                 .description(json.path("description").asText(null))
                 .status(platformStatus(json.path("status").asText(MeasureStatusConstants.DRAFT)))
                 .scoringType(scoringType)
+                // PAT-259 composite: the QM IG method code and the components resolved above
+                .compositeScoring(ScoringTypeConstants.COMPOSITE.equals(scoringType) ? firstCode(json.path("compositeScoring"), null) : null)
+                .componentMeasureIds(componentIds.isEmpty() ? null : componentIds)
+                .componentWeights(componentWeights.isEmpty() ? null : componentWeights)
+                .valueSetVersions(valueSetVersions.isEmpty() ? null : valueSetVersions)   // PAT-260
                 .cqlLibraryId(libraryId)
                 .nqfNumber(nqfNumber)
                 .cmsMeasureId(cmsMeasureId)
@@ -437,6 +474,24 @@ public class FhirMeasureService {
             case "retired" -> MeasureStatusConstants.RETIRED;
             default -> MeasureStatusConstants.DRAFT;
         };
+    }
+
+    /**
+     * PAT-259: a composed-of component canonical ({@code …/Measure/<id>|<version>}) resolved to a measure of
+     * this tenant — by the canonical's id part, then by the display name; null when neither matches.
+     */
+    private Long resolveComponent(JsonNode artifact) {
+        String resource = artifact.path("resource").asText("");
+        int bar = resource.indexOf('|');
+        String url = bar >= 0 ? resource.substring(0, bar) : resource;
+        String version = bar >= 0 && bar < resource.length() - 1 ? resource.substring(bar + 1) : null;
+        String idPart = url.substring(url.lastIndexOf('/') + 1);
+        if (version == null || idPart.isBlank()) return null;
+        java.util.Optional<MeasureDefinition> match = definitionService.getByNameAndVersion(idPart, version);
+        if (match.isEmpty() && artifact.hasNonNull("display")) {
+            match = definitionService.getByNameAndVersion(artifact.get("display").asText(), version);
+        }
+        return match.map(MeasureDefinition::getId).orElse(null);
     }
 
     private static String firstCode(JsonNode codeableConcept, String fallback) {
