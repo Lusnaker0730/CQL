@@ -438,6 +438,22 @@ public class MeasureDefinitionEntity {
         }
     }
 
+    /**
+     * PAT-260: sets the pins AND writes their column at once. The JSON columns are normally refreshed in
+     * {@code @PreUpdate}, but Hibernate only fires that when a persistent field changed — a save that changes
+     * nothing but a transient list / map would silently persist nothing (the pins vanished on the real stack).
+     */
+    public void applyValueSetVersions(Map<String, String> pins) {
+        this.valueSetVersionMap = pins == null ? new LinkedHashMap<>() : new LinkedHashMap<>(pins);
+        serializeValueSetVersions();
+    }
+
+    /** PAT-259: same rule for the component weights. */
+    public void applyComponentWeights(Map<Long, Double> weights) {
+        this.componentWeightMap = weights == null ? new LinkedHashMap<>() : new LinkedHashMap<>(weights);
+        serializeComponentWeights();
+    }
+
     /** PAT-260: NULL when there are no pins. */
     private void serializeValueSetVersions() {
         if (valueSetVersionMap != null && !valueSetVersionMap.isEmpty()) {

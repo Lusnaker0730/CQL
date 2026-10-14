@@ -998,6 +998,8 @@ class MeasureDefinitionServiceTest {
 
         assertThat(result.getValueSetVersions()).containsEntry("https://h/ValueSet/A", "1.0.0");
         assertThat(draft.getValueSetVersionMap()).containsEntry("https://h/ValueSet/A", "1.0.0");
+        // the JSON column is written immediately: a pin-only save changes no other persistent field, so @PreUpdate would not run
+        assertThat(draft.getValueSetVersions()).contains("https://h/ValueSet/A").contains("1.0.0");
 
         MeasureDefinitionEntity active = createEntity(2L, "M", "2.0.0");
         active.setStatus("active");

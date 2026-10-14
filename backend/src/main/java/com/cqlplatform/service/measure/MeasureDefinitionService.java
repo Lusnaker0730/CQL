@@ -178,8 +178,8 @@ public class MeasureDefinitionService {
         entity.setGroupDefinitionList(definition.getGroupDefinitions());
         entity.setCompositeScoring(definition.getCompositeScoring());
         entity.setComponentMeasureIdList(definition.getComponentMeasureIds());
-        entity.setComponentWeightMap(weightMap(definition.getComponentWeights()));   // PAT-259
-        entity.setValueSetVersionMap(pinMap(definition.getValueSetVersions()));      // PAT-260
+        entity.applyComponentWeights(weightMap(definition.getComponentWeights()));   // PAT-259 (writes the column too)
+        entity.applyValueSetVersions(pinMap(definition.getValueSetVersions()));      // PAT-260
         entity.setSetting(definition.getSetting());
 
         // Enhanced metadata
@@ -350,7 +350,7 @@ public class MeasureDefinitionService {
         if (!DRAFT.equals(entity.getStatus()) && !current.equals(next)) {
             throw new com.cqlplatform.exception.MeasureLogicLockedException(id, entity.getStatus());
         }
-        entity.setValueSetVersionMap(new java.util.LinkedHashMap<>(next));
+        entity.applyValueSetVersions(next);   // sets the column too — a pin-only change must still be written
         entity = repository.save(entity);
         recordAudit(id, "PIN_TERMINOLOGY", currentUser,
                 next.isEmpty() ? "Cleared terminology pins" : "Pinned " + next.size() + " value set version(s): " + next, null, null);
