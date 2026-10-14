@@ -267,6 +267,7 @@ class ApprovalReadinessServiceTest {
     void anUnpinnedPlatformValueSet_isAWarning_andAPinSilencesIt() {
         MeasureDefinitionEntity m = measure("owner");
         m.setElmJson("{\"library\":{}}");
+        when(cqlTranslationService.translate(any())).thenReturn(com.cqlplatform.model.CqlTranslationResponse.builder().success(true).build());
         when(libraryBuilder.readDependencies(any())).thenReturn(new CqfmLibraryBuilder.ElmDependencies(java.util.List.of(),
                 java.util.List.of(new CqfmLibraryBuilder.ValueSetRef("HbA1c Orders", "https://h/ValueSet/HbA1c", null),
                         new CqfmLibraryBuilder.ValueSetRef("Diabetes", "http://cts.nlm.nih.gov/fhir/ValueSet/x", null),
