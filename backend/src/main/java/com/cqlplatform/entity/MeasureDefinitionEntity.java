@@ -12,6 +12,8 @@ import lombok.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Entity
 @Table(name = "measure_definition")
@@ -76,6 +78,22 @@ public class MeasureDefinitionEntity {
     @Transient
     @Builder.Default
     private List<Long> componentMeasureIdList = new ArrayList<>();
+
+    /** PAT-259 (V81): JSON object { "<component id>": weight } for weighted composite scoring. */
+    @Column(name = "component_weights", columnDefinition = "TEXT")
+    private String componentWeights;
+
+    @Transient
+    @Builder.Default
+    private Map<Long, Double> componentWeightMap = new LinkedHashMap<>();
+
+    /** PAT-260 (V82): JSON { "<value set url>": "<version>" } — the terminology pins (see MeasureTerminologyService). */
+    @Column(name = "value_set_versions", columnDefinition = "TEXT")
+    private String valueSetVersions;
+
+    @Transient
+    @Builder.Default
+    private Map<String, String> valueSetVersionMap = new LinkedHashMap<>();
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     @Column(name = "created_by", length = 100)
@@ -299,6 +317,8 @@ public class MeasureDefinitionEntity {
     private void serializeAll() {
         serializeGroupDefinitions();
         serializeComponentMeasureIds();
+        serializeComponentWeights();
+        serializeValueSetVersions();
         serializeJsonList(developerList, (json) -> developers = json, "[]");
         serializeJsonList(referenceList, (json) -> measureReferences = json, "[]");
         serializeJsonList(riskAdjustmentList, (json) -> riskAdjustmentsJson = json, "[]");
@@ -311,6 +331,8 @@ public class MeasureDefinitionEntity {
     private void deserializeAll() {
         deserializeGroupDefinitions();
         deserializeComponentMeasureIds();
+        deserializeComponentWeights();
+        deserializeValueSetVersions();
         developerList = deserializeJsonList(developers, new TypeReference<>() {});
         referenceList = deserializeJsonList(measureReferences, new TypeReference<>() {});
         riskAdjustmentList = deserializeJsonList(riskAdjustmentsJson, new TypeReference<>() {});
@@ -388,6 +410,72 @@ public class MeasureDefinitionEntity {
             }
         } else {
             componentMeasureIdList = new ArrayList<>();
+        }
+    }
+
+    /** PAT-259: the weights column is NULL when there are none (unlike the list columns, which store "[]"). */
+    private void serializeComponentWeights() {
+        if (componentWeightMap != null && !componentWeightMap.isEmpty()) {
+            try {
+                componentWeights = MAPPER.writeValueAsString(componentWeightMap);
+            } catch (JsonProcessingException e) {
+                componentWeights = null;
+            }
+        } else {
+            componentWeights = null;
+        }
+    }
+
+    private void deserializeComponentWeights() {
+        if (componentWeights != null && !componentWeights.isBlank()) {
+            try {
+                componentWeightMap = MAPPER.readValue(componentWeights, new TypeReference<LinkedHashMap<Long, Double>>() {});
+            } catch (JsonProcessingException e) {
+                componentWeightMap = new LinkedHashMap<>();
+            }
+        } else {
+            componentWeightMap = new LinkedHashMap<>();
+        }
+    }
+
+    /**
+     * PAT-260: sets the pins AND writes their column at once. The JSON columns are normally refreshed in
+     * {@code @PreUpdate}, but Hibernate only fires that when a persistent field changed — a save that changes
+     * nothing but a transient list / map would silently persist nothing (the pins vanished on the real stack).
+     */
+    public void applyValueSetVersions(Map<String, String> pins) {
+        this.valueSetVersionMap = pins == null ? new LinkedHashMap<>() : new LinkedHashMap<>(pins);
+        serializeValueSetVersions();
+    }
+
+    /** PAT-259: same rule for the component weights. */
+    public void applyComponentWeights(Map<Long, Double> weights) {
+        this.componentWeightMap = weights == null ? new LinkedHashMap<>() : new LinkedHashMap<>(weights);
+        serializeComponentWeights();
+    }
+
+    /** PAT-260: NULL when there are no pins. */
+    private void serializeValueSetVersions() {
+        if (valueSetVersionMap != null && !valueSetVersionMap.isEmpty()) {
+            try {
+                valueSetVersions = MAPPER.writeValueAsString(valueSetVersionMap);
+            } catch (JsonProcessingException e) {
+                valueSetVersions = null;
+            }
+        } else {
+            valueSetVersions = null;
+        }
+    }
+
+    private void deserializeValueSetVersions() {
+        if (valueSetVersions != null && !valueSetVersions.isBlank()) {
+            try {
+                valueSetVersionMap = MAPPER.readValue(valueSetVersions, new TypeReference<LinkedHashMap<String, String>>() {});
+            } catch (JsonProcessingException e) {
+                valueSetVersionMap = new LinkedHashMap<>();
+            }
+        } else {
+            valueSetVersionMap = new LinkedHashMap<>();
         }
     }
 }

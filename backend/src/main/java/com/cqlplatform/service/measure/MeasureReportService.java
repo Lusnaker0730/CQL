@@ -97,6 +97,8 @@ public class MeasureReportService {
                     .totalPatients(totalPatients)
                     .resultJson(resultJson)
                     .fhirServerUrl(fhirServerUrl)
+                    .terminologyVersions(result.getTerminologyVersions() == null || result.getTerminologyVersions().isEmpty()
+                            ? null : MAPPER.writeValueAsString(result.getTerminologyVersions()))   // PAT-260
                     .evaluatedBy(evaluatedBy)
                     .evaluationDurationMs(storedDurationMs)
                     .tenantId(effectiveTenantId())

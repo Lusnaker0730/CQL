@@ -409,6 +409,95 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        composite)
+            # PAT-259 composite measures. Two raw proportion components are created and approved,
+            # then one composite per QM IG scoring method (opportunity / all-or-nothing / linear /
+            # weighted) is created with the component ids injected, approved (readiness checks the
+            # components, not CQL) and evaluated; the summary group's score and populations must match
+            # the hand-computed expectation and componentScores must list both components.
+            bundle_file="$scenario_dir/bundle.json"
+            if ! bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"; then
+                failed_scenarios+=("$name"); continue
+            fi
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            comp_tmp=$(mktemp -d)
+            comp_ok=1
+            comp_ids=()
+            for comp in componentA componentB; do
+                if ! cid=$(bash "$SCRIPT_DIR/lib/create-measure-definition.sh" "$scenario_dir/$comp.json"); then comp_ok=0; break; fi
+                if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$cid"; then comp_ok=0; break; fi
+                comp_ids+=("$cid")
+            done
+            if [ "$comp_ok" = 1 ]; then
+                for method in $(jq -r '.composites | keys[]' "$expected_file" | tr -d '\r'); do
+                    jq --argjson a "${comp_ids[0]}" --argjson b "${comp_ids[1]}" \
+                        '.componentMeasureIds = [$a, $b]
+                         | if .componentWeights then .componentWeights = {($a|tostring): .componentWeights.a, ($b|tostring): .componentWeights.b} else . end' \
+                        "$scenario_dir/composite-$method.json" > "$comp_tmp/$method.json"
+                    if ! mid=$(bash "$SCRIPT_DIR/lib/create-measure-definition.sh" "$comp_tmp/$method.json"); then comp_ok=0; break; fi
+                    if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$mid"; then comp_ok=0; break; fi
+                    if ! bash "$SCRIPT_DIR/lib/evaluate.sh" "$mid" "$period_start" "$period_end" > "$comp_tmp/$method.response.json"; then comp_ok=0; break; fi
+                    if ! bash "$SCRIPT_DIR/lib/assert-composite.sh" "$comp_tmp/$method.response.json" "$expected_file" "$method"; then comp_ok=0; fi
+                done
+            fi
+            rm -rf "$comp_tmp"
+            if [ "$comp_ok" = 1 ]; then passed_scenarios+=("$name"); else failed_scenarios+=("$name"); fi
+            ;;
+
+        terminology-pin)
+            # PAT-260 terminology pinning. Value set 1.0.0 is created and activated; two raw
+            # proportion measures reference it without a version. One is pinned through
+            # POST /measures/{id}/terminology/pin, the other floats (its readiness warns
+            # TERMINOLOGY_UNPINNED). Both are approved and evaluated, version 2.0.0 (one more
+            # code) is activated, both are evaluated again: the pinned score must not move and
+            # its terminologyVersions / exchange package must still name 1.0.0.
+            bundle_file="$scenario_dir/bundle.json"
+            period_start=$(jq -r '.periodStart' "$expected_file" | tr -d '\r')
+            period_end=$(jq -r '.periodEnd' "$expected_file" | tr -d '\r')
+            tp_tmp=$(mktemp -d)
+            tp_ok=1
+            tp_step() { [ "$tp_ok" = "1" ] || return 0; "$@" || tp_ok=0; }
+            jq '.valueSet' "$expected_file" > "$tp_tmp/create.json"
+            jq '{version: .nextVersion.version}' "$expected_file" > "$tp_tmp/new-version.json"
+            jq '.valueSet + {concepts: .nextVersion.concepts}' "$expected_file" > "$tp_tmp/update.json"
+
+            tp_step bash "$SCRIPT_DIR/lib/seed-fhir.sh" "$bundle_file"
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST /value-sets "$tp_tmp/create.json" > "$tp_tmp/created.json"'
+            v1_id=$(jq -r '.id // empty' "$tp_tmp/created.json" 2>/dev/null | tr -d '\r') || true
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/activate" > /dev/null'
+            pinned_id=""; floating_id=""
+            if [ "$tp_ok" = "1" ]; then pinned_id=$(bash "$SCRIPT_DIR/lib/create-measure-definition.sh" "$scenario_dir/measure-pinned.json") || tp_ok=0; fi
+            if [ "$tp_ok" = "1" ]; then floating_id=$(bash "$SCRIPT_DIR/lib/create-measure-definition.sh" "$scenario_dir/measure-floating.json") || tp_ok=0; fi
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/measures/$pinned_id/terminology" > "$tp_tmp/terminology-before.json"'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/measures/$pinned_id/terminology/pin" > "$tp_tmp/terminology-pinned.json"'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" GET "/measures/$floating_id/approval-readiness" > "$tp_tmp/readiness-floating.json"'
+            tp_step bash "$SCRIPT_DIR/lib/approve-measure.sh" "$pinned_id"
+            tp_step bash "$SCRIPT_DIR/lib/approve-measure.sh" "$floating_id"
+            tp_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$pinned_id" "$period_start" "$period_end" > "$tp_tmp/pinned-v1.json"'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$floating_id" "$period_start" "$period_end" > "$tp_tmp/floating-v1.json"'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v1_id/versions" "$tp_tmp/new-version.json" > "$tp_tmp/v2.json"'
+            v2_id=$(jq -r '.id // empty' "$tp_tmp/v2.json" 2>/dev/null | tr -d '\r') || true
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" PUT "/value-sets/$v2_id" "$tp_tmp/update.json" > /dev/null'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/api-json.sh" POST "/value-sets/$v2_id/activate" > /dev/null'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$pinned_id" "$period_start" "$period_end" > "$tp_tmp/pinned-v2.json"'
+            tp_step eval 'bash "$SCRIPT_DIR/lib/evaluate.sh" "$floating_id" "$period_start" "$period_end" > "$tp_tmp/floating-v2.json"'
+            tp_step bash "$SCRIPT_DIR/lib/export-package.sh" "$pinned_id" "$tp_tmp"
+            if [ "$tp_ok" = "1" ]; then
+                bash "$SCRIPT_DIR/lib/assert-terminology-pin.sh" "$tp_tmp" "$expected_file" "$pinned_id" "$floating_id" || tp_ok=0
+            fi
+            if [ "$tp_ok" = "1" ]; then
+                passed_scenarios+=("$name")
+            else
+                if [ -n "${SMOKE_LOG_DIR:-}" ]; then
+                    mkdir -p "$SMOKE_LOG_DIR"
+                    cp -r "$tp_tmp" "$SMOKE_LOG_DIR/$name-files" 2>/dev/null || true
+                fi
+                failed_scenarios+=("$name")
+            fi
+            rm -rf "$tp_tmp"
+            ;;
+
         measure-status-guard)
             # PAT-219 lifecycle guard. A raw MeasureDefinition (POST /api/measures —
             # the eCQM publish path lands as draft too since BUG-147) is created
@@ -737,7 +826,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort, composite, terminology-pin)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

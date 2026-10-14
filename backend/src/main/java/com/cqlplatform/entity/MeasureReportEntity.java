@@ -121,6 +121,10 @@ public class MeasureReportEntity {
     @Column(name = "fhir_server_url", length = 500)
     private String fhirServerUrl;
 
+    /** PAT-260 (V82): JSON { "<value set url>": "<version used>" | "external" } — which terminology this run resolved. */
+    @Column(name = "terminology_versions", columnDefinition = "TEXT")
+    private String terminologyVersions;
+
     @Column(name = "evaluated_by", length = 100)
     private String evaluatedBy;
 

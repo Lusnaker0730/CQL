@@ -62,15 +62,28 @@ export const MEASURE_SETTING_OPTIONS: { value: string; label: string }[] = [
   { value: 'home-health', label: 'Home Health' },
 ]
 
-// --- Composite Scoring ---
+// --- Composite Scoring (PAT-259: the four QM IG methods; labels come from i18n `measures:details.composite.methods.*`) ---
 
-export const COMPOSITE_SCORING_OPTIONS: { value: string; label: string }[] = [
-  { value: 'opportunity', label: 'Opportunity' },
-  { value: 'linear', label: 'Linear' },
-]
+export const COMPOSITE_SCORING_METHODS = ['opportunity', 'all-or-nothing', 'linear', 'weighted'] as const
+export type CompositeScoringMethod = (typeof COMPOSITE_SCORING_METHODS)[number]
+export const DEFAULT_COMPOSITE_SCORING: CompositeScoringMethod = 'opportunity'
 
 // --- Defaults ---
 
 export const DEFAULT_MEASURE_STATUS = MEASURE_STATUS.DRAFT
 export const DEFAULT_SCORING_TYPE = SCORING_TYPE.PROPORTION
 export const DEFAULT_REFERENCE_TYPE = 'citation'
+
+// --- Measure list (PAT-257): server-side paging, sort and status filter ---
+
+export const MEASURE_LIST_PAGE_SIZES = [10, 25, 50, 100] as const
+export const MEASURE_LIST_DEFAULT_PAGE_SIZE = 25
+export const MEASURE_LIST_SORT_FIELDS = ['updatedAt', 'createdAt', 'name', 'status', 'scoringType', 'department'] as const
+export const MEASURE_STATUS_FILTER_OPTIONS: readonly MeasureStatusValue[] = ['draft', 'in-review', 'active', 'retired']
+/** i18n keys in the `common` namespace — the same ones StatusChip uses. */
+export const MEASURE_STATUS_LABEL_KEY: Record<MeasureStatusValue, string> = {
+  draft: 'status.draft',
+  'in-review': 'status.inReview',
+  active: 'status.active',
+  retired: 'status.retired',
+}

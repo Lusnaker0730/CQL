@@ -44,6 +44,9 @@ const POPULATION_LABEL_KEYS: Record<string, string> = {
 
 export default function EvaluationResultCard({ result }: EvaluationResultCardProps) {
   const { t } = useTranslation('measures')
+  // PAT-259: a composite lists what each component contributed
+  const componentScores = result.componentScores ?? []
+  const showWeights = componentScores.some((c) => c.weight != null)
   const [stratExpanded, setStratExpanded] = useState(false)
 
   function getPopulationLabel(type: string): string {
@@ -89,6 +92,64 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
               <Typography key={warning} variant="body2">{warning}</Typography>
             ))}
           </Alert>
+        )}
+
+        {/* PAT-260: which value set versions this run resolved */}
+        {result.terminologyVersions && Object.keys(result.terminologyVersions).length > 0 && (
+          <Box sx={{ mb: 2 }} data-testid="terminology-versions">
+            <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 0.5 }}>
+              {t('evaluationResult.terminologyVersions.title')}
+            </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', rowGap: 0.5 }}>
+              {Object.entries(result.terminologyVersions).map(([url, version]) => (
+                <Chip
+                  key={url}
+                  size="small"
+                  variant="outlined"
+                  color={version === 'external' ? 'default' : 'primary'}
+                  title={url}
+                  label={`${url.split('/').pop() ?? url} · ${version === 'external' ? t('evaluationResult.terminologyVersions.external') : `v${version}`}`}
+                />
+              ))}
+            </Stack>
+          </Box>
+        )}
+
+        {componentScores.length > 0 && (
+          <Box sx={{ mb: 2 }} data-testid="component-scores">
+            <Typography variant="subtitle1" gutterBottom sx={{ color: 'text.primary' }}>
+              {t('evaluationResult.components.title')}
+            </Typography>
+            <TableContainer>
+              <Table size="small" aria-label={t('evaluationResult.components.title')}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('evaluationResult.components.component')}</TableCell>
+                    {showWeights && <TableCell align="right">{t('evaluationResult.components.weight')}</TableCell>}
+                    <TableCell align="right">{t('evaluationResult.components.numeratorDenominator')}</TableCell>
+                    <TableCell align="right">{t('evaluationResult.measureScore')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {componentScores.map((c) => (
+                    <TableRow key={c.measureId}>
+                      <TableCell>
+                        {c.measureName ?? `#${c.measureId}`}{c.version ? ` v${c.version}` : ''}
+                        {c.status === 'error' && (
+                          <Chip size="small" color="error" label={t('evaluationResult.components.failed')} sx={{ ml: 1 }} />
+                        )}
+                      </TableCell>
+                      {showWeights && <TableCell align="right">{c.weight ?? t('evaluationResult.na')}</TableCell>}
+                      <TableCell align="right">
+                        {c.numerator ?? t('evaluationResult.na')} / {c.denominator != null ? c.denominator - (c.denominatorExclusions ?? 0) : t('evaluationResult.na')}
+                      </TableCell>
+                      <TableCell align="right">{c.score != null ? `${c.score.toFixed(1)}%` : t('evaluationResult.na')}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         )}
 
         {result.groups?.map((group) => (

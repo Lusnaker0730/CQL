@@ -82,7 +82,8 @@
       "all": "All ({{count}})",
       "myMeasures": "My Measures",
       "sharedWithMe": "Shared with Me",
-      "public": "Public"
+      "public": "Public",
+      "allNoCount": "All"
     },
     "tableHeaders": {
       "name": "Name",
@@ -143,7 +144,20 @@
       "exportError": "Export failed: {{error}}",
       "uploadFile": "Upload File",
       "orPaste": "or paste JSON below"
-    }
+    },
+    "allStatuses": "All statuses",
+    "statusFilter": "Status",
+    "sortBy": "Sort by",
+    "sortOptions": {
+      "updatedAt": "Last updated",
+      "createdAt": "Newest",
+      "name": "Name",
+      "status": "Status",
+      "scoringType": "Scoring",
+      "department": "Department"
+    },
+    "rowsPerPage": "Rows per page",
+    "displayedRows": "{{from}}–{{to}} of {{count}}"
   },
   "editor": {
     "lockedWarning": "Locked by {{user}}. Editing disabled.",
@@ -294,7 +308,52 @@
       "disclaimer": "Disclaimer"
     },
     "standardMetadata": "Standard Metadata (FHIR Measure)",
-    "standardMetadataHint": "Abbreviated title and endorsement, measure type, definition terms, clinical recommendation statement, effective / approval / review dates, the experimental flag and the risk adjustment / supplemental data guidance texts — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here."
+    "standardMetadataHint": "Abbreviated title and endorsement, measure type, definition terms, clinical recommendation statement, effective / approval / review dates, the experimental flag and the risk adjustment / supplemental data guidance texts — exported on the FHIR Measure and shown in the human-readable view. A measure published from the eCQM builder takes the values the builder carries; what the builder leaves empty is kept from here.",
+    "composite": {
+      "methods": {
+        "opportunity": "Opportunity",
+        "all-or-nothing": "All-or-nothing",
+        "linear": "Linear (subject-level)",
+        "weighted": "Weighted (component-level)"
+      },
+      "methodHelp": {
+        "opportunity": "Every component denominator membership is one opportunity: Σ numerators / Σ denominators.",
+        "all-or-nothing": "A patient counts in the numerator only when in the numerator of every component they are eligible for.",
+        "linear": "Per patient, the share of eligible components met, averaged over the patients.",
+        "weighted": "Weighted average of the component scores (a component without a weight counts as 1)."
+      },
+      "components": "Component measures",
+      "componentsHelper": "At least two non-composite measures of this tenant; the order is kept.",
+      "needTwo": "A composite needs at least two component measures",
+      "weight": "Weight",
+      "weightHelper": "Weights for the weighted method — positive numbers, empty = 1.",
+      "inactiveWarning": "A component that is not active blocks approval and evaluation of the composite."
+    },
+    "terminology": {
+      "title": "Terminology",
+      "hint": "The value sets the CQL references. A platform value set referenced without a version follows the newest active version at every run; pinning freezes it so the result cannot drift. A version named in the CQL always wins. Pins are measure logic — editable in draft only.",
+      "valueSet": "Value set",
+      "resolves": "Evaluates with",
+      "pin": "Pin",
+      "external": "Not a platform value set (IG / VSAC / remote)",
+      "unresolved": "unresolved",
+      "resolvedCql": "v{{version}} — named in the CQL",
+      "resolvedPinned": "v{{version}} — pinned by the measure",
+      "resolvedFloating": "v{{version}} — newest active (floats)",
+      "versionsHeld": "Platform holds {{versions}}",
+      "pinnedInCql": "pinned in CQL",
+      "notPinnable": "—",
+      "pinNow": "Pin",
+      "unpin": "Unpin",
+      "pinAll": "Pin all to current versions",
+      "unpinAll": "Remove all pins",
+      "unpinnedCount": "{{count}} unpinned",
+      "allPinned": "pinned",
+      "locked": "Locked by another editor.",
+      "draftOnly": "Pins can only be changed on a draft; create a new version to change them.",
+      "none": "The CQL references no value set.",
+      "loadError": "Could not load the measure's terminology."
+    }
   },
   "cql": {
     "translate": "Translate",
@@ -814,6 +873,17 @@
       "max": "Max",
       "avg": "Average",
       "median": "Median"
+    },
+    "components": {
+      "title": "Component measures",
+      "component": "Component",
+      "weight": "Weight",
+      "numeratorDenominator": "Numerator / denominator",
+      "failed": "failed"
+    },
+    "terminologyVersions": {
+      "title": "Value set versions used",
+      "external": "external"
     }
   },
   "comparison": {

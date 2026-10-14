@@ -1,0 +1,30 @@
+{
+  "name": "SmokeCompositeA",
+  "version": "1.0.0",
+  "title": "Smoke composite component A",
+  "description": "PAT-259 component A: adults (>= 18) in the denominator, >= 40 in the numerator → 2 / 4 = 50 %.",
+  "status": "draft",
+  "scoringType": "proportion",
+  "cqlContent": "library SmokeCompositeA version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n\ndefine \"Denominator\":\n  \"Initial Population\"\n\ndefine \"Numerator\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 40\n",
+  "groupDefinitions": [
+    {
+      "groupId": "group-1",
+      "description": "Overall",
+      "populationBasis": "boolean",
+      "populations": [
+        {
+          "populationType": "initial-population",
+          "criteriaExpression": "Initial Population"
+        },
+        {
+          "populationType": "denominator",
+          "criteriaExpression": "Denominator"
+        },
+        {
+          "populationType": "numerator",
+          "criteriaExpression": "Numerator"
+        }
+      ]
+    }
+  ]
+}

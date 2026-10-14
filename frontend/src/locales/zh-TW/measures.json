@@ -82,7 +82,8 @@
       "all": "全部 ({{count}})",
       "myMeasures": "我的指標",
       "sharedWithMe": "與我共享",
-      "public": "公開"
+      "public": "公開",
+      "allNoCount": "全部"
     },
     "tableHeaders": {
       "name": "名稱",
@@ -143,7 +144,20 @@
       "exportError": "匯出失敗：{{error}}",
       "uploadFile": "上傳檔案",
       "orPaste": "或在下方貼上 JSON"
-    }
+    },
+    "allStatuses": "全部狀態",
+    "statusFilter": "狀態",
+    "sortBy": "排序",
+    "sortOptions": {
+      "updatedAt": "最近更新",
+      "createdAt": "最近建立",
+      "name": "名稱",
+      "status": "狀態",
+      "scoringType": "評分",
+      "department": "科別"
+    },
+    "rowsPerPage": "每頁筆數",
+    "displayedRows": "{{from}}–{{to}}，共 {{count}} 筆"
   },
   "editor": {
     "lockedWarning": "已被 {{user}} 鎖定，無法編輯。",
@@ -294,7 +308,52 @@
       "disclaimer": "免責聲明"
     },
     "standardMetadata": "標準 Metadata（FHIR Measure）",
-    "standardMetadataHint": "簡稱與背書、指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期、實驗性旗標，以及風險校正 / 補充資料指引——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。"
+    "standardMetadataHint": "簡稱與背書、指標類型、名詞定義、臨床建議聲明、生效 / 核准 / 審閱日期、實驗性旗標，以及風險校正 / 補充資料指引——會匯出到 FHIR Measure 並顯示在人類可讀文件。由 eCQM builder 發布的指標會帶入 builder 填的值；builder 沒填的欄位保留這裡的內容。",
+    "composite": {
+      "methods": {
+        "opportunity": "機會型（Opportunity）",
+        "all-or-nothing": "全有全無（All-or-nothing）",
+        "linear": "線性（病人層級）",
+        "weighted": "加權（元件層級）"
+      },
+      "methodHelp": {
+        "opportunity": "每個元件分母的成員算一次機會：Σ 分子 / Σ 分母。",
+        "all-or-nothing": "病人要落在所有其符合分母的元件的分子中，才算入複合分子。",
+        "linear": "逐病人計算符合分子的元件比例，再對病人取平均。",
+        "weighted": "元件分數的加權平均（未填權重的元件視為 1）。"
+      },
+      "components": "元件指標",
+      "componentsHelper": "至少兩個本租戶的非複合指標；順序會保留。",
+      "needTwo": "複合指標至少需要兩個元件指標",
+      "weight": "權重",
+      "weightHelper": "加權法使用的權重——正數，留空 = 1。",
+      "inactiveWarning": "尚未 active 的元件會擋住複合指標的審核與評估。"
+    },
+    "terminology": {
+      "title": "術語",
+      "hint": "CQL 引用的 value set。平台自有的 value set 若未指定版本，每次評估都跟著最新的 active 版本；釘選後版本固定，結果不會漂移。CQL 裡寫明的 version 一律優先。釘選屬於指標邏輯——只有草稿能改。",
+      "valueSet": "Value set",
+      "resolves": "評估使用",
+      "pin": "釘選",
+      "external": "非平台 value set（IG / VSAC / 遠端）",
+      "unresolved": "無法解析",
+      "resolvedCql": "v{{version}} — CQL 指定",
+      "resolvedPinned": "v{{version}} — 指標釘選",
+      "resolvedFloating": "v{{version}} — 最新 active（會漂移）",
+      "versionsHeld": "平台現有 {{versions}}",
+      "pinnedInCql": "CQL 已釘選",
+      "notPinnable": "—",
+      "pinNow": "釘選",
+      "unpin": "解除",
+      "pinAll": "全部釘選目前版本",
+      "unpinAll": "全部解除",
+      "unpinnedCount": "{{count}} 個未釘選",
+      "allPinned": "已釘選",
+      "locked": "被其他編輯者鎖定。",
+      "draftOnly": "只有草稿能改釘選；要改請建立新版本。",
+      "none": "CQL 沒有引用任何 value set。",
+      "loadError": "無法載入指標的術語資訊。"
+    }
   },
   "cql": {
     "translate": "翻譯",
@@ -814,6 +873,17 @@
       "max": "最大",
       "avg": "平均",
       "median": "中位"
+    },
+    "components": {
+      "title": "元件指標",
+      "component": "元件",
+      "weight": "權重",
+      "numeratorDenominator": "分子 / 分母",
+      "failed": "失敗"
+    },
+    "terminologyVersions": {
+      "title": "本次使用的 value set 版本",
+      "external": "外部"
     }
   },
   "comparison": {

@@ -1,0 +1,30 @@
+{
+  "name": "SmokeTermFloating",
+  "version": "1.0.0",
+  "title": "Smoke — follows the newest active value set",
+  "description": "PAT-260 terminology pinning. Adults (p1-p4) form the denominator; the numerator needs a final Observation coded in the platform value set, referenced WITHOUT a version in the CQL.",
+  "status": "draft",
+  "scoringType": "proportion",
+  "cqlContent": "library SmokeTermFloating version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nvalueset \"Smoke Term Pin Orders\": 'https://smoke.example.tw/fhir/ValueSet/SmokeTermPinOrders'\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n\ndefine \"Denominator\":\n  \"Initial Population\"\n\ndefine \"Numerator\":\n  exists ([Observation: \"Smoke Term Pin Orders\"] O where O.status = 'final')\n",
+  "groupDefinitions": [
+    {
+      "groupId": "group-1",
+      "description": "Overall",
+      "populationBasis": "boolean",
+      "populations": [
+        {
+          "populationType": "initial-population",
+          "criteriaExpression": "Initial Population"
+        },
+        {
+          "populationType": "denominator",
+          "criteriaExpression": "Denominator"
+        },
+        {
+          "populationType": "numerator",
+          "criteriaExpression": "Numerator"
+        }
+      ]
+    }
+  ]
+}

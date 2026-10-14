@@ -513,4 +513,76 @@ class MeasureEvaluationServiceTest {
         assertThat(result.getWarnings()).hasSize(1);
         assertThat(result.getWarnings().get(0)).contains("Encounter").contains("counted per patient");
     }
+
+    // ===== PAT-259 — a subject-list report records WHICH patients each population counted =====
+
+    private static com.cqlplatform.model.measure.PopulationDefinition subjectPop(String type, String expression) {
+        return com.cqlplatform.model.measure.PopulationDefinition.builder().populationType(type).criteriaExpression(expression).build();
+    }
+
+    private static List<String> subjectsOf(MeasureEvaluationResult.GroupResult group, String type) {
+        return group.getPopulations().stream().filter(p -> type.equals(p.getPopulationType()))
+                .findFirst().orElseThrow().getSubjectIds();
+    }
+
+    @Test
+    void evaluateMeasure_subjectListReport_listsTheSubjectsOfEveryPopulation_summaryStaysCountOnly() {
+        when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2", "p3"));
+        when(cqlExecutionService.execute(any())).thenAnswer(inv -> {
+            CqlExecutionRequest req = inv.getArgument(0);
+            boolean met = "p1".equals(req.getPatientId());
+            boolean excluded = "p3".equals(req.getPatientId());
+            return buildExecResponse(Map.of("Initial Population", true, "Denominator", true,
+                    "Denominator Exclusions", excluded, "Numerator", met));
+        });
+        MeasureDefinition def = MeasureDefinition.builder().id(5L).name("Subjects").status("active").scoringType("proportion")
+                .cqlContent("library Test version '1.0'")
+                .groupDefinitions(List.of(GroupDefinition.builder().groupId("group-1").populationBasis("boolean")
+                        .populations(List.of(
+                                subjectPop("initial-population", "Initial Population"),
+                                subjectPop("denominator", "Denominator"),
+                                subjectPop("denominator-exclusion", "Denominator Exclusions"),
+                                subjectPop("numerator", "Numerator")))
+                        .build()))
+                .build();
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("5");
+        request.setFhirServerUrl("http://localhost/fhir");
+        request.setReportType("subject-list");
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request, 5L, def);
+
+        MeasureEvaluationResult.GroupResult group = result.getGroups().get(0);
+        assertThat(subjectsOf(group, "initial-population")).containsExactly("p1", "p2", "p3");
+        assertThat(subjectsOf(group, "denominator")).containsExactly("p1", "p2", "p3");
+        assertThat(subjectsOf(group, "denominator-exclusion")).containsExactly("p3");
+        assertThat(subjectsOf(group, "numerator")).containsExactly("p1");
+
+        request.setReportType("summary");
+        MeasureEvaluationResult summary = measureService.evaluateMeasure(request, 5L, def);
+        assertThat(summary.getGroups().get(0).getPopulations()).allSatisfy(p -> assertThat(p.getSubjectIds()).isNull());
+    }
+
+    // ===== PAT-260 — the measure's terminology pins ride on every per-patient CQL request =====
+
+    @Test
+    void evaluateMeasure_passesTheMeasuresTerminologyPinsToTheCqlExecution() {
+        MeasureDefinition pinned = MeasureDefinition.builder()
+                .id(43L).name("Pinned").status("active").scoringType("proportion")
+                .cqlContent("library Test version '1.0'")
+                .valueSetVersions(Map.of("https://h/ValueSet/A", "1.0.0")).build();
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("43");
+        request.setMeasureCql(pinned.getCqlContent());
+        request.setPatientId("patient-1");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+                "Initial Population", true, "Denominator", true, "Numerator", true)));
+
+        measureService.evaluateMeasure(request, 43L, pinned);
+
+        org.mockito.ArgumentCaptor<CqlExecutionRequest> sent = org.mockito.ArgumentCaptor.forClass(CqlExecutionRequest.class);
+        org.mockito.Mockito.verify(cqlExecutionService).execute(sent.capture());
+        assertThat(sent.getValue().getValueSetVersions()).containsEntry("https://h/ValueSet/A", "1.0.0");
+    }
 }

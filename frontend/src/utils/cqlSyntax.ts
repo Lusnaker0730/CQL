@@ -11,6 +11,10 @@ const RE_DOT_RESOURCE = /\[(\w+)[^\]]*\]\s*\w*\s*$|(\w+)\.\s*$/
 const RE_INCLUDE = /include\s+$/
 const RE_FN_QUOTED = /"([^"]+)"\s*\([^)]*$/
 const RE_FN_WORD = /\b(\w+)\s*\([^)]*$/
+// PAT-258: `Alias.` / `"Alias".` — optionally followed by a partial, optionally quoted, member name — where
+// Alias is the `called` name (or the library name) of an `include` in the current document.
+const RE_DOT_ALIAS = /(?:"([^"]+)"|([A-Za-z_]\w*))\.\s*("?)(\w*)$/
+const RE_INCLUDE_STMT = /\binclude\s+(?:"([^"]+)"|([A-Za-z_]\w*))(?:\s+version\s+'([^']*)')?(?:\s+called\s+(?:"([^"]+)"|([A-Za-z_]\w*)))?/g
 
 // Module-level CqlStructure reference for IntelliSense providers
 let currentCqlStructure: CqlStructure | null = null
@@ -956,6 +960,94 @@ export interface LibraryInfo {
   functions?: string[]
 }
 
+// PAT-258: the saved libraries the editor knows about (name / version / defines / functions). Module state,
+// like `currentCqlStructure`, because the completion provider is registered once per page load — the
+// `libraries` argument of `registerCqlLanguage` used to be captured by value and stayed empty forever.
+let libraryCatalog: LibraryInfo[] = []
+
+export function updateLibraryCatalog(libraries: LibraryInfo[]): void {
+  libraryCatalog = libraries
+}
+
+/** An `include` statement of the current document: `include Name [version 'v'] [called Alias]`. */
+export interface IncludeRef {
+  name: string
+  version?: string
+  /** The `called` name, or the library name when there is none — what the author writes before the dot. */
+  alias: string
+}
+
+export function parseIncludes(text: string): IncludeRef[] {
+  const refs: IncludeRef[] = []
+  for (const m of text.matchAll(RE_INCLUDE_STMT)) {
+    const name = m[1] ?? m[2]
+    if (!name) continue
+    refs.push({ name, version: m[3] || undefined, alias: m[4] ?? m[5] ?? name })
+  }
+  return refs
+}
+
+/** Numeric-aware descending version order: 10.0.0 before 9.0.0; non-numeric parts fall back to text order. */
+function compareVersionsDesc(a: string, b: string): number {
+  const pa = a.split('.')
+  const pb = b.split('.')
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] ?? ''
+    const y = pb[i] ?? ''
+    const nx = Number(x)
+    const ny = Number(y)
+    const cmp = Number.isFinite(nx) && Number.isFinite(ny) && x !== '' && y !== '' ? ny - nx : y.localeCompare(x)
+    if (cmp !== 0) return cmp
+  }
+  return 0
+}
+
+/** The catalog entry an include resolves to: the pinned version when the catalog has it, else the newest. */
+export function resolveIncludedLibrary(ref: IncludeRef, libraries: LibraryInfo[]): LibraryInfo | undefined {
+  const candidates = libraries.filter((lib) => lib.name === ref.name)
+  if (candidates.length === 0) return undefined
+  if (ref.version) {
+    const exact = candidates.find((lib) => lib.version === ref.version)
+    if (exact) return exact
+  }
+  return [...candidates].sort((a, b) => compareVersionsDesc(a.version, b.version))[0]
+}
+
+function includedLibraryMembers(
+  monaco: typeof import('monaco-editor'),
+  lib: LibraryInfo,
+  range: IRange,
+): languages.CompletionItem[] {
+  const functions = new Set(lib.functions ?? [])
+  const detail = `${lib.name} v${lib.version}`
+  const items: languages.CompletionItem[] = []
+  for (const name of lib.expressions ?? []) {
+    if (functions.has(name)) continue
+    items.push({
+      label: `"${name}"`,
+      kind: monaco.languages.CompletionItemKind.Variable,
+      insertText: `"${name}"`,
+      detail,
+      documentation: `**define** "${name}"\nfrom library ${detail}`,
+      sortText: `0_${name}`,
+      range,
+    })
+  }
+  for (const name of functions) {
+    items.push({
+      label: `"${name}"()`,
+      kind: monaco.languages.CompletionItemKind.Function,
+      insertText: `"${name}"(\${1})`,
+      insertTextRules: 4,
+      detail,
+      documentation: `**function** "${name}"()\nfrom library ${detail}`,
+      sortText: `0_${name}`,
+      range,
+    })
+  }
+  return items
+}
+
 // Pre-merged static completion items (computed once at module load, not per keystroke)
 const cachedStaticItems = [...cqlCompletionItems, ...cqlBuiltInFunctions, ...twcdiCompletionItems, ...twCodeSystemSnippets]
 
@@ -963,7 +1055,7 @@ export function provideCqlCompletions(
   monaco: typeof import('monaco-editor'),
   model: import('monaco-editor').editor.ITextModel,
   position: import('monaco-editor').Position,
-  libraries: LibraryInfo[] = [],
+  libraries: LibraryInfo[] = libraryCatalog,
 ) {
   const word = model.getWordUntilPosition(position)
   const range = {
@@ -975,6 +1067,20 @@ export function provideCqlCompletions(
 
   const lineContent = model.getLineContent(position.lineNumber)
   const textBeforeCursor = lineContent.substring(0, position.column - 1)
+
+  // PAT-258: `Alias.` of an included library → that library's defines and functions. Checked before the
+  // FHIR branch so an explicit include wins over a resource type of the same name.
+  const aliasMatch = textBeforeCursor.match(RE_DOT_ALIAS)
+  if (aliasMatch) {
+    const alias = aliasMatch[1] ?? aliasMatch[2]
+    const ref = parseIncludes(model.getValue()).find((r) => r.alias === alias)
+    const lib = ref ? resolveIncludedLibrary(ref, libraries) : undefined
+    if (lib) {
+      // an opening quote already typed is replaced along with the partial word (the items insert `"Name"`)
+      const memberRange = aliasMatch[3] ? { ...range, startColumn: Math.max(1, range.startColumn - 1) } : range
+      return { suggestions: includedLibraryMembers(monaco, lib, memberRange) }
+    }
+  }
 
   // After dot: provide FHIR property completions
   const dotMatch = textBeforeCursor.match(RE_DOT_RESOURCE)
@@ -1276,6 +1382,9 @@ export function registerCqlLanguage(
   monaco: typeof import('monaco-editor'),
   libraries: LibraryInfo[] = [],
 ) {
+  // PAT-258: the catalog is module state read on every completion request, so a later caller (or a later
+  // `updateLibraryCatalog`) reaches the provider that was registered by the first editor on the page.
+  if (libraries.length > 0) updateLibraryCatalog(libraries)
   if (cqlLanguageRegistered) return
   cqlLanguageRegistered = true
 
@@ -1288,7 +1397,7 @@ export function registerCqlLanguage(
   monaco.languages.registerCompletionItemProvider('cql', {
     triggerCharacters: ['.', '"'],
     provideCompletionItems: (model, position) => {
-      return provideCqlCompletions(monaco, model, position, libraries)
+      return provideCqlCompletions(monaco, model, position)
     },
   })
 

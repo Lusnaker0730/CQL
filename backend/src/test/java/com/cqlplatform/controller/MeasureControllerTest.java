@@ -47,6 +47,9 @@ class MeasureControllerTest {
     @MockitoBean
     private com.cqlplatform.service.ecqm.EcqmPublishService ecqmPublishService;
 
+    @MockitoBean
+    private com.cqlplatform.service.terminology.MeasureTerminologyService terminologyService;
+
     @Test
     @WithMockUser
     void evaluateMeasure_shouldReturn200() throws Exception {
@@ -205,5 +208,79 @@ class MeasureControllerTest {
 
         when(ecqmPublishService.builderSourceOf(5L)).thenReturn(Optional.empty());
         mockMvc.perform(get("/api/measures/5/builder-source")).andExpect(status().isNoContent());
+    }
+
+    // ===== PAT-257 — the paged list: filters, scope, sort and paging as query params =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void listMeasuresPage_passesFiltersScopeSortAndPaging() throws Exception {
+        when(definitionService.listPage(any(), eq(1), eq(10), eq("name"), eq(false)))
+                .thenReturn(com.cqlplatform.model.measure.MeasurePage.builder()
+                        .content(List.of(MeasureDefinition.builder().id(7L).name("A").version("1.0.0")
+                                .status("draft").scoringType("proportion").build()))
+                        .page(1).size(10).totalElements(11).totalPages(2).build());
+
+        mockMvc.perform(get("/api/measures/page")
+                        .param("status", "draft,active").param("scope", "mine").param("sort", "name,asc")
+                        .param("page", "1").param("size", "10").param("search", "hb"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(11))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(7));
+
+        org.mockito.ArgumentCaptor<com.cqlplatform.model.measure.MeasureListQuery> q =
+                org.mockito.ArgumentCaptor.forClass(com.cqlplatform.model.measure.MeasureListQuery.class);
+        verify(definitionService).listPage(q.capture(), eq(1), eq(10), eq("name"), eq(false));
+        org.assertj.core.api.Assertions.assertThat(q.getValue().statuses()).containsExactly("draft", "active");
+        org.assertj.core.api.Assertions.assertThat(q.getValue().scope()).isEqualTo(com.cqlplatform.model.measure.MeasureListQuery.Scope.MINE);
+        org.assertj.core.api.Assertions.assertThat(q.getValue().search()).isEqualTo("hb");
+        org.assertj.core.api.Assertions.assertThat(q.getValue().username()).isEqualTo("alice");
+    }
+
+    @Test
+    @WithMockUser
+    void listMeasuresPage_defaultsToNewestFirst_andRejectsABadDirectionOrScope() throws Exception {
+        when(definitionService.listPage(any(), eq(0), eq(25), eq("updatedAt"), eq(true)))
+                .thenReturn(com.cqlplatform.model.measure.MeasurePage.builder().content(List.of()).totalElements(0).build());
+        mockMvc.perform(get("/api/measures/page")).andExpect(status().isOk());
+        verify(definitionService).listPage(any(), eq(0), eq(25), eq("updatedAt"), eq(true));
+
+        mockMvc.perform(get("/api/measures/page").param("sort", "name,sideways")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/measures/page").param("scope", "everyone")).andExpect(status().isBadRequest());
+        verify(definitionService, times(1)).listPage(any(), anyInt(), anyInt(), any(), anyBoolean());
+    }
+
+    // ===== PAT-260 — terminology endpoints =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void terminology_describePinAndUnpin_delegateToTheService() throws Exception {
+        com.cqlplatform.model.measure.MeasureTerminology view = com.cqlplatform.model.measure.MeasureTerminology.builder()
+                .measureId(5L).status("draft").pinnable(true)
+                .items(List.of(com.cqlplatform.model.measure.MeasureTerminology.Item.builder()
+                        .name("HbA1c").url("https://h/ValueSet/HbA1c").source("platform").resolvedVersion("1.0.0").pinned(false)
+                        .versions(List.of()).build()))
+                .build();
+        when(terminologyService.describe(5L)).thenReturn(view);
+        when(terminologyService.pin(eq(5L), any(), any(), any())).thenReturn(view);
+        when(terminologyService.unpin(eq(5L), any(), any())).thenReturn(view);
+
+        mockMvc.perform(get("/api/measures/5/terminology"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pinnable").value(true))
+                .andExpect(jsonPath("$.items[0].url").value("https://h/ValueSet/HbA1c"));
+
+        mockMvc.perform(post("/api/measures/5/terminology/pin").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://h/ValueSet/HbA1c\",\"version\":\"1.0.0\"}"))
+                .andExpect(status().isOk());
+        verify(terminologyService).pin(5L, "https://h/ValueSet/HbA1c", "1.0.0", "alice");
+
+        mockMvc.perform(post("/api/measures/5/terminology/pin")).andExpect(status().isOk());
+        verify(terminologyService).pin(5L, null, null, "alice");
+
+        mockMvc.perform(post("/api/measures/5/terminology/unpin").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"url\":\"https://h/ValueSet/HbA1c\"}")).andExpect(status().isOk());
+        verify(terminologyService).unpin(5L, "https://h/ValueSet/HbA1c", "alice");
     }
 }

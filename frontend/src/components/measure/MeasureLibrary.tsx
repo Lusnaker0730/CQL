@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react'
+import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { SEARCH_DEBOUNCE_GENERAL_MS } from '../../constants/timing'
 import { downloadBlob } from '../../utils/download'
@@ -25,6 +25,8 @@ import {
   Tab,
   Tooltip,
   Chip,
+  TablePagination,
+  TableSortLabel,
 } from '@mui/material'
 import {
   Add as AddIcon,
@@ -48,18 +50,27 @@ import GradientButton from '../common/GradientButton'
 import StatusChip from '../common/StatusChip'
 import TableSkeleton from '../common/TableSkeleton'
 import BatchEvaluationDialog from './BatchEvaluationDialog'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { measureApi } from '../../api'
 import { useNotification } from '../../hooks/useNotification'
 import { extractApiError } from '../../utils/errorUtils'
-import type { MeasureDefinition } from '../../types'
-import { getStoredUsername } from '../../utils/validation'
+import type { MeasureDefinition, MeasureListScope, MeasureListSortField } from '../../types'
 import {
   DEFAULT_MEASURE_STATUS,
   DEFAULT_SCORING_TYPE,
   SCORING_TYPE_OPTIONS,
   MEASURE_STATUS_OPTIONS,
+  MEASURE_LIST_PAGE_SIZES,
+  MEASURE_LIST_DEFAULT_PAGE_SIZE,
+  MEASURE_LIST_SORT_FIELDS,
+  MEASURE_STATUS_FILTER_OPTIONS,
+  MEASURE_STATUS_LABEL_KEY,
 } from '../../constants/measureConstants'
+
+// PAT-257: the scope tabs, in tab order; they are a server-side filter now so they survive paging
+const LIST_SCOPES: MeasureListScope[] = ['all', 'mine', 'shared', 'public']
+const EMPTY_MEASURES: MeasureDefinition[] = []
+const DATE_SORT_FIELDS: ReadonlySet<MeasureListSortField> = new Set(['updatedAt', 'createdAt'])
 
 const ACCESS_ICONS: Record<string, React.ReactElement> = {
   private: <PrivateIcon sx={{ fontSize: 14 }} />,
@@ -77,6 +88,12 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const [search, setSearch] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [filterTab, setFilterTab] = useState(0)
+  // PAT-257: server-side status filter, sort and paging
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  const [sortField, setSortField] = useState<MeasureListSortField>('updatedAt')
+  const [sortDesc, setSortDesc] = useState(true)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState<number>(MEASURE_LIST_DEFAULT_PAGE_SIZE)
   const [createOpen, setCreateOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editMeasure, setEditMeasure] = useState<MeasureDefinition | null>(null)
@@ -98,31 +115,42 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   })
 
   const { showNotification } = useNotification()
-  const currentUser = useMemo(() => getStoredUsername(), [])
 
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_GENERAL_MS)
 
-  const { data: allMeasures = [], isLoading } = useQuery({
-    queryKey: ['measures', debouncedSearch, departmentFilter],
-    queryFn: () => measureApi.getMeasures(debouncedSearch || undefined, departmentFilter || undefined),
-  })
+  const scope: MeasureListScope = LIST_SCOPES[filterTab] ?? 'all'
 
-  const measures = useMemo(
-    () =>
-      allMeasures.filter((m) => {
-        switch (filterTab) {
-          case 1: // My Measures
-            return m.ownerUsername === currentUser
-          case 2: // Shared with me
-            return m.sharedWith?.includes(currentUser) && m.ownerUsername !== currentUser
-          case 3: // Public
-            return m.accessLevel === 'public'
-          default: // All
-            return true
-        }
-      }),
-    [allMeasures, filterTab, currentUser]
-  )
+  // PAT-257: the list is one server page — search, department, status, scope tab, sort and paging all travel
+  // as query params (the `['measures', …]` prefix keeps the existing invalidations working)
+  const { data: pageData, isLoading } = useQuery({
+    queryKey: ['measures', 'page', { search: debouncedSearch, department: departmentFilter, statuses: statusFilter, scope, sortField, sortDesc, page, rowsPerPage }],
+    queryFn: () => measureApi.getMeasurePage({
+      search: debouncedSearch || undefined,
+      department: departmentFilter || undefined,
+      statuses: statusFilter,
+      scope,
+      sort: `${sortField},${sortDesc ? 'desc' : 'asc'}`,
+      page,
+      size: rowsPerPage,
+    }),
+    placeholderData: keepPreviousData,
+  })
+  const measures = pageData?.content ?? EMPTY_MEASURES
+  const totalElements = pageData?.totalElements ?? 0
+
+  // a changed filter starts from the first page again
+  useEffect(() => {
+    setPage(0)
+  }, [debouncedSearch, departmentFilter, statusFilter, scope, rowsPerPage])
+
+  const selectSortField = useCallback((field: MeasureListSortField) => {
+    setSortField(field)
+    setSortDesc(DATE_SORT_FIELDS.has(field))
+  }, [])
+  const toggleSort = useCallback((field: MeasureListSortField) => {
+    if (field === sortField) setSortDesc((d) => !d)
+    else selectSortField(field)
+  }, [sortField, selectSortField])
 
   const { t: tCommon } = useTranslation('common')
 
@@ -230,6 +258,19 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
 
   const batchMeasureIds = useMemo(() => Array.from(selectedMeasureIds), [selectedMeasureIds])
 
+  // PAT-257: a header cell that sorts the server page by its column
+  const sortableHeader = (field: MeasureListSortField, labelKey: string, width: string) => (
+    <TableCell scope="col" sx={{ width }} sortDirection={sortField === field ? (sortDesc ? 'desc' : 'asc') : false}>
+      <TableSortLabel
+        active={sortField === field}
+        direction={sortField === field && sortDesc ? 'desc' : 'asc'}
+        onClick={() => toggleSort(field)}
+      >
+        {t(labelKey)}
+      </TableSortLabel>
+    </TableCell>
+  )
+
   return (
     <Paper sx={{ p: 1.5, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <Stack
@@ -287,12 +328,55 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           />
         </Box>
       </Stack>
+      {/* PAT-257: status filter + sort */}
+      <Stack direction="row" spacing={1} sx={{ mb: 0.5, flexWrap: 'wrap', rowGap: 0.5 }}>
+        <TextField
+          select
+          size="small"
+          sx={{ minWidth: 190 }}
+          label={t('library.statusFilter')}
+          value={statusFilter}
+          onChange={(e) => {
+            const raw = e.target.value as unknown as string[] | string
+            setStatusFilter(typeof raw === 'string' ? raw.split(',').filter(Boolean) : raw)
+          }}
+          slotProps={{
+            inputLabel: { shrink: true },
+            select: {
+              multiple: true,
+              displayEmpty: true,
+              renderValue: (selected) => {
+                const values = selected as string[]
+                return values.length === 0
+                  ? t('library.allStatuses')
+                  : values.map((v) => tCommon(MEASURE_STATUS_LABEL_KEY[v as keyof typeof MEASURE_STATUS_LABEL_KEY] ?? v)).join(', ')
+              },
+            },
+          }}
+        >
+          {MEASURE_STATUS_FILTER_OPTIONS.map((s) => (
+            <MenuItem key={s} value={s}>{tCommon(MEASURE_STATUS_LABEL_KEY[s])}</MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          sx={{ minWidth: 160 }}
+          label={t('library.sortBy')}
+          value={sortField}
+          onChange={(e) => selectSortField(e.target.value as MeasureListSortField)}
+        >
+          {MEASURE_LIST_SORT_FIELDS.map((f) => (
+            <MenuItem key={f} value={f}>{t(`library.sortOptions.${f}`)}</MenuItem>
+          ))}
+        </TextField>
+      </Stack>
       <Tabs
         value={filterTab}
         onChange={(_, v) => setFilterTab(v)}
         sx={{ mb: 0.5, minHeight: 28, '& .MuiTab-root': { minHeight: 28, py: 0, textTransform: 'none', fontSize: '0.8rem' } }}
       >
-        <Tab label={t('library.tabs.all', { count: allMeasures.length })} />
+        <Tab label={scope === 'all' ? t('library.tabs.all', { count: totalElements }) : t('library.tabs.allNoCount')} />
         <Tab label={t('library.tabs.myMeasures')} />
         <Tab label={t('library.tabs.sharedWithMe')} />
         <Tab label={t('library.tabs.public')} />
@@ -316,10 +400,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
                   }}
                 />
               </TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.name }}>{t('library.tableHeaders.name')}</TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.status }}>{t('library.tableHeaders.status')}</TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.scoring }}>{t('library.tableHeaders.scoring')}</TableCell>
-              <TableCell scope="col" sx={{ width: COL_W.department }}>{t('library.tableHeaders.department')}</TableCell>
+              {sortableHeader('name', 'library.tableHeaders.name', COL_W.name)}
+              {sortableHeader('status', 'library.tableHeaders.status', COL_W.status)}
+              {sortableHeader('scoringType', 'library.tableHeaders.scoring', COL_W.scoring)}
+              {sortableHeader('department', 'library.tableHeaders.department', COL_W.department)}
               <TableCell scope="col" align="right" sx={{ width: COL_W.actions }}>{t('library.tableHeaders.actions')}</TableCell>
             </TableRow>
           </TableHead>
@@ -353,6 +437,18 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           </Typography>
         )}
       </Box>
+      <TablePagination
+        component="div"
+        count={totalElements}
+        page={page}
+        onPageChange={(_, p) => setPage(p)}
+        rowsPerPage={rowsPerPage}
+        onRowsPerPageChange={(e) => setRowsPerPage(parseInt(e.target.value, 10))}
+        rowsPerPageOptions={[...MEASURE_LIST_PAGE_SIZES]}
+        labelRowsPerPage={t('library.rowsPerPage')}
+        labelDisplayedRows={({ from, to, count }) => t('library.displayedRows', { from, to, count })}
+        sx={{ flexShrink: 0, '.MuiTablePagination-toolbar': { minHeight: 36 } }}
+      />
       {/* Create Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{t('library.createDialog.title')}</DialogTitle>

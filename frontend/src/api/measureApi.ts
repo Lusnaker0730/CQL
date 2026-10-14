@@ -31,6 +31,8 @@ import type {
   MeasureClauseCoverage,
 } from '../types'
 import { api } from './client'
+import type { MeasurePage, MeasurePageParams } from '../types'
+import type { MeasureTerminology } from '../types'
 
 const exportBlob = async (
   id: number,
@@ -79,6 +81,20 @@ export const measureApi = {
     return response.data
   },
 
+  /** PAT-257: one server page of the list — filters, scope, sort and paging as query params. */
+  getMeasurePage: async (params: MeasurePageParams): Promise<MeasurePage> => {
+    const query: Record<string, string | number> = {}
+    if (params.search) query.search = params.search
+    if (params.department) query.department = params.department
+    if (params.statuses?.length) query.status = params.statuses.join(',')
+    if (params.scope) query.scope = params.scope
+    if (params.sort) query.sort = params.sort
+    if (params.page !== undefined) query.page = params.page
+    if (params.size !== undefined) query.size = params.size
+    const response = await api.get<MeasurePage>('/measures/page', { params: query })
+    return response.data
+  },
+
   getMeasure: async (id: number): Promise<MeasureDefinition> => {
     const response = await api.get<MeasureDefinition>(`/measures/${id}`)
     return response.data
@@ -88,6 +104,24 @@ export const measureApi = {
   getBuilderSource: async (id: number): Promise<BuilderSource | null> => {
     const response = await api.get<BuilderSource | ''>(`/measures/${id}/builder-source`)
     return response.status === 204 || !response.data ? null : (response.data as BuilderSource)
+  },
+
+  /** PAT-260: the value sets the measure's CQL references and how each resolves (pins, CQL versions, platform versions). */
+  getTerminology: async (id: number): Promise<MeasureTerminology> => {
+    const response = await api.get<MeasureTerminology>(`/measures/${id}/terminology`)
+    return response.data
+  },
+
+  /** PAT-260: pin one value set (url + optional version), or every unpinned platform value set when no body is given. */
+  pinTerminology: async (id: number, body?: { url: string; version?: string }): Promise<MeasureTerminology> => {
+    const response = await api.post<MeasureTerminology>(`/measures/${id}/terminology/pin`, body ?? {})
+    return response.data
+  },
+
+  /** PAT-260: remove one pin (url) or all pins. */
+  unpinTerminology: async (id: number, url?: string): Promise<MeasureTerminology> => {
+    const response = await api.post<MeasureTerminology>(`/measures/${id}/terminology/unpin`, url ? { url } : {})
+    return response.data
   },
 
   createMeasure: async (definition: MeasureDefinition): Promise<MeasureDefinition> => {

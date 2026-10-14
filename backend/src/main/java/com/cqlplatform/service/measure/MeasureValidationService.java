@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 
 import com.cqlplatform.model.measure.ScoringTypeConstants;
 import static com.cqlplatform.model.measure.PopulationTypeConstants.*;
+import com.cqlplatform.model.measure.MeasureStatusConstants;
 
 @Service
 @RequiredArgsConstructor
@@ -75,6 +76,14 @@ public class MeasureValidationService {
         // 1. Metadata validation
         validateMetadata(measure, report);
 
+        // PAT-259: a composite has no CQL / populations of its own — its components are its logic
+        if (ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(measure.getScoringType())) {
+            validateComposite(measure, report);
+            validateTestCases(measureId, report);
+            report.complete(System.currentTimeMillis() - start);
+            return report;
+        }
+
         // 2. CQL validation
         CqlTranslationResponse cqlResult = validateCql(measure, report);
 
@@ -114,11 +123,51 @@ public class MeasureValidationService {
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + measureId));
 
         validateMetadata(measure, report);
+        if (ScoringTypeConstants.COMPOSITE.equalsIgnoreCase(measure.getScoringType())) {   // PAT-259
+            validateComposite(measure, report);
+            report.complete(System.currentTimeMillis() - start);
+            return report;
+        }
         CqlTranslationResponse cqlResult = validateCql(measure, report);
         validatePopulations(measure, cqlResult, report);
 
         report.complete(System.currentTimeMillis() - start);
         return report;
+    }
+
+    // ===== PAT-259: composite validation =====
+
+    private void validateComposite(MeasureDefinition measure, ValidationReport report) {
+        String method = measure.getCompositeScoring();
+        if (method == null || method.isBlank()) {
+            report.addWarning("COMPOSITE", "No composite scoring method is set; opportunity scoring is assumed",
+                    "compositeScoring", "Go to Details tab and pick a composite scoring method");
+        } else if (!ScoringTypeConstants.COMPOSITE_SCORING_METHODS.contains(method.toLowerCase(java.util.Locale.ROOT))) {
+            report.addError("COMPOSITE", "Unknown composite scoring method '" + method + "'",
+                    "compositeScoring", "Pick one of opportunity, all-or-nothing, linear, weighted");
+        }
+        List<Long> ids = measure.getComponentMeasureIds() == null ? List.of() : measure.getComponentMeasureIds();
+        if (ids.size() < 2) {
+            report.addError("COMPOSITE", "A composite measure needs at least two component measures",
+                    "componentMeasureIds", "Go to Details tab and add component measures");
+            return;
+        }
+        for (Long id : ids) {
+            java.util.Optional<MeasureDefinition> component = definitionService.getById(id);
+            if (component.isEmpty()) {
+                report.addError("COMPOSITE", "Component measure " + id + " was not found",
+                        "componentMeasureIds", "Remove the component or restore the measure");
+            } else if (!MeasureStatusConstants.ACTIVE.equals(component.get().getStatus())) {
+                report.addWarning("COMPOSITE", "Component measure '" + component.get().getName() + "' is "
+                                + component.get().getStatus() + "; the composite can only be evaluated once every component is active",
+                        "componentMeasureIds", "Approve the component measure");
+            }
+        }
+        if (ScoringTypeConstants.COMPOSITE_WEIGHTED.equals(method)
+                && (measure.getComponentWeights() == null || measure.getComponentWeights().isEmpty())) {
+            report.addWarning("COMPOSITE", "Weighted scoring without component weights uses a weight of 1 for every component",
+                    "componentWeights", "Enter a weight per component");
+        }
     }
 
     // ===== Metadata Validation =====

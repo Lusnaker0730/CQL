@@ -22,6 +22,10 @@ public class ApprovalReadiness {
     // blocker codes
     public static final String CQL_MISSING = "CQL_MISSING";
     public static final String CQL_ERRORS = "CQL_ERRORS";
+    /** PAT-259: a composite with fewer than two resolvable components. */
+    public static final String COMPONENTS_MISSING = "COMPONENTS_MISSING";
+    /** PAT-259: a composite whose component is not active — the component guard would refuse the evaluation. */
+    public static final String COMPONENT_NOT_ACTIVE = "COMPONENT_NOT_ACTIVE";
     public static final String TEST_CASE_INVALID = "TEST_CASE_INVALID";
     public static final String TEST_CASE_VALIDATION_PENDING = "TEST_CASE_VALIDATION_PENDING";
     public static final String TEST_CASE_NOT_PASSING = "TEST_CASE_NOT_PASSING";
@@ -31,6 +35,8 @@ public class ApprovalReadiness {
     public static final String TEST_CASE_VALIDATION_ERROR = "TEST_CASE_VALIDATION_ERROR";
     public static final String TEST_CASE_RUN_STALE = "TEST_CASE_RUN_STALE";
     public static final String CQL_WARNINGS = "CQL_WARNINGS";
+    /** PAT-260: platform value sets referenced without a CQL version or pin — their codes follow the newest active version. */
+    public static final String TERMINOLOGY_UNPINNED = "TERMINOLOGY_UNPINNED";
 
     private Long measureId;
     private String status;

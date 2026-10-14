@@ -70,6 +70,7 @@ public class MeasureController {
     private final DashboardService dashboardService;
     private final OwnershipVerifier ownershipVerifier;
     private final com.cqlplatform.service.ecqm.EcqmPublishService ecqmPublishService;
+    private final com.cqlplatform.service.terminology.MeasureTerminologyService terminologyService;
 
     // ===== Helpers =====
 
@@ -139,6 +140,40 @@ public class MeasureController {
             measures = measures.subList(start, Math.min(start + clampedSize, measures.size()));
         }
         return ResponseEntity.ok(measures);
+    }
+
+    /**
+     * PAT-257: the list page the UI uses — filters, scope tabs, sort and paging as query parameters, with the
+     * total so the client can page. {@code sort} = {@code field[,asc|desc]} (date fields default to desc);
+     * {@code status} = comma-separated lifecycle states; {@code scope} = all | mine | shared | public.
+     */
+    @GetMapping("/page")
+    @Operation(summary = "List Measures (paged)", description = "One page of measure definitions filtered by search / department / status / scope and sorted on the server. sort=field[,asc|desc]; status=draft,active; scope=all|mine|shared|public.")
+    public ResponseEntity<MeasurePage> listMeasuresPage(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false, defaultValue = "all") String scope,
+            @RequestParam(required = false, defaultValue = "updatedAt,desc") String sort,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size) {
+        List<String> statuses = status == null || status.isBlank() ? List.of()
+                : java.util.Arrays.stream(status.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+        String[] sortParts = sort.split(",", 2);
+        String field = sortParts[0].trim();
+        boolean descending;
+        if (sortParts.length < 2 || sortParts[1].isBlank()) {
+            descending = "updatedAt".equals(field) || "createdAt".equals(field);
+        } else if ("asc".equalsIgnoreCase(sortParts[1].trim())) {
+            descending = false;
+        } else if ("desc".equalsIgnoreCase(sortParts[1].trim())) {
+            descending = true;
+        } else {
+            throw new ValidationException("Unsupported sort direction: " + sortParts[1]);
+        }
+        MeasureListQuery query = new MeasureListQuery(search, department, statuses,
+                MeasureListQuery.Scope.parse(scope), ownershipVerifier.getCurrentUsername());
+        return ResponseEntity.ok(definitionService.listPage(query, page, size, field, descending));
     }
 
     @GetMapping("/{id}")
@@ -286,6 +321,32 @@ public class MeasureController {
      * The eCQM builder artifact this measure was published from, with whether the measure or the
      * builder changed since that publish; 204 when the measure was not built in the builder.
      */
+    // ===== PAT-260: terminology pins =====
+
+    @GetMapping("/{id}/terminology")
+    @Operation(summary = "Measure terminology", description = "PAT-260: the value sets the measure's CQL references, which version each resolves to today (CQL version, pin, or newest active), and the versions the platform holds.")
+    public ResponseEntity<com.cqlplatform.model.measure.MeasureTerminology> getTerminology(@PathVariable Long id) {
+        return ResponseEntity.ok(terminologyService.describe(id));
+    }
+
+    @PostMapping("/{id}/terminology/pin")
+    @Operation(summary = "Pin terminology", description = "PAT-260: pin one value set (body url + optional version) or, with no body, every unpinned platform value set to the version it resolves now. Draft measures only (pins are measure logic).")
+    public ResponseEntity<com.cqlplatform.model.measure.MeasureTerminology> pinTerminology(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.cqlplatform.model.measure.MeasureTerminology.PinRequest body) {
+        return ResponseEntity.ok(terminologyService.pin(id, body != null ? body.getUrl() : null,
+                body != null ? body.getVersion() : null, ownershipVerifier.getCurrentUsername()));
+    }
+
+    /** POST, not DELETE: {@code DELETE /api/measures/**} is reserved for administrators in the security config. */
+    @PostMapping("/{id}/terminology/unpin")
+    @Operation(summary = "Unpin terminology", description = "PAT-260: remove one pin (body url) or, with no body, all pins. Draft measures only.")
+    public ResponseEntity<com.cqlplatform.model.measure.MeasureTerminology> unpinTerminology(
+            @PathVariable Long id,
+            @RequestBody(required = false) com.cqlplatform.model.measure.MeasureTerminology.PinRequest body) {
+        return ResponseEntity.ok(terminologyService.unpin(id, body != null ? body.getUrl() : null, ownershipVerifier.getCurrentUsername()));
+    }
+
     @GetMapping("/{id}/builder-source")
     @Operation(summary = "Get Builder Source", description = "eCQM builder artifact the measure was published from, and drift since publish")
     public ResponseEntity<com.cqlplatform.model.ecqm.BuilderSource> getBuilderSource(@PathVariable Long id) {

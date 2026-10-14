@@ -1,0 +1,47 @@
+{
+  "type": "composite",
+  "periodStart": "2021-07-01",
+  "periodEnd": "2021-12-31",
+  "componentCount": 2,
+  "scoreTolerance": 0.01,
+  "composites": {
+    "opportunity": {
+      "score": 57.143,
+      "populations": {
+        "initial-population": 8,
+        "denominator": 8,
+        "denominator-exclusion": 1,
+        "numerator": 4
+      },
+      "_why": "Σ numerators 2 + 2 over Σ effective denominators 4 + 3 = 4 / 7"
+    },
+    "all-or-nothing": {
+      "score": 50.0,
+      "populations": {
+        "initial-population": 4,
+        "denominator": 4,
+        "numerator": 2
+      },
+      "_why": "p1 (50y): A met, excluded from B → counts; p2 (40y): both met → counts; p3 (30y): A not met; p4 (20y): neither → 2 / 4"
+    },
+    "linear": {
+      "score": 62.5,
+      "populations": {
+        "initial-population": 4,
+        "denominator": 4
+      },
+      "_why": "per patient share of met eligible components: p1 1/1, p2 2/2, p3 1/2, p4 0/2 → mean 0.625"
+    },
+    "weighted": {
+      "score": 54.167,
+      "populations": {
+        "initial-population": 8,
+        "denominator": 8,
+        "denominator-exclusion": 1,
+        "numerator": 4
+      },
+      "_why": "A 50 % × 3 + B 66.667 % × 1 over 4"
+    }
+  },
+  "_note": "PAT-259 composite measures (MADiE gap item 16). Two raw proportion measures over the scenario-31 patients (ages 50 / 40 / 30 / 20 / 10 / 5 at the period end) are created and approved, then one composite per QM IG scoring method is created with their ids, approved (PAT-249 readiness checks the components, not CQL) and evaluated; lib/assert-composite.sh checks the composite-summary group's score and populations and that componentScores lists both components. all-or-nothing and linear run the components as subject-list reports behind the scenes."
+}

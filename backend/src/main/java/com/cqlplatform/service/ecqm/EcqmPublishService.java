@@ -107,7 +107,7 @@ public class EcqmPublishService {
             boolean sameVersion = Objects.equals(ecqm.getVersion(), previous.getVersion());
             boolean logicChanged = !sameVersion || com.cqlplatform.service.measure.MeasureLogic.changed(previous,
                     buildResult.cql(), groupDefs, ecqm.getScoringType(), previous.getCompositeScoring(),
-                    previous.getComponentMeasureIdList(), libraryId);
+                    previous.getComponentMeasureIdList(), libraryId, previous.getValueSetVersionMap());
             if (!logicChanged) {
                 measureDef = previous; // descriptive metadata only; status untouched
             } else if (MeasureStatusConstants.IN_REVIEW.equals(previous.getStatus())) {

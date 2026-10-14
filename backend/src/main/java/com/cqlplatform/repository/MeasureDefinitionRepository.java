@@ -8,7 +8,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefinitionEntity, Long> {
+public interface MeasureDefinitionRepository extends JpaRepository<MeasureDefinitionEntity, Long>,
+        org.springframework.data.jpa.repository.JpaSpecificationExecutor<MeasureDefinitionEntity> {
 
     Optional<MeasureDefinitionEntity> findByNameAndVersion(String name, String version);
 

@@ -69,6 +69,10 @@ public class MeasureEvaluationService {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private MeasureReportService measureReportService;
 
+    /** PAT-260: resolves which platform value set version each reference used (report provenance); optional in tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private Timer measureEvaluationTimer;
 
@@ -213,6 +217,7 @@ public class MeasureEvaluationService {
 
             // 4. Build final result
             MeasureEvaluationResult result = buildResult(context, state, patients.size());
+            attachTerminologyVersions(result, context, pt);   // PAT-260 provenance
             stopTimer(sample);
 
             // 5. Auto-save report
@@ -278,6 +283,9 @@ public class MeasureEvaluationService {
                 ? def.getGroupDefinitions()
                 : List.of();
         Map<String, Map<String, Integer>> perGroupCounts = new LinkedHashMap<>();
+        // PAT-259: a subject-list report also records WHICH patients each population counted
+        boolean trackSubjects = "subject-list".equals(context.getReportType());
+        Map<String, Map<String, Set<String>>> perGroupSubjects = new LinkedHashMap<>();
         if (groupDefs.isEmpty()) {
             perGroupCounts.put(DEFAULT_GROUP_ID, isCv
                     ? populationEvaluator.initializeCvPopulationCounts()
@@ -411,6 +419,14 @@ public class MeasureEvaluationService {
                     PopulationEvaluator.PatientContribution contribution =
                             populationEvaluator.contributeToGroup(scoringType, groupDefs, g, results);
                     addCounts(counts, contribution.counts());
+                    if (trackSubjects) {
+                        Map<String, Set<String>> subjects = perGroupSubjects.computeIfAbsent(gid, k -> new LinkedHashMap<>());
+                        for (Map.Entry<String, Integer> e : contribution.counts().entrySet()) {
+                            if (e.getValue() != null && e.getValue() > 0) {
+                                subjects.computeIfAbsent(e.getKey(), k -> new java.util.TreeSet<>()).add(pr.patientId());
+                            }
+                        }
+                    }
                     if (isCv) {
                         // Per-group CV observations: write to the per-group bucket so
                         // buildMultiGroupResult can compute each group's score independently.
@@ -471,7 +487,7 @@ public class MeasureEvaluationService {
             }
         }
 
-        return new AggregationState(perGroupCounts, customExpressions, perGroupStratData,
+        return new AggregationState(perGroupCounts, perGroupSubjects, customExpressions, perGroupStratData,
                 errorCount, observationValues, observationValuesByGroup, fhirOutageError,
                 supplementalDataEvaluator.build(declaredSde, supplementalDistributions),
                 List.copyOf(warnings));
@@ -508,6 +524,10 @@ public class MeasureEvaluationService {
         // Phase 1: carry the authenticated EHR connection through so the measure evaluates
         // against the clinic's own secured FHIR server (doExecutePreTranslated resolves it).
         execRequest.setConnectionId(context.getConnectionId());
+        // PAT-260: the measure's terminology pins apply to references whose CQL names no version
+        if (context.getMeasureDefinition() != null) {
+            execRequest.setValueSetVersions(context.getMeasureDefinition().getValueSetVersions());
+        }
 
         Map<String, Object> parameters = new HashMap<>();
         parameters.put("Measurement Period",
@@ -586,18 +606,18 @@ public class MeasureEvaluationService {
         }
 
         List<PopulationResult> populations = new ArrayList<>();
-        populations.add(populationResult(INITIAL_POPULATION, counts.get("Initial Population")));
-        populations.add(populationResult(DENOMINATOR, counts.get("Denominator")));
+        populations.add(populationResult(INITIAL_POPULATION, counts.get("Initial Population"), primarySubjects(state, "Initial Population")));
+        populations.add(populationResult(DENOMINATOR, counts.get("Denominator"), primarySubjects(state, "Denominator")));
 
         if (counts.get("Denominator Exclusions") > 0)
-            populations.add(populationResult(DENOMINATOR_EXCLUSION, counts.get("Denominator Exclusions")));
+            populations.add(populationResult(DENOMINATOR_EXCLUSION, counts.get("Denominator Exclusions"), primarySubjects(state, "Denominator Exclusions")));
         if (counts.get("Denominator Exceptions") > 0)
-            populations.add(populationResult(DENOMINATOR_EXCEPTION, counts.get("Denominator Exceptions")));
+            populations.add(populationResult(DENOMINATOR_EXCEPTION, counts.get("Denominator Exceptions"), primarySubjects(state, "Denominator Exceptions")));
 
-        populations.add(populationResult(NUMERATOR, counts.get("Numerator")));
+        populations.add(populationResult(NUMERATOR, counts.get("Numerator"), primarySubjects(state, "Numerator")));
 
         if (counts.get("Numerator Exclusions") > 0)
-            populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions")));
+            populations.add(populationResult(NUMERATOR_EXCLUSION, counts.get("Numerator Exclusions"), primarySubjects(state, "Numerator Exclusions")));
 
         // Check for ratio with observation values (rate-based scoring like "per 1,000 person-years")
         boolean hasObservations = !state.observationValues.isEmpty();
@@ -799,7 +819,7 @@ public class MeasureEvaluationService {
                 for (var popDef : groupDef.getPopulations()) {
                     String canonical = canonicalPopulationName(popDef.getPopulationType());
                     Integer count = counts.getOrDefault(canonical, 0);
-                    populations.add(populationResult(popDef.getPopulationType(), count));
+                    populations.add(populationResult(popDef.getPopulationType(), count, subjectsOf(state, gid, canonical)));
                 }
             }
 
@@ -888,11 +908,31 @@ public class MeasureEvaluationService {
     }
 
     private static PopulationResult populationResult(String type, Integer count) {
+        return populationResult(type, count, null);
+    }
+
+    /** PAT-259: with the subject ids when the report tracked them (subject-list), null otherwise. */
+    private static PopulationResult populationResult(String type, Integer count, Set<String> subjects) {
         return PopulationResult.builder()
                 .populationType(type)
                 .populationId(type)
                 .count(count)
+                .subjectIds(subjects == null ? null : new ArrayList<>(subjects))
                 .build();
+    }
+
+    /** PAT-260/259: the single-group builders read the first (only) group's subject lists, like primaryGroupCounts. */
+    private static Set<String> primarySubjects(AggregationState state, String canonicalPopulation) {
+        if (state.populationSubjects() == null || state.populationSubjects().isEmpty()) return null;
+        Map<String, Set<String>> group = state.populationSubjects().values().iterator().next();
+        return group.getOrDefault(canonicalPopulation, Set.of());
+    }
+
+    private static Set<String> subjectsOf(AggregationState state, String gid, String canonicalPopulation) {
+        if (state.populationSubjects() == null) return null;
+        Map<String, Set<String>> group = state.populationSubjects().get(gid);
+        if (group == null) return null;
+        return group.getOrDefault(canonicalPopulation, Set.of());
     }
 
     /**
@@ -938,6 +978,24 @@ public class MeasureEvaluationService {
                 .build();
     }
 
+    /**
+     * PAT-260: records which version of every referenced value set this run resolved (CQL version, else the
+     * measure's pin, else the newest active; {@code external} when the platform does not own it).
+     */
+    private void attachTerminologyVersions(MeasureEvaluationResult result, MeasureEvaluationContext context,
+                                           CqlExecutionService.PreTranslatedContext preTranslated) {
+        if (preTranslated == null || platformValueSets == null) return;
+        try {
+            var uses = com.cqlplatform.service.terminology.TerminologyPins.valueSetsOf(preTranslated.elmLibrary());
+            if (uses.isEmpty()) return;
+            Map<String, String> pins = context.getMeasureDefinition() != null ? context.getMeasureDefinition().getValueSetVersions() : null;
+            Long tenantId = platformValueSets.lookupTenantId().orElse(null);
+            result.setTerminologyVersions(com.cqlplatform.service.terminology.TerminologyPins.provenance(uses, pins, tenantId, platformValueSets));
+        } catch (Exception e) {
+            log.warn("Could not record the terminology versions of this evaluation", e);
+        }
+    }
+
     private void autoSaveReport(MeasureEvaluationResult result, Long measureDefinitionId,
                                 String fhirServerUrl, long durationMs) {
         if (measureReportService == null) return;
@@ -969,6 +1027,9 @@ public class MeasureEvaluationService {
      */
     private record AggregationState(
             Map<String, Map<String, Integer>> populationCounts,
+            /** PAT-259: subject ids per group → canonical population; filled only for a subject-list report
+             *  (a composite's all-or-nothing / linear scoring needs them; summary reports stay light). */
+            Map<String, Map<String, Set<String>>> populationSubjects,
             Map<String, Object> customExpressions,
             /** BUG #474 follow-up: per-group stratification data so multi-group stratifiers
              *  don't cross-contaminate. Outer key is groupId, then the standard
