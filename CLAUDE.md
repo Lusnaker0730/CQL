@@ -137,6 +137,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 ### Backend 模式
 - **量耗時用 `util/Stopwatch`（`System.nanoTime()`），不要 `System.currentTimeMillis()` 相減**（BUG-145）：牆上時鐘在執行期間會被 NTP / VM 校時往回調，相減會得到負值。`measure_report.evaluation_duration_ms` 有 CHECK `>= 0`，負值曾讓整份評估報表被資料庫拒絕，而評估 API 照樣回 200。會被**儲存**的耗時尤其要用單調時鐘
 - **附屬資訊不得拖垮紀錄**：`MeasureReportService.saveReport` 對無法成立的耗時存 NULL（未知），不存 0、不讓 insert 失敗
+- **JPA 實體的 JSON 欄位 + `@Transient` list / map（`MeasureDefinitionEntity` 的 groupDefinitionList、sharedWithList、componentWeightMap、valueSetVersionMap…）只在 `@PrePersist` / `@PreUpdate` 序列化，而 Hibernate 只有在某個「持久欄位」有變時才會發 UPDATE 並觸發 `@PreUpdate`**——一個 save 只改了 transient map 會什麼都沒寫（PAT-260 的釘選在 smoke 45 就這樣消失）。只改這類欄位的路徑要用 `applyValueSetVersions` / `applyComponentWeights` 這種「同時寫欄位」的方法，不要只 set transient
 - Controller → Service → Repository 分層架構
 - Service 層**禁止使用** HTTP 概念 (`HttpServletRequest`, `@ResponseStatus`)
 - 使用 `@RequiredArgsConstructor` + `final` 欄位做依賴注入，不用 `@Autowired`
