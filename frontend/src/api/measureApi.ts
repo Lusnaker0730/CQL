@@ -31,6 +31,7 @@ import type {
   MeasureClauseCoverage,
 } from '../types'
 import { api } from './client'
+import type { MeasurePage, MeasurePageParams } from '../types'
 
 const exportBlob = async (
   id: number,
@@ -76,6 +77,20 @@ export const measureApi = {
     if (search) params.search = search
     if (department) params.department = department
     const response = await api.get<MeasureDefinition[]>('/measures', { params })
+    return response.data
+  },
+
+  /** PAT-257: one server page of the list — filters, scope, sort and paging as query params. */
+  getMeasurePage: async (params: MeasurePageParams): Promise<MeasurePage> => {
+    const query: Record<string, string | number> = {}
+    if (params.search) query.search = params.search
+    if (params.department) query.department = params.department
+    if (params.statuses?.length) query.status = params.statuses.join(',')
+    if (params.scope) query.scope = params.scope
+    if (params.sort) query.sort = params.sort
+    if (params.page !== undefined) query.page = params.page
+    if (params.size !== undefined) query.size = params.size
+    const response = await api.get<MeasurePage>('/measures/page', { params: query })
     return response.data
   },
 

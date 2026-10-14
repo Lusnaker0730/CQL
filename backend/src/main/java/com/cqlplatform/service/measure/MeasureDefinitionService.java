@@ -26,6 +26,9 @@ import java.util.stream.Collectors;
 
 import com.cqlplatform.model.measure.ScoringTypeConstants;
 import static com.cqlplatform.model.measure.MeasureStatusConstants.*;
+import com.cqlplatform.model.measure.MeasureListQuery;
+import com.cqlplatform.model.measure.MeasurePage;
+import com.cqlplatform.model.measure.MeasureStatusConstants;
 
 @Service
 @RequiredArgsConstructor
@@ -277,6 +280,42 @@ public class MeasureDefinitionService {
         return entities.stream()
                 .map(this::entityToModel)
                 .collect(Collectors.toList());
+    }
+
+    /** PAT-257: sortable properties of the list page (entity property names). */
+    static final Map<String, String> LIST_SORT_FIELDS = Map.of(
+            "name", "name", "title", "title", "version", "version", "status", "status", "scoringType", "scoringType",
+            "department", "department", "ownerUsername", "ownerUsername", "createdAt", "createdAt", "updatedAt", "updatedAt");
+    private static final java.util.Set<String> LIST_STATUSES = java.util.Set.of(
+            MeasureStatusConstants.DRAFT, MeasureStatusConstants.IN_REVIEW, MeasureStatusConstants.ACTIVE, MeasureStatusConstants.RETIRED);
+
+    /**
+     * PAT-257: one page of the tenant's measures, filtered and sorted on the server. Statuses are validated
+     * against the lifecycle states and the sort field against {@link #LIST_SORT_FIELDS}; the id is the
+     * tie-breaker so paging stays stable when the sort key repeats.
+     */
+    @Transactional(readOnly = true)
+    public MeasurePage listPage(MeasureListQuery query, int page, int size, String sortField, boolean descending) {
+        String property = LIST_SORT_FIELDS.get(sortField == null || sortField.isBlank() ? "updatedAt" : sortField);
+        if (property == null) throw new ValidationException("Unsupported sort field: " + sortField);
+        if (query.statuses() != null) {
+            for (String s : query.statuses()) {
+                if (!LIST_STATUSES.contains(s)) throw new ValidationException("Unknown status: " + s);
+            }
+        }
+        org.springframework.data.domain.Sort sort = org.springframework.data.domain.Sort
+                .by(descending ? org.springframework.data.domain.Sort.Direction.DESC : org.springframework.data.domain.Sort.Direction.ASC, property)
+                .and(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.ASC, "id"));
+        org.springframework.data.domain.Page<MeasureDefinitionEntity> result = repository.findAll(
+                MeasureSpecifications.list(effectiveTenantId(), query),
+                org.springframework.data.domain.PageRequest.of(Math.max(0, page), Math.clamp(size, 1, 200), sort));
+        return MeasurePage.builder()
+                .content(result.getContent().stream().map(this::entityToModel).toList())
+                .page(result.getNumber())
+                .size(result.getSize())
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .build();
     }
 
     @Transactional

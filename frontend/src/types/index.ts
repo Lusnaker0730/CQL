@@ -1466,6 +1466,27 @@ export interface AuditLogEntry {
   createdAt: string
 }
 
+/** PAT-257: one server page of the measure list. */
+export interface MeasurePage {
+  content: MeasureDefinition[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+export type MeasureListScope = 'all' | 'mine' | 'shared' | 'public'
+export type MeasureListSortField = 'updatedAt' | 'createdAt' | 'name' | 'status' | 'scoringType' | 'department'
+export interface MeasurePageParams {
+  search?: string
+  department?: string
+  statuses?: string[]
+  scope?: MeasureListScope
+  /** `field,asc|desc` */
+  sort?: string
+  page?: number
+  size?: number
+}
+
 export interface AuditLogResponse {
   content: AuditLogEntry[]
   page: number

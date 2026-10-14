@@ -82,7 +82,8 @@
       "all": "全部 ({{count}})",
       "myMeasures": "我的指標",
       "sharedWithMe": "與我共享",
-      "public": "公開"
+      "public": "公開",
+      "allNoCount": "全部"
     },
     "tableHeaders": {
       "name": "名稱",
@@ -143,7 +144,20 @@
       "exportError": "匯出失敗：{{error}}",
       "uploadFile": "上傳檔案",
       "orPaste": "或在下方貼上 JSON"
-    }
+    },
+    "allStatuses": "全部狀態",
+    "statusFilter": "狀態",
+    "sortBy": "排序",
+    "sortOptions": {
+      "updatedAt": "最近更新",
+      "createdAt": "最近建立",
+      "name": "名稱",
+      "status": "狀態",
+      "scoringType": "評分",
+      "department": "科別"
+    },
+    "rowsPerPage": "每頁筆數",
+    "displayedRows": "{{from}}–{{to}}，共 {{count}} 筆"
   },
   "editor": {
     "lockedWarning": "已被 {{user}} 鎖定，無法編輯。",

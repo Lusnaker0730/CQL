@@ -206,4 +206,45 @@ class MeasureControllerTest {
         when(ecqmPublishService.builderSourceOf(5L)).thenReturn(Optional.empty());
         mockMvc.perform(get("/api/measures/5/builder-source")).andExpect(status().isNoContent());
     }
+
+    // ===== PAT-257 — the paged list: filters, scope, sort and paging as query params =====
+
+    @Test
+    @WithMockUser(username = "alice")
+    void listMeasuresPage_passesFiltersScopeSortAndPaging() throws Exception {
+        when(definitionService.listPage(any(), eq(1), eq(10), eq("name"), eq(false)))
+                .thenReturn(com.cqlplatform.model.measure.MeasurePage.builder()
+                        .content(List.of(MeasureDefinition.builder().id(7L).name("A").version("1.0.0")
+                                .status("draft").scoringType("proportion").build()))
+                        .page(1).size(10).totalElements(11).totalPages(2).build());
+
+        mockMvc.perform(get("/api/measures/page")
+                        .param("status", "draft,active").param("scope", "mine").param("sort", "name,asc")
+                        .param("page", "1").param("size", "10").param("search", "hb"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(11))
+                .andExpect(jsonPath("$.totalPages").value(2))
+                .andExpect(jsonPath("$.content[0].id").value(7));
+
+        org.mockito.ArgumentCaptor<com.cqlplatform.model.measure.MeasureListQuery> q =
+                org.mockito.ArgumentCaptor.forClass(com.cqlplatform.model.measure.MeasureListQuery.class);
+        verify(definitionService).listPage(q.capture(), eq(1), eq(10), eq("name"), eq(false));
+        org.assertj.core.api.Assertions.assertThat(q.getValue().statuses()).containsExactly("draft", "active");
+        org.assertj.core.api.Assertions.assertThat(q.getValue().scope()).isEqualTo(com.cqlplatform.model.measure.MeasureListQuery.Scope.MINE);
+        org.assertj.core.api.Assertions.assertThat(q.getValue().search()).isEqualTo("hb");
+        org.assertj.core.api.Assertions.assertThat(q.getValue().username()).isEqualTo("alice");
+    }
+
+    @Test
+    @WithMockUser
+    void listMeasuresPage_defaultsToNewestFirst_andRejectsABadDirectionOrScope() throws Exception {
+        when(definitionService.listPage(any(), eq(0), eq(25), eq("updatedAt"), eq(true)))
+                .thenReturn(com.cqlplatform.model.measure.MeasurePage.builder().content(List.of()).totalElements(0).build());
+        mockMvc.perform(get("/api/measures/page")).andExpect(status().isOk());
+        verify(definitionService).listPage(any(), eq(0), eq(25), eq("updatedAt"), eq(true));
+
+        mockMvc.perform(get("/api/measures/page").param("sort", "name,sideways")).andExpect(status().isBadRequest());
+        mockMvc.perform(get("/api/measures/page").param("scope", "everyone")).andExpect(status().isBadRequest());
+        verify(definitionService, times(1)).listPage(any(), anyInt(), anyInt(), any(), anyBoolean());
+    }
 }

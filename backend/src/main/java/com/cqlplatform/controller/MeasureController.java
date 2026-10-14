@@ -141,6 +141,40 @@ public class MeasureController {
         return ResponseEntity.ok(measures);
     }
 
+    /**
+     * PAT-257: the list page the UI uses — filters, scope tabs, sort and paging as query parameters, with the
+     * total so the client can page. {@code sort} = {@code field[,asc|desc]} (date fields default to desc);
+     * {@code status} = comma-separated lifecycle states; {@code scope} = all | mine | shared | public.
+     */
+    @GetMapping("/page")
+    @Operation(summary = "List Measures (paged)", description = "One page of measure definitions filtered by search / department / status / scope and sorted on the server. sort=field[,asc|desc]; status=draft,active; scope=all|mine|shared|public.")
+    public ResponseEntity<MeasurePage> listMeasuresPage(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) String department,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false, defaultValue = "all") String scope,
+            @RequestParam(required = false, defaultValue = "updatedAt,desc") String sort,
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "25") int size) {
+        List<String> statuses = status == null || status.isBlank() ? List.of()
+                : java.util.Arrays.stream(status.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList();
+        String[] sortParts = sort.split(",", 2);
+        String field = sortParts[0].trim();
+        boolean descending;
+        if (sortParts.length < 2 || sortParts[1].isBlank()) {
+            descending = "updatedAt".equals(field) || "createdAt".equals(field);
+        } else if ("asc".equalsIgnoreCase(sortParts[1].trim())) {
+            descending = false;
+        } else if ("desc".equalsIgnoreCase(sortParts[1].trim())) {
+            descending = true;
+        } else {
+            throw new ValidationException("Unsupported sort direction: " + sortParts[1]);
+        }
+        MeasureListQuery query = new MeasureListQuery(search, department, statuses,
+                MeasureListQuery.Scope.parse(scope), ownershipVerifier.getCurrentUsername());
+        return ResponseEntity.ok(definitionService.listPage(query, page, size, field, descending));
+    }
+
     @GetMapping("/{id}")
     @Operation(summary = "Get Measure", description = "Get a measure definition by ID")
     public ResponseEntity<MeasureDefinition> getMeasure(@PathVariable Long id) {

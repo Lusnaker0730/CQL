@@ -82,7 +82,8 @@
       "all": "All ({{count}})",
       "myMeasures": "My Measures",
       "sharedWithMe": "Shared with Me",
-      "public": "Public"
+      "public": "Public",
+      "allNoCount": "All"
     },
     "tableHeaders": {
       "name": "Name",
@@ -143,7 +144,20 @@
       "exportError": "Export failed: {{error}}",
       "uploadFile": "Upload File",
       "orPaste": "or paste JSON below"
-    }
+    },
+    "allStatuses": "All statuses",
+    "statusFilter": "Status",
+    "sortBy": "Sort by",
+    "sortOptions": {
+      "updatedAt": "Last updated",
+      "createdAt": "Newest",
+      "name": "Name",
+      "status": "Status",
+      "scoringType": "Scoring",
+      "department": "Department"
+    },
+    "rowsPerPage": "Rows per page",
+    "displayedRows": "{{from}}–{{to}} of {{count}}"
   },
   "editor": {
     "lockedWarning": "Locked by {{user}}. Editing disabled.",
