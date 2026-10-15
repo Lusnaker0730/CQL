@@ -86,6 +86,7 @@ backend/src/main/resources/
   application.yml  — 主配置
 
 scripts/smoke/     — 本機 / CI 整合 smoke harness (47 scenarios)
+scripts/load/      — k6 負載測試 harness（PAT-266：合成世代 500～10 000 病人、scale + concurrency、答案須等於 oracle；`workflow_dispatch` 才跑）
 ```
 
 ## 開發指令
@@ -117,7 +118,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-264 / BUG-149
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-266 / BUG-152
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -145,6 +146,8 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - 拋出領域例外（`ResourceNotFoundException`, `ValidationException`, `MeasureNotEvaluableException` 等），GlobalExceptionHandler 統一處理（對照表見 `backend/CLAUDE.md`）
 - CQL 產生：`CqlArtifactBuilder` 組裝 context Map → 呼叫 FreeMarker 模板
 - **指標邏輯只能在 draft 改（BUG-147）**：`MeasureLogic.changed`（CQL + group definitions 經 `PublishedContent.hash` 正規化比對、scoring、composite、components、cqlLibraryId）——`update()` 對非 draft 的邏輯變更丟 `MeasureLogicLockedException`（409 `Measure Logic Locked`），說明類 metadata 照常可改。eCQM **publish 從不把指標設 active**：第一次發布建 draft；draft 就地更新；已核准 / 退役的邏輯有變 → `MeasureDefinitionService.createVersionAs` 建新 draft 版本（版本號遞增、artifact 版本跟著改、以新版本重新驗證 CQL），舊版本照常運作；審核中的邏輯有變 → 409。`approveMeasure` 會把同名其他 active 版本退役（稽核 `SUPERSEDE`）並把排程改指新版本。smoke `save-and-publish.sh` 斷言發布為 draft 後走 `approve-measure.sh`
+- **bulk fetch 分批 × 逐頁（BUG-151，PAT-266 負載測試 500 人就抓到）**：`FhirDataProviderService.bulkFetchAllPatients` 以前每種資源型別一條 GET 把**全部**病人 id 串在 query string，約 370 個病人就超過 HAPI 的 request-line 上限回 400，評估整個以「FHIR 伺服器不可用」中止；而且只讀第一頁，伺服器夾 `_count` 時資源靜默少掉。現在 id 以 `fhir.bulk-fetch.batch-size`（預設 100）分批、每個搜尋沿 `next` 讀到最後一頁、Patient 的 batch GET 也分批；fail-loud 規則不變。**任何對 FHIR 的搜尋都要跟 `next` link**（`getAllPatientIds` 一直都有），別信 `_count`
+- **翻譯前預載 model、評估不巢狀進池、逾時 = 錯誤（BUG-152，PAT-266 concurrency 抓到）**：`LibraryManagerFactory.sharedModelManager` 全程序共用而 cql-to-elm 的 model 載入不是 thread-safe，開機後同時開始的翻譯會互相「Circular model reference FHIR」全倒；現在 `init()` 暖機 System + FHIR 4.0.1，每個 `CqlTranslator.fromText` 前都要先 `LibraryManagerFactory.ensureModelsLoaded(cql)`（依 `using` 宣告在全域鎖內預載）。**在 `cqlExecutionExecutor` 的執行緒上不可呼叫 `CqlExecutionService.execute()`**（它 submit 到同一個池再等 → 池飢餓，1 000 人評估拖到 15 分鐘）——池內要用 `executeInline`。評估的預翻譯失敗直接回 `status: error`；整體逾時也回錯誤（訊息含未評估人數），**不再回部分報表**；PAT-140 的 `errorThresholdRatio` 只管個別病人的資料錯誤。3 個並發 1 000 人評估會逼近 backend 1.5 GB 記憶體上限（未處理，容量規劃）
 - **儲存指標的評估一律經 `MeasureEvaluationService.evaluateMeasure(request, id, def)`**（3-arg overload）：`MeasureStatusGuard` 在此只放行 `active`（PAT-219）。新增評估路徑不要繞過這個 overload，否則守門會漏
 
 ### CQL 執行（BUG-107 規範）
@@ -223,6 +226,7 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 
 ### 測試
 - Backend: JUnit 5 + Mockito，157 個測試檔案（36 個 `@SpringBootTest`，其餘純 Mockito）
+- **Property / fuzz（PAT-265）**：`testsupport/Fuzz.forAll(seed, tries, generator, property)` 是純 JUnit 5 的種子式 harness（不用 jqwik：1.10.x 綁 JUnit Platform 1.14，專案是 Boot 4.1 的 Platform 6.0）。每個 try 自己的 `Random(seed + i)`，失敗訊息附 seed 與輸入，`mvn test -Dtest=XxxFuzzTest -Dfuzz.seed=<seed> -Dfuzz.tries=1` 重現、加大 `-Dfuzz.tries` 搜更深。`CqlEngineFuzzTest`（隨機形狀的病人走 `translateOnce` + `executeWithPreTranslated` + `PrefetchRetrieveProvider`——與 `$evaluate-measure` 同一條路——和 Java oracle 比對，鎖 PAT-231 這類「值模型換了、母群靜默清空」）、`PopulationEvaluatorFuzzTest`（母群集合代數）、`MeasureScoreCalculatorPropertyTest`、`ValueKeysPropertyTest`、`PublishedContentPropertyTest`、`DateShiftServicePropertyTest`（抓到 BUG-150）、`CqlValuesPropertyTest`。**新的不變量優先寫成 property**（產生器要知道自己種了什麼），固定答案留給 golden 測試
 - Frontend: Vitest + React Testing Library，122 個測試檔案
 - 型別安全: 修改 tsx 後執行 `npx tsc --noEmit` 驗證
 - 目前**沒有** coverage 門檻（jacoco 無 `check`、vitest 無 `thresholds`）、沒有 E2E；整合面靠下面的 smoke harness
@@ -234,6 +238,25 @@ scripts/smoke/run.sh 31-*     # 單一 scenario（glob）
 scripts/smoke/run.sh --keep   # debug 時保留 stack
 ```
 47 個 scenario：每個 scoring type 一個 canonical scenario（proportion/ratio/CV/cohort）+ CDS hooks + CQL execute debug/error 契約 + authoring CQL 生成 + measure 生命週期守門 + 測試案例結構化期望值 + 逐子句覆蓋率 + 值型分層 + 補充資料分布 + 多元件分層 + 程式庫函式呼叫 + episode 計數與指標層級測量期間 + 審核門檻與四眼 + 指標集血統與編輯鎖 + 複合指標四種計分法（PAT-259，scenario 44）+ 術語釘選（PAT-260，scenario 45：釘選的指標在 value set 升版後分數不動、floating 的跟著走）+ 審核留言串與指定審核者（PAT-262，scenario 46：指定即分享、只有指定審核者能核准、要求修改退回草稿、重送重設意見）+ CV Percentile 聚合（PAT-264，scenario 47：P90 = 9.2）+ 合成病人世代（PAT-255：120 個由平台自己的 TW Core 產生器以固定種子產生的病人，`expected.json` 是 TypeScript 算的 oracle；改了產生器或 `config/twcore/*.json` 要在 `frontend/` 跑 `npm run gen:cohort` 重產 fixture，`syntheticCohort.test.ts` 會以 `fixtureSha256` 擋住漂移），走完整 save → publish → evaluate pipeline 打真 Docker 堆疊。單元測試全綠 ≠ 整合工作 — 這 harness 擋 BUG-110/111/#230 這類「翻譯後才爆」家族。詳情見 `scripts/smoke/README.md`。需要 Docker Desktop 在跑。Harness 在跑 scenario 之前有**開機檢查**（BUG-144）：後端容器只要重啟過一次就直接失敗——`restart: unless-stopped` 會讓「第一次開機崩潰」看起來完全正常，`DataInitializer` 的示範指標 insert 就這樣在空資料庫上崩潰而沒人發現（依程式碼推論自 2026-07 的 V61 起）；`DataInitializer` 只在 `dev` / `docker` profile 執行，H2 測試碰不到它。PAT-220 起 CI 也跑（`.github/workflows/smoke.yml`：backend / docker / smoke 變更的 PR 與 main push），本機跑不了時至少 PR 上會看到。
+
+### 負載測試（PAT-266，`scripts/load/`，不是 PR gate）
+```bash
+scripts/load/run.sh                              # 500 + 1 000 人 ladder + 1 000 人 concurrency（~10–15 min）
+LOAD_PATIENTS=10000 scripts/load/run.sh          # 整條 ladder 到 10 000 人
+SMOKE_SKIP_BUILD=1 BACKEND_IMAGE_TAG=smoke-local LOAD_PG_PORT=19532 scripts/load/run.sh   # 本機慣用（19432 被別的程式佔著）
+```
+平台自己的 TW Core 產生器（PAT-255）以固定種子產生 10 000 人（`frontend/src/utils/loadCohort.ts`，`npm run gen:load-cohort`，gitignored ~66 MB，`run.sh` 缺檔自動產生），切 100 人一個 transaction bundle，`expected.json` 帶每個 checkpoint 前綴的示範指標 oracle。堆疊是 compose project `load`（19xxx port）疊 smoke overlay + `scripts/load/compose.override.yml`，**資源上限預設 = 正式機**（backend 2 CPU / 1.5 GB、HAPI 1 CPU / 2 GB、`measure-timeout-seconds` 120）；灌資料時 `docker update` 暫時放寬 HAPI CPU（1 核每秒只吃 ~50 筆資源），每次 k6 前降回。k6 以 `grafana/k6` 映像跑在堆疊網路內，`scale` profile 逐 checkpoint 評估兩次、**答案必須等於 oracle**，`concurrency` profile 3 個評估 + 5 個 CQL 執行 + 10 個瀏覽使用者 3 分鐘。GitHub 上是 `Load Test` workflow（`workflow_dispatch`）。**2026-10-15 實測（本機 8 核，正式機上限）**：
+
+| 病人數 | 資源數（世代） | 評估平均 | 最慢 | oracle |
+|---|---|---|---|---|
+| 500 | 5 131 | 15.7 s | 21.1 s | 相符 |
+| 1 000 | 10 196 | 16.2 s | 18.9 s | 相符 |
+| 2 000 | 20 491 | 21.9 s | 22.1 s | 相符 |
+| 5 000 | 51 255 | 43.6 s | 48.9 s | 相符 |
+| 10 000 | 102 501 | 178 s | 183 s | 相符（bulk fetch 134 s / 500 個請求；CQL 階段約 35 s）|
+
+**concurrency（1 000 人，3 個評估 + 5 個 CQL 執行 + 10 個瀏覽使用者，3 分鐘）**：修正 BUG-152 前三個評估各 ~15 分鐘、全部帶 errorCount 與錯分數；修正後評估平均 44 s（30–56 s）、全部等於 oracle，CQL 執行 p95 4.9 s（門檻 5 s，勉強），瀏覽 p95 0.2 s，4 493 個請求 0 失敗。
+第一次跑就在 500 人抓到 BUG-151（bulk fetch 把全部 id 塞進一條 GET → HAPI 400 → 評估中止）。10 000 人的 178 秒裡 bulk fetch 佔 134 秒（500 個循序請求，HAPI 1 核）——要再快就是批次平行化（尚未做）；`measure-timeout-seconds` 只管 CQL 執行階段，不含抓取。本機 HAPI 映像實測 `_count=5000` 對 3 236 筆一次回滿、沒有夾頁。以 VM 的 2 核推算會更慢（**推測**，VM 上未量測；也不該在正式機上灌一萬個假病人）。
 
 ## 關鍵檔案速查
 

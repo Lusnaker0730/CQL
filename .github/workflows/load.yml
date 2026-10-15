@@ -1,0 +1,122 @@
+name: Load Test
+
+# PAT-266 — the k6 load test (scripts/load) on demand. Not a PR gate: seeding thousands of patients
+# into HAPI and evaluating them takes tens of minutes, and the answer ("how big a clinic can one
+# evaluation handle on the production limits") changes with the engine, not with every commit.
+# Run it from the Actions tab before a release or after touching evaluation / bulk fetch / HAPI.
+
+on:
+  workflow_dispatch:
+    inputs:
+      patients:
+        description: 'Largest checkpoint to evaluate (500, 1000, 2000, 5000 or 10000 patients)'
+        required: true
+        default: '1000'
+      profile:
+        description: 'scale, concurrency, or scale,concurrency'
+        required: true
+        default: 'scale,concurrency'
+      measure_timeout_seconds:
+        description: 'cql.execution.measure-timeout-seconds for this run (production: 120)'
+        required: true
+        default: '120'
+
+concurrency:
+  group: load-test
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    name: k6 load test (Docker stack)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build backend image (GHA cache shared with the Docker Build / Smoke jobs)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          push: false
+          load: true
+          tags: ghcr.io/lusnaker0730/cql/backend:load
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Set up Node.js (cohort generator)
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Write throwaway docker/.env
+        shell: bash
+        run: |
+          # One-shot values generated per run; the stack is torn down at the end.
+          pg_pw=$(openssl rand -hex 16)
+          {
+            echo "BACKEND_IMAGE_TAG=load"
+            echo "POSTGRES_DB=cqlplatform"
+            echo "POSTGRES_USER=cqlplatform"
+            echo "POSTGRES_PASSWORD=${pg_pw}"
+            echo "DB_URL=jdbc:postgresql://postgres:5432/cqlplatform"
+            echo "DB_USERNAME=cqlplatform"
+            echo "DB_PASSWORD=${pg_pw}"
+            echo "JWT_SECRET=$(openssl rand -hex 48)"
+            echo "ENCRYPTION_KEY=$(openssl rand -hex 16)"
+            echo "FHIR_SERVER_URL=http://hapi-fhir:8080/fhir"
+            echo "FHIR_TERMINOLOGY_URL=http://tx.fhir.org/r4"
+            echo "APP_BASE_URL=http://localhost:19080"
+            echo "SMART_ISSUER=http://localhost:19080"
+            echo "SMART_AUTH_ENDPOINT=http://localhost:19080/api/auth/login"
+            echo "SMART_TOKEN_ENDPOINT=http://localhost:19080/api/auth/login"
+            echo "AI_PROVIDER=none"
+            echo "METRICS_SCRAPE_USER=prometheus"
+            echo "METRICS_SCRAPE_PASSWORD=$(openssl rand -hex 16)"
+            echo "GF_SECURITY_ADMIN_USER=admin"
+            echo "GF_SECURITY_ADMIN_PASSWORD=$(openssl rand -hex 12)"
+            echo "DB_APP_USERNAME=cqlplatform_app"
+            echo "DB_APP_PASSWORD=$(openssl rand -hex 16)"
+            echo "TENANT_RLS_STRICT=true"
+          } > docker/.env
+
+      - name: Run load test
+        shell: bash
+        env:
+          SMOKE_SKIP_BUILD: "1"
+          BACKEND_IMAGE_TAG: load
+          LOAD_PATIENTS: ${{ inputs.patients }}
+          LOAD_PROFILE: ${{ inputs.profile }}
+          LOAD_MEASURE_TIMEOUT_SECONDS: ${{ inputs.measure_timeout_seconds }}
+          LOAD_RESULTS_DIR: ${{ github.workspace }}/load-results
+          LOAD_BACKEND_HEALTH_TIMEOUT: "300"
+          LOAD_FHIR_HEALTH_TIMEOUT: "300"
+        run: bash scripts/load/run.sh
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f load-results/summary.md ]; then
+            cat load-results/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload results (k6 summaries, logs)
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: load-results
+          path: load-results/
+          if-no-files-found: ignore
+          retention-days: 30

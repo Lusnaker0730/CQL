@@ -28,3 +28,7 @@ regulatory_docs/snapshots/
 bug1.png
 CQL1.png
 nul
+
+# PAT-266 load test: generated cohort fixtures (tens of MB) and run results
+scripts/load/data/
+scripts/load/results/

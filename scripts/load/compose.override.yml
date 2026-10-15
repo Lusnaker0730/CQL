@@ -1,0 +1,35 @@
+# PAT-266 — overlay for the k6 load harness, stacked on top of scripts/smoke/compose.override.yml
+# (scripts/load/run.sh passes both, project name `load`). Ports in the 19xxx range so a smoke run
+# (18xxx) and a dev stack (8080) can coexist.
+#
+# Resource limits default to the PRODUCTION ones in docker/docker-compose.yml (backend 2 CPU / 1.5 GB,
+# HAPI 1 CPU / 2 GB — the VM's shape), so the numbers mean something for twcql.com; the LOAD_* variables
+# widen them deliberately when the question is "what would a bigger host do".
+services:
+  postgres:
+    ports: !override
+      - "${LOAD_PG_PORT:-19432}:5432"
+
+  backend:
+    ports: !override
+      - "${LOAD_BACKEND_PORT:-19080}:8080"
+    environment:
+      - APP_COMMIT_SHA=load-test
+      # cql.execution.measure-timeout-seconds has no env hook in application.yml; Spring resolves the
+      # @Value placeholder from this environment variable. Production is 120 s — leave the default to
+      # measure what production would do, raise it to learn how long a big cohort really takes.
+      - CQL_EXECUTION_MEASURE_TIMEOUT_SECONDS=${LOAD_MEASURE_TIMEOUT_SECONDS:-120}
+    deploy:
+      resources:
+        limits:
+          cpus: '${LOAD_BACKEND_CPUS:-2.0}'
+          memory: ${LOAD_BACKEND_MEMORY:-1.5G}
+
+  hapi-fhir:
+    ports: !override
+      - "${LOAD_FHIR_PORT:-19081}:8080"
+    deploy:
+      resources:
+        limits:
+          cpus: '${LOAD_HAPI_CPUS:-1.0}'
+          memory: ${LOAD_HAPI_MEMORY:-2G}
