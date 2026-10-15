@@ -636,18 +636,20 @@ public class MeasureEvaluationService {
                 }
             }
             String aggregateMethod = "sum";
+            Double percentile = null;
             if (def != null && def.getGroupDefinitions() != null && !def.getGroupDefinitions().isEmpty()) {
                 GroupDefinition group = def.getGroupDefinitions().get(0);
                 if (group.getObservations() != null && !group.getObservations().isEmpty()) {
                     String method = group.getObservations().get(0).getAggregateMethod();
                     if (method != null && !method.isBlank()) aggregateMethod = method;
+                    percentile = group.getObservations().get(0).getPercentileValue();   // PAT-264
                 }
             }
             Double obsSum = state.observationValues.stream().mapToDouble(Double::doubleValue).sum();
             measureScore = scoreCalculator.calculateRateScore(
                     counts.get("Numerator"), obsSum, rateMultiplier);
             obsStats = scoreCalculator.computeObservationStats(
-                    state.observationValues, aggregateMethod, scoringUnit);
+                    state.observationValues, aggregateMethod, percentile, scoringUnit);
             scoreUnit = scoringUnit != null ? scoringUnit : "per " + (int) rateMultiplier;
         } else {
             // Ratio (without observations) and proportion diverge here: ratio allows the
@@ -749,6 +751,7 @@ public class MeasureEvaluationService {
         }
 
         String aggregateMethod = "average";
+        Double percentile = null;
         String scoringUnit = null;
         if (def != null && def.getGroupDefinitions() != null && !def.getGroupDefinitions().isEmpty()) {
             GroupDefinition group = def.getGroupDefinitions().get(0);
@@ -756,6 +759,7 @@ public class MeasureEvaluationService {
             if (group.getObservations() != null && !group.getObservations().isEmpty()) {
                 String method = group.getObservations().get(0).getAggregateMethod();
                 if (method != null && !method.isBlank()) aggregateMethod = method;
+                percentile = group.getObservations().get(0).getPercentileValue();   // PAT-264
             }
         }
 
@@ -763,7 +767,7 @@ public class MeasureEvaluationService {
         Double measureScore = null;
         if (!state.observationValues.isEmpty()) {
             obsStats = scoreCalculator.computeObservationStats(
-                    state.observationValues, aggregateMethod, scoringUnit);
+                    state.observationValues, aggregateMethod, percentile, scoringUnit);
             measureScore = obsStats.getAggregateValue();
         }
 
@@ -832,14 +836,16 @@ public class MeasureEvaluationService {
                 List<Double> groupObsValues = state.observationValuesByGroup
                         .getOrDefault(gid, List.of());
                 String aggregateMethod = "average";
+                Double percentile = null;
                 String scoringUnit = groupDef.getScoringUnit();
                 if (groupDef.getObservations() != null && !groupDef.getObservations().isEmpty()) {
                     String method = groupDef.getObservations().get(0).getAggregateMethod();
                     if (method != null && !method.isBlank()) aggregateMethod = method;
+                    percentile = groupDef.getObservations().get(0).getPercentileValue();   // PAT-264
                 }
                 if (!groupObsValues.isEmpty()) {
                     obsStats = scoreCalculator.computeObservationStats(
-                            groupObsValues, aggregateMethod, scoringUnit);
+                            groupObsValues, aggregateMethod, percentile, scoringUnit);
                     score = obsStats.getAggregateValue();
                 } else {
                     score = null;

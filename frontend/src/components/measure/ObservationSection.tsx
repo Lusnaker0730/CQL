@@ -12,11 +12,14 @@ import {
 import { Add, Delete } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 
-const AGGREGATE_METHOD_KEYS = ['count', 'sum', 'average', 'median', 'minimum', 'maximum'] as const;
+/** The backend's canonical aggregate methods (`MeasureScoreCalculator`); the stored value is the key, the option shows its label. */
+const AGGREGATE_METHOD_KEYS = ['count', 'sum', 'average', 'median', 'minimum', 'maximum', 'percentile'] as const;
 
 interface Observation {
   criteriaExpression: string;
   aggregateMethod: string;
+  /** PAT-264: the percentile (0–100) for the `percentile` method. */
+  percentileValue?: number | null;
   populationRef: string;
   description?: string;
 }
@@ -39,7 +42,7 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
   const { t } = useTranslation('measures');
   const items = observations ?? [];
 
-  const AGGREGATE_METHODS = AGGREGATE_METHOD_KEYS.map((key) => t(`observations.aggregateMethods.${key}`));
+  const methodLabel = (key: string) => t(`observations.aggregateMethods.${key}`, { defaultValue: key });
 
   const handleAdd = () => {
     onChange([
@@ -53,10 +56,14 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
     onChange(updated);
   };
 
-  const handleFieldChange = (index: number, field: keyof Observation, value: string) => {
-    const updated = items.map((item, i) =>
-      i === index ? { ...item, [field]: value } : item
-    );
+  const handleFieldChange = (index: number, field: keyof Observation, value: string | number | null | undefined) => {
+    const updated = items.map((item, i) => {
+      if (i !== index) return item;
+      const next = { ...item, [field]: value } as Observation;
+      // the percentile only belongs to the percentile method
+      if (field === 'aggregateMethod' && value !== 'percentile') next.percentileValue = undefined;
+      return next;
+    });
     onChange(updated);
   };
 
@@ -109,7 +116,8 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
               />
 
               <Autocomplete
-                options={AGGREGATE_METHODS}
+                options={[...AGGREGATE_METHOD_KEYS] as string[]}
+                getOptionLabel={methodLabel}
                 value={item.aggregateMethod || null}
                 onChange={(_event, newValue) =>
                   handleFieldChange(index, 'aggregateMethod', newValue ?? '')
@@ -119,6 +127,20 @@ const ObservationSection: React.FC<ObservationSectionProps> = ({
                 )}
                 disabled={readOnly}
               />
+
+              {item.aggregateMethod === 'percentile' && (
+                <TextField
+                  size="small"
+                  type="number"
+                  label={t('observations.fields.percentileValue')}
+                  helperText={t('observations.fields.percentileHelp')}
+                  value={item.percentileValue ?? ''}
+                  onChange={(e) => handleFieldChange(index, 'percentileValue', e.target.value === '' ? null : Number(e.target.value))}
+                  error={item.percentileValue == null || item.percentileValue < 0 || item.percentileValue > 100}
+                  slotProps={{ htmlInput: { min: 0, max: 100, step: 1, 'data-testid': 'observation-percentile' } }}
+                  disabled={readOnly}
+                />
+              )}
 
               <Autocomplete
                 options={populationTypes}

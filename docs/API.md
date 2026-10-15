@@ -762,6 +762,7 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 | `GET /api/measures/{id}/fhir` | 匯出為 FHIR Measure 資源 |
 | `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出交換封裝：Measure + 主要 Library（CQL + ELM）+ CQL `include` 的相依 Library + ValueSet（PAT-229，見下） |
 | `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
+| `GroupDefinition.observations[].aggregateMethod` / `percentileValue` | 聚合方法多 `percentile`（PAT-264；需 `percentileValue` 0–100，線性插補）；評估結果 `observationStatistics.percentile` 記錄算的是第幾百分位；CQFM 以平台 extension `…/StructureDefinition/measure-observation-percentile` 往返 |
 | `GET /api/measures/version-compare?oldId=&newId=` | 版本差異（PAT-263）：`metadata[]`（七個區段、added / removed / changed 帶新舊值）、`groups[]`（依 groupId 配對的母群 / 分層 / 觀測值變更）、`cqlLines[]`（逐行 diff）、`summary`，以及舊的 `metadataChanges` / `populationChanges` 句子；可讀即可 |
 | `GET /api/measures/version-compare/human-readable?oldId=&newId=` | 同一份比較的獨立 HTML 報告（PAT-263） |
 | `GET /api/measures/{id}/review` | 審核：指定審核者與意見、留言串（一層回覆）、呼叫者可做什麼（PAT-262） |

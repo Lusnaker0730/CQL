@@ -557,6 +557,8 @@ export interface ObservationStatistics {
   maximum: number
   average: number
   median: number
+  /** PAT-264: which percentile `aggregateValue` is when `aggregateMethod` is `percentile`. */
+  percentile?: number | null
   unit?: string
 }
 
@@ -756,6 +758,8 @@ export interface SupplementalDataDef {
 export interface ObservationDefinition {
   criteriaExpression: string
   aggregateMethod: string
+  /** PAT-264: the percentile (0–100) for the `percentile` aggregate method. */
+  percentileValue?: number | null
   populationRef: string
   description?: string
 }

@@ -132,6 +132,8 @@ public class MeasureEvaluationResult {
         private Double maximum;
         private Double average;
         private Double median;
+        /** PAT-264: the percentile that was computed when {@code aggregateMethod} is {@code percentile}. */
+        private Double percentile;
         private String unit;
     }
 

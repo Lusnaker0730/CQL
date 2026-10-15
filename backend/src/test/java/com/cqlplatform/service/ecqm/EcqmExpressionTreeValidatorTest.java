@@ -93,7 +93,6 @@ class EcqmExpressionTreeValidatorTest {
             "Minumum",  // typo
             "Maxmum",   // typo
             "avergae",  // typo
-            "Percentile", // unsupported (not in backend's switch)
             "StdDev",
             "garbage"
     })
@@ -315,5 +314,36 @@ class EcqmExpressionTreeValidatorTest {
                 .satisfies(e -> assertThat(((ValidationException) e).getDetails())
                         .anyMatch(d -> d.contains("parameters[0]") && d.contains("unknown parameter type 'money'"))
                         .anyMatch(d -> d.contains("parameters[1].name")));
+    }
+
+    // ------------------------------------------------------------------ PAT-264 percentile
+
+    private Map<String, Object> percentileObservation(Object percentileValue) {
+        Map<String, Object> obs = observation("Percentile");
+        if (percentileValue != null) obs.put("percentileValue", percentileValue);
+        return obs;
+    }
+
+    @Test
+    void percentile_withAPercentileBetween0And100_isValid_numberOrNumericString() {
+        validator.validate(requestWithObservations(List.of(percentileObservation(90))));
+        validator.validate(requestWithObservations(List.of(percentileObservation(90.5))));
+        validator.validate(requestWithObservations(List.of(percentileObservation("75"))));
+        validator.validate(requestWithObservations(List.of(percentileObservation(0), percentileObservation(100))));
+    }
+
+    @Test
+    void percentile_withoutAPercentile_orOutOfRange_isRefused_namingTheField() {
+        for (Object bad : new Object[] {null, -1, 101, "ninety", ""}) {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> validator.validate(requestWithObservations(List.of(percentileObservation(bad)))))
+                    .as(String.valueOf(bad))
+                    .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                    .satisfies(e -> assertThat(((com.cqlplatform.exception.ValidationException) e).getDetails())
+                            .anyMatch(d -> d.contains("percentileValue")));
+        }
+        assertThat(EcqmExpressionTreeValidator.percentileValue(90)).isEqualTo(90.0);
+        assertThat(EcqmExpressionTreeValidator.percentileValue("90")).isEqualTo(90.0);
+        assertThat(EcqmExpressionTreeValidator.percentileValue("x")).isNull();
+        assertThat(EcqmExpressionTreeValidator.percentileValue(null)).isNull();
     }
 }

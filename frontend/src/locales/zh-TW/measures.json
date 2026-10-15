@@ -876,7 +876,8 @@
       "median": "中位數",
       "minimum": "最小值",
       "maximum": "最大值",
-      "count": "計數"
+      "count": "計數",
+      "percentile": "第 {{value}} 百分位"
     },
     "observations": {
       "count": "觀察數",
@@ -1129,7 +1130,9 @@
       "cqlExpression": "CQL 運算式",
       "aggregateMethod": "彙總方法",
       "populationReference": "族群參考",
-      "description": "描述"
+      "description": "描述",
+      "percentileValue": "百分位（0–100）",
+      "percentileHelp": "例如 90 = 第 90 百分位；在最接近的兩個觀測值之間線性插補"
     },
     "addObservation": "新增觀察",
     "aggregateMethods": {
@@ -1138,7 +1141,8 @@
       "average": "平均",
       "median": "中位數",
       "minimum": "最小值",
-      "maximum": "最大值"
+      "maximum": "最大值",
+      "percentile": "百分位數"
     }
   },
   "audit": {

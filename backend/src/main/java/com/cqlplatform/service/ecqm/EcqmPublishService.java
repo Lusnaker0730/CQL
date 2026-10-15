@@ -338,9 +338,13 @@ public class EcqmPublishService {
                             ? obs.get("aggregateMethod").toString().toLowerCase() : "count";
                     String popRef = obs.get("populationRef") != null
                             ? obs.get("populationRef").toString() : null;
+                    // PAT-264: the percentile travels with the percentile method (dropped before)
+                    Double percentileValue = "percentile".equals(aggregateMethod)
+                            ? EcqmExpressionTreeValidator.percentileValue(obs.get("percentileValue")) : null;
                     obsDefs.add(ObservationDefinition.builder()
                             .criteriaExpression(EcqmConstants.MEASURE_OBSERVATION + suffix)
                             .aggregateMethod(aggregateMethod)
+                            .percentileValue(percentileValue)
                             .populationRef(popRef)
                             .build());
                 }

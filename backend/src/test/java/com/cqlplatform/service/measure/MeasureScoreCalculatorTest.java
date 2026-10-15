@@ -154,4 +154,41 @@ class MeasureScoreCalculatorTest {
         assertThat(stats.getAggregateMethod()).isEqualTo("minimum");
         assertThat(stats.getAggregateValue()).isEqualTo(1.0);
     }
+
+    // ------------------------------------------------------------------ PAT-264 percentile
+
+    @Test
+    void percentile_interpolatesBetweenClosestRanks_p50IsTheMedian_p0AndP100AreTheExtremes() {
+        List<Double> values = List.of(10.0, 2.0, 8.0, 4.0, 6.0);   // sorted 2 4 6 8 10
+
+        assertThat(calc.calculateContinuousVariableScore(values, "Percentile", 90.0)).isCloseTo(9.2, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", 50.0)).isEqualTo(6.0);
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", 0.0)).isEqualTo(2.0);
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", 100.0)).isEqualTo(10.0);
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", 25.0)).isEqualTo(4.0);
+        assertThat(calc.calculateContinuousVariableScore(List.of(7.5), "percentile", 90.0)).as("one value is every percentile").isEqualTo(7.5);
+        // out-of-range percentiles are clamped, not an exception
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", 250.0)).isEqualTo(10.0);
+        assertThat(MeasureScoreCalculator.normalizeAggregateMethod("Percentile")).isEqualTo("percentile");
+    }
+
+    @Test
+    void percentile_withoutAPercentile_isNullNotAnException_andTheOtherMethodsIgnoreIt() {
+        List<Double> values = List.of(1.0, 2.0, 3.0);
+
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile")).isNull();
+        assertThat(calc.calculateContinuousVariableScore(values, "percentile", null)).isNull();
+        assertThat(calc.calculateContinuousVariableScore(values, "average", 90.0)).isEqualTo(2.0);
+    }
+
+    @Test
+    void observationStats_recordWhichPercentileTheAggregateIs() {
+        var stats = calc.computeObservationStats(List.of(2.0, 4.0, 6.0, 8.0, 10.0), "Percentile", 90.0, "days");
+
+        assertThat(stats.getAggregateMethod()).isEqualTo("percentile");
+        assertThat(stats.getPercentile()).isEqualTo(90.0);
+        assertThat(stats.getAggregateValue()).isCloseTo(9.2, org.assertj.core.data.Offset.offset(1e-9));
+        assertThat(stats.getMedian()).isEqualTo(6.0);
+        assertThat(calc.computeObservationStats(List.of(1.0, 2.0), "median", "days").getPercentile()).isNull();
+    }
 }

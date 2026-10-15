@@ -169,6 +169,7 @@ public class NormalizedMeasureReportReader {
                 && g.getObsMaximum() == null
                 && g.getObsAverage() == null
                 && g.getObsMedian() == null
+                && g.getObsPercentile() == null
                 && g.getObsUnit() == null) {
             return null;
         }
@@ -180,6 +181,7 @@ public class NormalizedMeasureReportReader {
                 .maximum(g.getObsMaximum())
                 .average(g.getObsAverage())
                 .median(g.getObsMedian())
+                .percentile(g.getObsPercentile())
                 .unit(g.getObsUnit())
                 .build();
     }

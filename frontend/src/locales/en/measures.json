@@ -876,7 +876,8 @@
       "median": "Median",
       "minimum": "Minimum",
       "maximum": "Maximum",
-      "count": "Count"
+      "count": "Count",
+      "percentile": "P{{value}} percentile"
     },
     "observations": {
       "count": "Observations",
@@ -1129,7 +1130,9 @@
       "cqlExpression": "CQL Expression",
       "aggregateMethod": "Aggregate Method",
       "populationReference": "Population Reference",
-      "description": "Description"
+      "description": "Description",
+      "percentileValue": "Percentile (0–100)",
+      "percentileHelp": "e.g. 90 for the 90th percentile; interpolated between the closest observations"
     },
     "addObservation": "Add Observation",
     "aggregateMethods": {
@@ -1138,7 +1141,8 @@
       "average": "Average",
       "median": "Median",
       "minimum": "Minimum",
-      "maximum": "Maximum"
+      "maximum": "Maximum",
+      "percentile": "Percentile"
     }
   },
   "audit": {

@@ -134,6 +134,7 @@ public class MeasureReportNormalizer {
             groupEntity.setObsMaximum(obs.getMaximum());
             groupEntity.setObsAverage(obs.getAverage());
             groupEntity.setObsMedian(obs.getMedian());
+            groupEntity.setObsPercentile(obs.getPercentile());
             groupEntity.setObsUnit(obs.getUnit());
         }
 
