@@ -762,6 +762,14 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 | `GET /api/measures/{id}/fhir` | 匯出為 FHIR Measure 資源 |
 | `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出交換封裝：Measure + 主要 Library（CQL + ELM）+ CQL `include` 的相依 Library + ValueSet（PAT-229，見下） |
 | `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
+| `GET /api/measures/version-compare?oldId=&newId=` | 版本差異（PAT-263）：`metadata[]`（七個區段、added / removed / changed 帶新舊值）、`groups[]`（依 groupId 配對的母群 / 分層 / 觀測值變更）、`cqlLines[]`（逐行 diff）、`summary`，以及舊的 `metadataChanges` / `populationChanges` 句子；可讀即可 |
+| `GET /api/measures/version-compare/human-readable?oldId=&newId=` | 同一份比較的獨立 HTML 報告（PAT-263） |
+| `GET /api/measures/{id}/review` | 審核：指定審核者與意見、留言串（一層回覆）、呼叫者可做什麼（PAT-262） |
+| `PUT /api/measures/{id}/review/reviewers` | 指定審核者完整集合 `{usernames[]}`（owner / admin；指定即分享給對方；作者不可，四眼） |
+| `POST /api/measures/{id}/review/decision` | 審核者意見 `{decision: approved\|changes-requested, comment?}`（只在 in-review；changes-requested 退回草稿） |
+| `POST /api/measures/{id}/review/comments` | 新留言 `{body, parentId?, section?, subSection?}`（parentId = 回覆；參與者） |
+| `PUT /api/measures/{id}/review/comments/{cid}` | 編輯自己的留言 `{body}` |
+| `POST /api/measures/{id}/review/comments/{cid}/resolve` / `…/unresolve` | 解決 / 重開留言串（以串內任一則的 id） |
 | `GET /api/measures/{id}/export/package` | 交換封裝 zip（PAT-261，MADiE 配置）：`<ecqmTitle>-v<version>-FHIR.{json,xml,html}`、`conformance.json`、`cql/<Library>-<version>.cql`、`resources/{measure,library}-<name>-<version>.{json,xml}`、`resources/valueset-*.json`；`Content-Disposition` 帶檔名 |
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
 | `GET /api/measures/{id}/export/elm?format=json\|xml` | 匯出 ELM JSON（預設）或 ELM XML（PAT-261；沒有 ELM → 400） |

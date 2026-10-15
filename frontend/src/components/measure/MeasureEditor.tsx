@@ -54,6 +54,9 @@ import AuditTrailDialog from './AuditTrailDialog'
 import MeasureValidationPanel from './MeasureValidationPanel'
 import BuilderSourceBanner from './BuilderSourceBanner'
 import ApprovalReadinessPanel from './ApprovalReadinessPanel'
+import MeasureReviewTab from './MeasureReviewTab'
+import HumanReadablePreviewDialog from './HumanReadablePreviewDialog'
+import { useMeasureReview } from '../../hooks/useMeasureReview'
 import {
   useSubmitForReview,
   useApproveMeasure,
@@ -84,6 +87,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const [auditDialogOpen, setAuditDialogOpen] = useState(false)
   const [workflowAlert, setWorkflowAlert] = useState<{ severity: 'success' | 'error'; message: string } | null>(null)
   const [exportAnchor, setExportAnchor] = useState<HTMLElement | null>(null)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const [conformanceOpen, setConformanceOpen] = useState(false)
   const [versionAnchor, setVersionAnchor] = useState<HTMLElement | null>(null)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
@@ -93,7 +97,11 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
   const { showNotification } = useNotification()
   const currentUser = useMemo(() => getStoredUsername(), [])
   const isOwner = measure.ownerUsername === currentUser || !measure.ownerUsername
-  const isReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
+  const isSharedReviewer = isOwner || (measure.sharedWith?.includes(currentUser) ?? false)
+  // PAT-262: once reviewers are assigned, only they approve / reject (admins keep a server-side override)
+  const reviewQuery = useMeasureReview(measure.id)
+  const assignedReviewers = reviewQuery.data?.summary.reviewers ?? 0
+  const isReviewer = assignedReviewers > 0 ? (reviewQuery.data?.reviewer ?? false) : isSharedReviewer
 
   const submitMutation = useSubmitForReview()
   const approveMutation = useApproveMeasure()
@@ -187,6 +195,12 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
     const oldNum = typeof oldId === 'string' ? parseInt(oldId, 10) : oldId
     const newNum = typeof newId === 'string' ? parseInt(newId, 10) : newId
     return measureApi.compareMeasureVersions(oldNum, newNum)
+  }
+
+  // PAT-263: the comparison as a human-readable HTML report
+  const handleExportDiffHtml = async (oldId: string | number, newId: string | number) => {
+    const blob = await measureApi.exportVersionDiffHtml(Number(oldId), Number(newId))
+    downloadBlob(blob, `${measure.name}-changes-${oldId}-vs-${newId}.html`)
   }
 
   const handleExport = async (format: string) => {
@@ -475,6 +489,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           <Tab label={t('editor.tabs.testCases')} />
           <Tab label={t('editor.tabs.reports')} />
           <Tab label={t('editor.tabs.validate')} />
+          <Tab label={t('editor.tabs.review')} />
         </Tabs>
       </Box>
       <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
@@ -507,6 +522,9 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
             onNavigateToTab={(tabIndex) => setTab(tabIndex)}
           />
         )}
+        {tab === 8 && (
+          <MeasureReviewTab measure={measure} />
+        )}
       </Box>
       <CreateVersionDialog
         open={versionDialogOpen}
@@ -528,6 +546,7 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         onClose={() => setDiffDialogOpen(false)}
         versions={diffVersions}
         onCompare={handleCompare}
+        onExportHtml={handleExportDiffHtml}
       />
       <MeasureShareDialog
         open={shareDialogOpen}
@@ -598,8 +617,12 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => handleExport('elm')}>{t('editor.exportFormats.elmOnly')}</MenuItem>
         <MenuItem onClick={() => handleExport('elm-xml')}>{t('editor.exportFormats.elmXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
+        <MenuItem onClick={() => { setExportAnchor(null); setPreviewOpen(true) }}>{t('editor.exportFormats.humanReadablePreview')}</MenuItem>
         <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>
+      {measure.id != null && (
+        <HumanReadablePreviewDialog open={previewOpen} onClose={() => setPreviewOpen(false)} measureId={measure.id} measureName={measure.name} />
+      )}
       {measure.id != null && (
         <MeasureExportConformanceDialog
           measureId={measure.id}

@@ -336,4 +336,34 @@ class MeasureControllerTest {
                         .file(new org.springframework.mock.web.MockMultipartFile("file", "empty.zip", "application/zip", new byte[0])))
                 .andExpect(status().isBadRequest());
     }
+
+    // ------------------------------------------------------------------ PAT-263 version diff
+
+    @Test
+    @WithMockUser(username = "reviewer")
+    void versionCompare_isReadableBySharedUsers_andTheHtmlReportIsADocument() throws Exception {
+        MeasureDefinition v1 = MeasureDefinition.builder().id(1L).name("M").version("1.0.0").ownerUsername("owner").accessLevel("shared").build();
+        MeasureDefinition v2 = MeasureDefinition.builder().id(2L).name("M").version("1.1.0").ownerUsername("owner").accessLevel("shared").build();
+        when(definitionService.getById(1L)).thenReturn(Optional.of(v1));
+        when(definitionService.getById(2L)).thenReturn(Optional.of(v2));
+        when(definitionService.compare(1L, 2L)).thenReturn(new com.cqlplatform.service.measure.MeasureDiffService().diff(
+                MeasureDefinition.builder().id(1L).name("M").version("1.0.0").title("Old title").cqlContent("define A: 1").build(),
+                MeasureDefinition.builder().id(2L).name("M").version("1.1.0").title("New title").cqlContent("define A: 2").build()));
+
+        mockMvc.perform(get("/api/measures/version-compare").param("oldId", "1").param("newId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.oldVersion").value("1.0.0"))
+                .andExpect(jsonPath("$.cqlChanged").value(true))
+                .andExpect(jsonPath("$.metadata[0].field").value("title"))
+                .andExpect(jsonPath("$.metadata[0].kind").value("changed"))
+                .andExpect(jsonPath("$.summary.total").value(2))
+                .andExpect(jsonPath("$.metadataChanges[0]").value("Title changed: \"Old title\" → \"New title\""));
+
+        mockMvc.perform(get("/api/measures/version-compare/human-readable").param("oldId", "1").param("newId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/html; charset=UTF-8"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=measure-1-vs-2-changes.html"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("<!DOCTYPE html>")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("class=\"line added\"")));
+    }
 }

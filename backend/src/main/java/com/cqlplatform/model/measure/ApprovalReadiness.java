@@ -29,6 +29,10 @@ public class ApprovalReadiness {
     public static final String TEST_CASE_INVALID = "TEST_CASE_INVALID";
     public static final String TEST_CASE_VALIDATION_PENDING = "TEST_CASE_VALIDATION_PENDING";
     public static final String TEST_CASE_NOT_PASSING = "TEST_CASE_NOT_PASSING";
+    /** PAT-262: an assigned reviewer requested changes (blocker while in review, warning in draft). */
+    public static final String REVIEW_CHANGES_REQUESTED = "REVIEW_CHANGES_REQUESTED";
+    /** PAT-262: assigned reviewers who have not decided yet (blocker only with measure.review.require-all-reviewers). */
+    public static final String REVIEWERS_PENDING = "REVIEWERS_PENDING";
     // warning codes
     public static final String NO_TEST_CASES = "NO_TEST_CASES";
     public static final String TEST_CASE_NEVER_VALIDATED = "TEST_CASE_NEVER_VALIDATED";
@@ -37,6 +41,8 @@ public class ApprovalReadiness {
     public static final String CQL_WARNINGS = "CQL_WARNINGS";
     /** PAT-260: platform value sets referenced without a CQL version or pin — their codes follow the newest active version. */
     public static final String TERMINOLOGY_UNPINNED = "TERMINOLOGY_UNPINNED";
+    /** PAT-262: unresolved review comment threads. */
+    public static final String COMMENTS_UNRESOLVED = "COMMENTS_UNRESOLVED";
 
     private Long measureId;
     private String status;
@@ -48,6 +54,8 @@ public class ApprovalReadiness {
     private int cqlErrorCount;
     private int cqlWarningCount;
     private FourEyes fourEyes;
+    /** PAT-262: assigned reviewers and their decisions, open comment threads. */
+    private ReviewSummary review;
     private LocalDateTime checkedAt;
 
     /** One finding; {@code items} names the test cases concerned (capped) so the UI can point at them. */
@@ -80,6 +88,20 @@ public class ApprovalReadiness {
         private int validationPending;
         private int validationError;
         private int neverValidated;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ReviewSummary {
+        private int assigned;
+        private int approved;
+        private int changesRequested;
+        private int pending;
+        private int openThreads;
+        /** {@code measure.review.require-all-reviewers}: pending reviewers block the approval. */
+        private boolean requireAllReviewers;
     }
 
     @Data

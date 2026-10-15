@@ -123,7 +123,34 @@
     "noMetadataChanges": "版本之間未偵測到中繼資料變更。",
     "noPopulationChanges": "版本之間未偵測到母群體變更。",
     "selectAndCompare": "選擇兩個版本並點擊比較以檢視差異。",
-    "loadFailed": "無法載入版本差異"
+    "loadFailed": "無法載入版本差異",
+    "identical": "完全相同",
+    "cqlLines": "CQL +{{added}} / −{{removed}} 行",
+    "downloadHtml": "下載差異報告 (HTML)",
+    "section": "區段",
+    "field": "欄位",
+    "change": "變更",
+    "item": "項目",
+    "group": "群組 {{id}}",
+    "populations": "母群",
+    "stratifiers": "分層",
+    "observations": "觀測值",
+    "kind": {
+      "added": "新增",
+      "removed": "移除",
+      "changed": "變更",
+      "unchanged": "未變"
+    },
+    "sections": {
+      "identity": "識別",
+      "description": "說明",
+      "scoring": "計分",
+      "stewardship": "管理",
+      "dates": "日期",
+      "supplementalData": "補充資料",
+      "terminology": "術語",
+      "group": "群組"
+    }
   },
   "dependency": {
     "saveFirst": "請先儲存函式庫以檢視其相依性分析。",

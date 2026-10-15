@@ -67,4 +67,37 @@ class HumanReadableServiceTest {
 
         assertThat(html).contains("<section id=\"standard-metadata\">", "<th>Measurement Period</th><td>2024-01-01 – 2024-12-31</td>");
     }
+
+    // ------------------------------------------------------------------ PAT-263 version diff report
+
+    @Test
+    void diffReport_rendersSummary_metadataTable_groupTables_andTheCqlLineDiff_escaped() {
+        com.cqlplatform.model.measure.MeasureVersionDiff diff = new MeasureDiffService().diff(
+                base().id(1L).steward("Quality <office>").groupDefinitions(List.of(com.cqlplatform.model.measure.GroupDefinition.builder().groupId("g1")
+                        .populations(List.of(com.cqlplatform.model.measure.PopulationDefinition.builder().populationType("numerator").criteriaExpression("Numerator").build())).build())).build(),
+                base().id(2L).version("1.1.0").steward("Quality office").cqlContent("library Demo version '1.1.0'\ndefine IP: a < b")
+                        .groupDefinitions(List.of(com.cqlplatform.model.measure.GroupDefinition.builder().groupId("g1")
+                        .populations(List.of(com.cqlplatform.model.measure.PopulationDefinition.builder().populationType("numerator").criteriaExpression("Numerator & Controlled").build())).build())).build());
+
+        String html = service.generateDiffHtml(diff);
+
+        assertThat(html).startsWith("<!DOCTYPE html>");
+        assertThat(html).contains("<title>Demo — v1.0.0 → v1.1.0</title>");
+        assertThat(html).contains("<strong>1</strong> metadata field(s)").contains("<strong>1</strong> population(s)");
+        assertThat(html).contains("<td>stewardship</td><td>steward</td>").contains("Quality &lt;office&gt;");
+        assertThat(html).contains("<td class=\"pop-type\">Numerator</td>").contains("Numerator &amp; Controlled");
+        assertThat(html).contains("<span class=\"line removed\">").contains("<span class=\"line added\">");
+        assertThat(html).contains("define IP: a &lt; b");
+        assertThat(html).doesNotContain("<office>");
+    }
+
+    @Test
+    void diffReport_ofIdenticalVersions_saysSo() {
+        com.cqlplatform.model.measure.MeasureVersionDiff diff = new MeasureDiffService().diff(base().id(1L).build(), base().id(2L).version("1.0.1").build());
+
+        String html = service.generateDiffHtml(diff);
+
+        assertThat(html).contains("The two versions are identical.").contains("No metadata changes.")
+                .contains("No population criteria changes.").contains("CQL unchanged.");
+    }
 }

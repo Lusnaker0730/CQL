@@ -46,6 +46,8 @@ class MeasureDefinitionServiceMeasureSetTest {
     @Mock private com.cqlplatform.repository.TestCaseRepository testCaseRepository;
     @Mock private ApprovalReadinessService readinessService;
     @Mock private MeasureSetService measureSetService;
+    @Mock private com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository;
+    @Mock private MeasureDiffService diffService;
 
     @InjectMocks private MeasureDefinitionService service;
 

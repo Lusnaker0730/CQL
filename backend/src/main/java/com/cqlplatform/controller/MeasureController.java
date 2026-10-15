@@ -64,6 +64,7 @@ public class MeasureController {
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
     private final MeasurePackageService packageService;
+    private final MeasureReviewService reviewService;
     private final HqmfExportService hqmfExportService;
     private final HumanReadableService humanReadableService;
     private final BatchEvaluationService batchEvaluationService;
@@ -903,21 +904,38 @@ public class MeasureController {
     }
 
     @GetMapping("/{id}/history")
-    @Operation(summary = "Measure History", description = "Returns all versions of a measure by name (owner or admin only)")
+    @Operation(summary = "Measure History", description = "Returns all versions of a measure (its measure set); readable by owner, admin, shared users and reviewers")
     public ResponseEntity<List<MeasureDefinition>> getMeasureHistory(@PathVariable Long id) {
-        MeasureDefinition measure = requireOwnedMeasure(id);
+        // PAT-263: readable, not owned - reviewers see the lineage of what they review
+        MeasureDefinition measure = requireReadableMeasure(id);
         return ResponseEntity.ok(definitionService.getHistory(measure));
     }
 
     @GetMapping("/version-compare")
-    @Operation(summary = "Compare Measure Versions", description = "Returns CQL content and structured diff of two measure versions")
-    public ResponseEntity<Map<String, Object>> compareMeasureVersions(
+    @Operation(summary = "Compare Measure Versions", description = "PAT-263: metadata by section, groups matched by id (populations by type, stratifiers by id), CQL line diff, plus the pre-PAT-263 sentence lists")
+    public ResponseEntity<MeasureVersionDiff> compareMeasureVersions(
             @RequestParam Long oldId,
             @RequestParam Long newId) {
-        requireOwnedMeasure(oldId);
-        requireOwnedMeasure(newId);
-        Map<String, Object> comparison = definitionService.compare(oldId, newId);
+        // readable, not owned: reviewers compare the versions they review (PAT-262)
+        requireReadableMeasure(oldId);
+        requireReadableMeasure(newId);
+        MeasureVersionDiff comparison = definitionService.compare(oldId, newId);
         return ResponseEntity.ok(comparison);
+    }
+
+    @GetMapping("/version-compare/human-readable")
+    @Operation(summary = "Compare Measure Versions (HTML)", description = "PAT-263: the same comparison as a self-contained human-readable HTML report")
+    public ResponseEntity<byte[]> compareMeasureVersionsHtml(
+            @RequestParam Long oldId,
+            @RequestParam Long newId) {
+        requireReadableMeasure(oldId);
+        requireReadableMeasure(newId);
+        MeasureVersionDiff comparison = definitionService.compare(oldId, newId);
+        String html = humanReadableService.generateDiffHtml(comparison);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=measure-" + oldId + "-vs-" + newId + "-changes.html")
+                .header("Content-Type", "text/html; charset=UTF-8")
+                .body(html.getBytes(StandardCharsets.UTF_8));
     }
 
     // ===== Measure Sharing & Permissions =====
@@ -1135,9 +1153,13 @@ public class MeasureController {
     // ===== Audit Trail =====
 
     @GetMapping("/{id}/audit")
-    @Operation(summary = "Get Audit Trail", description = "Returns the audit trail for a measure (owner or admin only)")
+    @Operation(summary = "Get Audit Trail", description = "Returns the audit trail for a measure (owner, admin, shared users and assigned reviewers — PAT-262)")
     public ResponseEntity<List<MeasureAuditEntity>> getAuditTrail(@PathVariable Long id) {
-        requireOwnedMeasure(id);
+        requireMeasure(id);
+        // PAT-262: reviewers read the history they take part in; everyone else needs ownership (or admin)
+        if (!reviewService.isParticipant(id, ownershipVerifier.getCurrentUsername())) {
+            requireOwnedMeasure(id);
+        }
         return ResponseEntity.ok(definitionService.getAuditTrail(id));
     }
 

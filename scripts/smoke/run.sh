@@ -386,6 +386,17 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        measure-review)
+            # PAT-262 assigned reviewers + decisions + comment threads: assigning shares the
+            # measure, only assigned reviewers approve, changes-requested returns the measure
+            # to draft, resubmit resets decisions. Everything lives in lib/run-measure-review.sh.
+            if bash "$SCRIPT_DIR/lib/run-measure-review.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         synthetic-cohort)
             # PAT-255: 120 patients from the platform's own TW Core generator (fixed seed),
             # evaluated by the seeded demo measure against an oracle computed in TypeScript.
@@ -831,7 +842,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort, composite, terminology-pin)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort, composite, terminology-pin, measure-review)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

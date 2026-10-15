@@ -200,6 +200,145 @@ public class HumanReadableService {
         return sb.toString();
     }
 
+    // ------------------------------------------------------------------ PAT-263 version diff report
+
+    private static final String DIFF_CSS = """
+            <style>
+              .summary-list { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 20px; }
+              .summary-list li { font-size: 0.95em; }
+              .kind { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 0.75em; font-weight: 600; text-transform: uppercase; }
+              .kind-added { background: #e6ffed; color: #1b7f3b; }
+              .kind-removed { background: #ffeef0; color: #b31d28; }
+              .kind-changed { background: #fff5d6; color: #8a6d00; }
+              td.old { background: #fff8f8; color: #6a2a2a; }
+              td.new { background: #f6fff8; color: #1f4d2b; }
+              pre.cql-diff { background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 6px; padding: 0; overflow-x: auto; font-size: 0.85em; }
+              pre.cql-diff .line { display: block; padding: 0 8px; white-space: pre; }
+              pre.cql-diff .line.added { background: #e6ffed; }
+              pre.cql-diff .line.removed { background: #ffeef0; }
+              pre.cql-diff .ln { display: inline-block; width: 3.2em; text-align: right; color: #999; margin-right: 6px; user-select: none; }
+              pre.cql-diff .sym { display: inline-block; width: 1em; color: #666; }
+            </style>
+            """;
+
+    /** PAT-263: a self-contained HTML report of what changed between two versions of a measure. */
+    public String generateDiffHtml(MeasureVersionDiff diff) {
+        StringBuilder sb = new StringBuilder();
+        String name = diff.getName() != null ? diff.getName() : "Measure";
+        String title = esc(name) + " — v" + esc(nz(diff.getOldVersion())) + " → v" + esc(nz(diff.getNewVersion()));
+        sb.append("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n");
+        sb.append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n");
+        sb.append("<title>").append(title).append("</title>\n").append(CSS).append(DIFF_CSS).append("</head>\n<body>\n");
+
+        sb.append("<div class=\"header\">\n  <h1>Changes: ").append(esc(name)).append("</h1>\n");
+        sb.append("  <div class=\"version\">v").append(esc(nz(diff.getOldVersion()))).append(" (").append(esc(nz(diff.getOldStatus())))
+                .append(") → v").append(esc(nz(diff.getNewVersion()))).append(" (").append(esc(nz(diff.getNewStatus()))).append(")</div>\n</div>\n\n");
+        sb.append("<div class=\"container\">\n");
+
+        MeasureVersionDiff.Summary sum = diff.getSummary();
+        sb.append("<section id=\"summary\">\n  <h2>Summary</h2>\n");
+        if (sum == null || sum.getTotal() == 0) {
+            sb.append("  <p class=\"empty\">The two versions are identical.</p>\n");
+        } else {
+            sb.append("  <ul class=\"summary-list\">\n");
+            sb.append("    <li><strong>").append(sum.getMetadata()).append("</strong> metadata field(s)</li>\n");
+            sb.append("    <li><strong>").append(sum.getGroups()).append("</strong> group(s) added / removed</li>\n");
+            sb.append("    <li><strong>").append(sum.getPopulations()).append("</strong> population(s)</li>\n");
+            sb.append("    <li><strong>").append(sum.getStratifiers()).append("</strong> stratifier(s)</li>\n");
+            sb.append("    <li><strong>").append(sum.getObservations()).append("</strong> observation(s)</li>\n");
+            sb.append("    <li>CQL: ").append(diff.isCqlChanged() ? "<strong>+" + sum.getCqlAdded() + " / −" + sum.getCqlRemoved() + "</strong> line(s)" : "unchanged").append("</li>\n");
+            sb.append("  </ul>\n");
+        }
+        sb.append("</section>\n\n");
+
+        sb.append("<section id=\"metadata\">\n  <h2>Metadata</h2>\n");
+        if (diff.getMetadata() == null || diff.getMetadata().isEmpty()) {
+            sb.append("  <p class=\"empty\">No metadata changes.</p>\n");
+        } else {
+            sb.append("  <table>\n    <thead><tr><th>Section</th><th>Field</th><th>Change</th><th>v").append(esc(nz(diff.getOldVersion())))
+                    .append("</th><th>v").append(esc(nz(diff.getNewVersion()))).append("</th></tr></thead>\n    <tbody>\n");
+            for (MeasureVersionDiff.FieldChange c : diff.getMetadata()) {
+                sb.append("      <tr><td>").append(esc(c.getSection())).append("</td><td>").append(esc(c.getField())).append("</td><td>")
+                        .append(kind(c.getKind())).append("</td><td class=\"old\">").append(esc(nz(c.getOldValue())))
+                        .append("</td><td class=\"new\">").append(esc(nz(c.getNewValue()))).append("</td></tr>\n");
+            }
+            sb.append("    </tbody>\n  </table>\n");
+        }
+        sb.append("</section>\n\n");
+
+        sb.append("<section id=\"populations\">\n  <h2>Population Criteria</h2>\n");
+        boolean anyGroup = false;
+        if (diff.getGroups() != null) {
+            for (MeasureVersionDiff.GroupChange g : diff.getGroups()) {
+                if (MeasureVersionDiff.UNCHANGED.equals(g.getKind())) continue;
+                anyGroup = true;
+                sb.append("  <div class=\"group\">\n    <h3>Group ").append(esc(g.getGroupId())).append(" ").append(kind(g.getKind())).append("</h3>\n");
+                if (g.getFields() != null && !g.getFields().isEmpty()) {
+                    sb.append("    <table>\n      <thead><tr><th>Field</th><th>Change</th><th>Old</th><th>New</th></tr></thead>\n      <tbody>\n");
+                    for (MeasureVersionDiff.FieldChange f : g.getFields()) {
+                        sb.append("        <tr><td>").append(esc(f.getField())).append("</td><td>").append(kind(f.getKind()))
+                                .append("</td><td class=\"old\">").append(esc(nz(f.getOldValue()))).append("</td><td class=\"new\">").append(esc(nz(f.getNewValue()))).append("</td></tr>\n");
+                    }
+                    sb.append("      </tbody>\n    </table>\n");
+                }
+                items(sb, "Populations", "Population", g.getPopulations(), true);
+                items(sb, "Stratifiers", "Stratifier", g.getStratifiers(), false);
+                items(sb, "Observations", "Observation", g.getObservations(), false);
+                sb.append("  </div>\n");
+            }
+        }
+        if (!anyGroup) sb.append("  <p class=\"empty\">No population criteria changes.</p>\n");
+        sb.append("</section>\n\n");
+
+        sb.append("<section id=\"cql\">\n  <h2>CQL Logic</h2>\n");
+        if (!diff.isCqlChanged()) {
+            sb.append("  <p class=\"empty\">CQL unchanged.</p>\n");
+        } else if (diff.getCqlLines() == null) {
+            sb.append("  <p>The CQL changed, but the texts are too large for a line-by-line comparison.</p>\n");
+        } else {
+            sb.append("  <pre class=\"cql-diff\">");
+            for (MeasureVersionDiff.CqlLine line : diff.getCqlLines()) {
+                String cls = "equal".equals(line.getType()) ? "equal" : line.getType();
+                String sym = MeasureVersionDiff.ADDED.equals(line.getType()) ? "+" : MeasureVersionDiff.REMOVED.equals(line.getType()) ? "-" : " ";
+                sb.append("<span class=\"line ").append(cls).append("\"><span class=\"ln\">").append(line.getOldLine() != null ? line.getOldLine() : "")
+                        .append("</span><span class=\"ln\">").append(line.getNewLine() != null ? line.getNewLine() : "")
+                        .append("</span><span class=\"sym\">").append(sym).append("</span>").append(esc(nz(line.getText()))).append("</span>\n");
+            }
+            sb.append("</pre>\n");
+        }
+        sb.append("</section>\n\n");
+
+        sb.append("<footer>\n  <p>Generated by CQL Platform on ")
+                .append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))).append("</p>\n</footer>\n");
+        sb.append("</div>\n</body>\n</html>");
+        return sb.toString();
+    }
+
+    private void items(StringBuilder sb, String heading, String noun, List<MeasureVersionDiff.ItemChange> items, boolean populationLabels) {
+        if (items == null || items.isEmpty()) return;
+        sb.append("    <h4>").append(heading).append("</h4>\n    <table>\n      <thead><tr><th>").append(noun)
+                .append("</th><th>Change</th><th>Old</th><th>New</th></tr></thead>\n      <tbody>\n");
+        for (MeasureVersionDiff.ItemChange c : items) {
+            String key = populationLabels ? POPULATION_LABELS.getOrDefault(c.getKey(), c.getKey()) : c.getKey();
+            sb.append("        <tr><td class=\"pop-type\">").append(esc(key)).append("</td><td>").append(kind(c.getKind()))
+                    .append("</td><td class=\"old\"><code>").append(esc(nz(c.getOldValue()))).append("</code>")
+                    .append(c.getOldDescription() != null ? "<br><small>" + esc(c.getOldDescription()) + "</small>" : "")
+                    .append("</td><td class=\"new\"><code>").append(esc(nz(c.getNewValue()))).append("</code>")
+                    .append(c.getNewDescription() != null ? "<br><small>" + esc(c.getNewDescription()) + "</small>" : "")
+                    .append("</td></tr>\n");
+        }
+        sb.append("      </tbody>\n    </table>\n");
+    }
+
+    private static String kind(String kind) {
+        String k = kind == null ? "changed" : kind;
+        return "<span class=\"kind kind-" + k + "\">" + k + "</span>";
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s;
+    }
+
     private void renderPopulationCriteria(StringBuilder sb, MeasureDefinition measure) {
         List<GroupDefinition> groups = measure.getGroupDefinitions();
         if (groups == null || groups.isEmpty()) {

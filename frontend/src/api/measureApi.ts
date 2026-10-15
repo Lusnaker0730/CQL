@@ -12,7 +12,6 @@ import type {
   TestCase,
   TestCaseRunResult,
   CoverageResult,
-  VersionComparison,
   BundleImportResult,
   DashboardSummary,
   BatchEvaluationRequest,
@@ -29,6 +28,10 @@ import type {
   QualityReportData,
   MeasureExportConformance,
   MeasureClauseCoverage,
+  MeasureReview,
+  MeasureVersionDiff,
+  MeasureReviewComment,
+  MeasureReviewCommentRequest,
 } from '../types'
 import { api } from './client'
 import type { MeasurePage, MeasurePageParams } from '../types'
@@ -394,9 +397,15 @@ export const measureApi = {
     return response.data
   },
 
-  compareMeasureVersions: async (oldId: number, newId: number): Promise<VersionComparison> => {
-    const response = await api.get<VersionComparison>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
+  /** PAT-263: structured diff (metadata by section, groups by id, CQL line diff) plus the legacy sentence lists. */
+  compareMeasureVersions: async (oldId: number, newId: number): Promise<MeasureVersionDiff> => {
+    const response = await api.get<MeasureVersionDiff>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
     return response.data
+  },
+  /** PAT-263: the same comparison as a self-contained HTML report. */
+  exportVersionDiffHtml: async (oldId: number, newId: number): Promise<Blob> => {
+    const response = await api.get(`/measures/version-compare/human-readable`, { params: { oldId, newId }, responseType: 'blob' })
+    return response.data as Blob
   },
 
   // Sharing & Permissions
@@ -532,6 +541,33 @@ export const measureApi = {
     const response = await api.post<BundleImportResult>('/measures/import/package', form, {
       params: asVersion ? { asVersion } : undefined,
     })
+    return response.data
+  },
+
+  // ===== PAT-262: review (assigned reviewers, decisions, comment threads) =====
+  getReview: async (id: number): Promise<MeasureReview> => {
+    const response = await api.get<MeasureReview>(`/measures/${id}/review`)
+    return response.data
+  },
+  /** The complete set of reviewers: new names are assigned, missing ones removed. */
+  setReviewers: async (id: number, usernames: string[]): Promise<MeasureReview> => {
+    const response = await api.put<MeasureReview>(`/measures/${id}/review/reviewers`, { usernames })
+    return response.data
+  },
+  recordReviewDecision: async (id: number, decision: 'approved' | 'changes-requested', comment?: string): Promise<MeasureReview> => {
+    const response = await api.post<MeasureReview>(`/measures/${id}/review/decision`, { decision, comment })
+    return response.data
+  },
+  addReviewComment: async (id: number, request: MeasureReviewCommentRequest): Promise<MeasureReviewComment> => {
+    const response = await api.post<MeasureReviewComment>(`/measures/${id}/review/comments`, request)
+    return response.data
+  },
+  editReviewComment: async (id: number, commentId: number, body: string): Promise<MeasureReviewComment> => {
+    const response = await api.put<MeasureReviewComment>(`/measures/${id}/review/comments/${commentId}`, { body })
+    return response.data
+  },
+  resolveReviewComment: async (id: number, commentId: number, resolved: boolean): Promise<MeasureReviewComment> => {
+    const response = await api.post<MeasureReviewComment>(`/measures/${id}/review/comments/${commentId}/${resolved ? 'resolve' : 'unresolve'}`)
     return response.data
   },
 

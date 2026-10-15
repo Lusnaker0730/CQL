@@ -1335,7 +1335,78 @@ export interface ApprovalReadiness {
     submittedBy?: string
     selfApprovalBlocked: boolean
   }
+  /** PAT-262: assigned reviewers and their decisions, open comment threads. */
+  review?: {
+    assigned: number
+    approved: number
+    changesRequested: number
+    pending: number
+    openThreads: number
+    requireAllReviewers: boolean
+  }
   checkedAt: string
+}
+
+// ===== PAT-262: measure review (assigned reviewers, decisions, comment threads) =====
+
+export type ReviewDecision = 'pending' | 'approved' | 'changes-requested'
+
+export interface MeasureReviewer {
+  username: string
+  assignedBy?: string
+  assignedAt?: string
+  decision: ReviewDecision | string
+  decisionComment?: string | null
+  decidedAt?: string | null
+}
+
+export interface MeasureReviewComment {
+  id: number
+  /** The thread's root; threads are one level deep. */
+  parentId?: number | null
+  author: string
+  section?: string | null
+  subSection?: string | null
+  body: string
+  edited: boolean
+  resolved: boolean
+  resolvedBy?: string | null
+  resolvedAt?: string | null
+  createdAt: string
+  updatedAt?: string
+  replies: MeasureReviewComment[]
+}
+
+export interface MeasureReviewSummary {
+  reviewers: number
+  approved: number
+  changesRequested: number
+  pending: number
+  openThreads: number
+  resolvedThreads: number
+  comments: number
+}
+
+export interface MeasureReview {
+  measureId: number
+  status: string
+  reviewers: MeasureReviewer[]
+  comments: MeasureReviewComment[]
+  summary: MeasureReviewSummary
+  /** The caller may assign / remove reviewers (owner or admin). */
+  canAssign: boolean
+  /** The caller may comment (owner, shared user, assigned reviewer or admin). */
+  canComment: boolean
+  /** The caller is an assigned reviewer. */
+  reviewer: boolean
+  myDecision?: string | null
+}
+
+export interface MeasureReviewCommentRequest {
+  body: string
+  parentId?: number
+  section?: string
+  subSection?: string
 }
 
 /** PAT-248: outcome of shifting every test case of a measure by whole years. */
@@ -1409,6 +1480,65 @@ export interface VersionComparison {
   newVersion: string
   metadataChanges?: string[]
   populationChanges?: string[]
+}
+
+// ===== PAT-263: structured version diff (GET /measures/version-compare) =====
+
+export type VersionDiffKind = 'added' | 'removed' | 'changed' | 'unchanged'
+
+export interface VersionDiffFieldChange {
+  section: string
+  field: string
+  kind: VersionDiffKind | string
+  oldValue?: string | null
+  newValue?: string | null
+}
+
+export interface VersionDiffItemChange {
+  key: string
+  kind: VersionDiffKind | string
+  oldValue?: string | null
+  newValue?: string | null
+  oldDescription?: string | null
+  newDescription?: string | null
+}
+
+export interface VersionDiffGroupChange {
+  groupId: string
+  kind: VersionDiffKind | string
+  fields: VersionDiffFieldChange[]
+  populations: VersionDiffItemChange[]
+  stratifiers: VersionDiffItemChange[]
+  observations: VersionDiffItemChange[]
+}
+
+export interface VersionDiffCqlLine {
+  type: 'equal' | 'added' | 'removed' | string
+  oldLine?: number | null
+  newLine?: number | null
+  text: string
+}
+
+export interface MeasureVersionDiff extends VersionComparison {
+  oldId?: number
+  newId?: number
+  name?: string
+  oldStatus?: string
+  newStatus?: string
+  cqlChanged: boolean
+  cqlLines?: VersionDiffCqlLine[] | null
+  metadata: VersionDiffFieldChange[]
+  groups: VersionDiffGroupChange[]
+  summary: {
+    metadata: number
+    groups: number
+    populations: number
+    stratifiers: number
+    observations: number
+    cqlAdded: number
+    cqlRemoved: number
+    total: number
+  }
 }
 
 // Bundle import result

@@ -48,6 +48,14 @@ public class ApprovalReadinessService {
     /** PAT-260: reads the value sets the stored ELM references, and whether the platform owns them. */
     private final CqfmLibraryBuilder libraryBuilder;
     private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+    /** PAT-262: assigned reviewers' decisions and open comment threads. */
+    private final com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository;
+    private final com.cqlplatform.repository.MeasureReviewCommentRepository commentRepository;
+
+    /** {@code measure.review.require-all-reviewers}: every assigned reviewer must have approved before the measure can be (default off). */
+    @Setter
+    @Value("${measure.review.require-all-reviewers:false}")
+    private boolean requireAllReviewers = false;
 
     /** {@code measure.review.four-eyes}: author / submitter may not approve (default on). */
     @Setter
@@ -59,13 +67,17 @@ public class ApprovalReadinessService {
                                     MeasureAuditRepository auditRepository,
                                     com.cqlplatform.repository.MeasureDefinitionRepository measureRepository,
                                     CqfmLibraryBuilder libraryBuilder,
-                                    com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets) {
+                                    com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets,
+                                    com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository,
+                                    com.cqlplatform.repository.MeasureReviewCommentRepository commentRepository) {
         this.testCaseRepository = testCaseRepository;
         this.cqlTranslationService = cqlTranslationService;
         this.auditRepository = auditRepository;
         this.measureRepository = measureRepository;
         this.libraryBuilder = libraryBuilder;
         this.platformValueSets = platformValueSets;
+        this.reviewerRepository = reviewerRepository;
+        this.commentRepository = commentRepository;
     }
 
     /** The full picture for {@code measure}, with the four-eyes verdict for {@code currentUser} (may be null). */
@@ -76,6 +88,7 @@ public class ApprovalReadinessService {
         int[] cqlCounts = checkCql(measure, blockers, warnings);
         ApprovalReadiness.TestCaseSummary summary = checkTestCases(measure, blockers, warnings);
         checkTerminology(measure, warnings);   // PAT-260
+        ApprovalReadiness.ReviewSummary review = checkReview(measure, blockers, warnings);   // PAT-262
         ApprovalReadiness.FourEyes eyes = fourEyes(measure, currentUser);
 
         return ApprovalReadiness.builder()
@@ -88,6 +101,7 @@ public class ApprovalReadinessService {
                 .cqlErrorCount(cqlCounts[0])
                 .cqlWarningCount(cqlCounts[1])
                 .fourEyes(eyes)
+                .review(review)
                 .checkedAt(LocalDateTime.now())
                 .build();
     }
@@ -200,6 +214,47 @@ public class ApprovalReadinessService {
         return summary.passed(passed).failed(failed).errored(errored).notRun(notRun).stale(stale.size())
                 .valid(valid).invalid(invalid.size()).validationPending(validationPending.size())
                 .validationError(validationError.size()).neverValidated(neverValidated.size())
+                .build();
+    }
+
+    /**
+     * PAT-262: a reviewer who requested changes blocks the approval while the measure is in review
+     * (in draft it is a warning: what to fix before resubmitting — the round resets on submit);
+     * reviewers who have not decided are a warning, or a blocker with
+     * {@code measure.review.require-all-reviewers}; unresolved comment threads are a warning.
+     */
+    private ApprovalReadiness.ReviewSummary checkReview(MeasureDefinitionEntity measure,
+                                                        List<ApprovalReadiness.Item> blockers,
+                                                        List<ApprovalReadiness.Item> warnings) {
+        List<com.cqlplatform.entity.MeasureReviewerEntity> reviewers = reviewerRepository
+                .findByMeasureIdAndTenantIdOrderByAssignedAtAsc(measure.getId(), measure.getTenantId());
+        List<String> changes = new ArrayList<>();
+        List<String> pending = new ArrayList<>();
+        int approved = 0;
+        for (com.cqlplatform.entity.MeasureReviewerEntity r : reviewers) {
+            switch (r.getDecision() == null ? "" : r.getDecision()) {
+                case com.cqlplatform.entity.MeasureReviewerEntity.APPROVED -> approved++;
+                case com.cqlplatform.entity.MeasureReviewerEntity.CHANGES_REQUESTED -> changes.add(r.getUsername()
+                        + (r.getDecisionComment() != null ? ": " + r.getDecisionComment() : ""));
+                default -> pending.add(r.getUsername());
+            }
+        }
+        boolean inReview = com.cqlplatform.model.measure.MeasureStatusConstants.IN_REVIEW.equals(measure.getStatus());
+        if (!changes.isEmpty()) {
+            (inReview ? blockers : warnings).add(item(ApprovalReadiness.REVIEW_CHANGES_REQUESTED, changes.size(),
+                    changes.size() + " reviewer(s) requested changes", changes));
+        }
+        if (!reviewers.isEmpty() && !pending.isEmpty()) {
+            (requireAllReviewers && inReview ? blockers : warnings).add(item(ApprovalReadiness.REVIEWERS_PENDING, pending.size(),
+                    pending.size() + " assigned reviewer(s) have not decided yet", pending));
+        }
+        long open = commentRepository.countByMeasureIdAndTenantIdAndParentIdIsNullAndResolvedFalse(measure.getId(), measure.getTenantId());
+        if (open > 0) {
+            warnings.add(item(ApprovalReadiness.COMMENTS_UNRESOLVED, (int) open, open + " review comment thread(s) are unresolved", List.of()));
+        }
+        return ApprovalReadiness.ReviewSummary.builder()
+                .assigned(reviewers.size()).approved(approved).changesRequested(changes.size()).pending(pending.size())
+                .openThreads((int) open).requireAllReviewers(requireAllReviewers)
                 .build();
     }
 

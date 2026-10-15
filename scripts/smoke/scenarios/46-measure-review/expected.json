@@ -1,0 +1,5 @@
+{
+  "type": "measure-review",
+  "changesComment": "smoke: exclude hospice patients",
+  "_note": "PAT-262 measure review (MADiE gap item 8b: MeasureReview {reviewers[], comment[] with replies}). A raw draft measure (owner admin) gets the seeded 'demo' user assigned as reviewer (PUT /review/reviewers): the measure is shared with demo, assigning the author is refused (400, four-eyes). A comment thread is opened by the owner on the CQL section, demo replies (the reply is attached to the root and inherits the section) and resolves the thread through the reply's id. A decision before submit is 400. After submit the pending reviewer is a REVIEWERS_PENDING warning (ready). demo's changes-requested decision returns the measure to draft with the comment as reviewComment; in draft REVIEW_CHANGES_REQUESTED is a warning so the author can resubmit, which resets demo's decision to pending. The author's own approve is 403; demo records 'approved' and approves the measure (active, approvedBy demo). demo, as an assigned reviewer, reads the audit trail (ASSIGN_REVIEWER, REVIEW_DECISION)."
+}
