@@ -142,8 +142,12 @@
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
       "exportError": "Export failed: {{error}}",
-      "uploadFile": "Upload File",
-      "orPaste": "or paste JSON below"
+      "uploadFile": "Upload file (.json / .zip)",
+      "orPaste": "or paste JSON below",
+      "fileSelected": "File: {{name}}",
+      "zipHint": "A package zip (ours or MADiE's) is imported as a whole; the server reads the Bundle inside it.",
+      "asVersion": "Import as version",
+      "asVersionHelp": "Optional. Replaces Measure.version, e.g. when the sender's version number already exists here."
     },
     "allStatuses": "All statuses",
     "statusFilter": "Status",
@@ -188,16 +192,20 @@
       "evaluate": "Evaluate",
       "testCases": "Test Cases",
       "reports": "Reports",
-      "validate": "Validate"
+      "validate": "Validate",
+      "review": "Review"
     },
     "exportFormats": {
       "fhirJson": "FHIR Bundle (JSON)",
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "CQL Only",
-      "elmOnly": "ELM Only",
+      "elmOnly": "ELM (JSON)",
       "hqmfXml": "HQMF (XML)",
       "humanReadable": "Human Readable (HTML)",
-      "packageCheck": "Exchange package check"
+      "packageCheck": "Exchange package check",
+      "elmXml": "ELM (XML)",
+      "packageZip": "Exchange package (zip)",
+      "humanReadablePreview": "Human readable (preview)"
     },
     "versionMenu": {
       "createVersion": "Create Version",
@@ -240,7 +248,10 @@
         "TEST_CASE_NEVER_VALIDATED": "{{count}} test case(s) were never FHIR-validated — run \"Validate all\"",
         "TEST_CASE_VALIDATION_ERROR": "{{count}} test case(s) could not be validated (validator error) — re-validate",
         "TEST_CASE_RUN_STALE": "{{count}} passing test case(s) last ran before the measure's last change — run them again",
-        "CQL_WARNINGS": "CQL translates with {{count}} warning(s)"
+        "CQL_WARNINGS": "CQL translates with {{count}} warning(s)",
+        "REVIEW_CHANGES_REQUESTED": "{{count}} reviewer(s) requested changes — address them before resubmitting",
+        "REVIEWERS_PENDING": "{{count}} assigned reviewer(s) have not decided yet",
+        "COMMENTS_UNRESOLVED": "{{count}} review comment thread(s) are unresolved"
       }
     }
   },
@@ -865,7 +876,8 @@
       "median": "Median",
       "minimum": "Minimum",
       "maximum": "Maximum",
-      "count": "Count"
+      "count": "Count",
+      "percentile": "P{{value}} percentile"
     },
     "observations": {
       "count": "Observations",
@@ -1118,7 +1130,9 @@
       "cqlExpression": "CQL Expression",
       "aggregateMethod": "Aggregate Method",
       "populationReference": "Population Reference",
-      "description": "Description"
+      "description": "Description",
+      "percentileValue": "Percentile (0–100)",
+      "percentileHelp": "e.g. 90 for the 90th percentile; interpolated between the closest observations"
     },
     "addObservation": "Add Observation",
     "aggregateMethods": {
@@ -1127,7 +1141,8 @@
       "average": "Average",
       "median": "Median",
       "minimum": "Minimum",
-      "maximum": "Maximum"
+      "maximum": "Maximum",
+      "percentile": "Percentile"
     }
   },
   "audit": {
@@ -1373,5 +1388,71 @@
     "openInBuilder": "Open in builder",
     "measureEdited": "The logic or population mapping was edited here since that publish. Publishing again from the builder will ask before overwriting these edits — bring them into the builder to keep them.",
     "builderChanged": "The builder has changes that are not on this measure yet — publish from the builder to apply them."
+  },
+  "review": {
+    "title": "Review",
+    "loading": "Loading the review…",
+    "summary": {
+      "reviewers": "{{count}} reviewer(s)",
+      "approved": "{{count}} approved",
+      "changesRequested": "{{count}} changes requested",
+      "pending": "{{count}} pending",
+      "openThreads": "{{count}} open thread(s)"
+    },
+    "reviewers": {
+      "title": "Assigned reviewers",
+      "none": "No reviewers assigned — the owner and the users the measure is shared with may review it.",
+      "add": "Username",
+      "addPlaceholder": "colleague's username",
+      "assign": "Assign",
+      "remove": "Remove reviewer",
+      "hint": "Assigning shares the measure with the reviewer. Once reviewers are assigned, only they may approve or reject; the author cannot be a reviewer (four-eyes).",
+      "decision": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "changes-requested": "Changes requested"
+      }
+    },
+    "decision": {
+      "title": "My decision",
+      "commentLabel": "Comment (optional)",
+      "commentPlaceholder": "What you checked, or what has to change",
+      "approve": "Approve",
+      "requestChanges": "Request changes",
+      "requestChangesHint": "Requesting changes returns the measure to draft so the author can edit it; your comment becomes the rejection reason. Approving records your verdict — the measure goes active with the Approve button above.",
+      "notInReview": "Decisions are recorded once the measure has been submitted for review."
+    },
+    "comments": {
+      "title": "Comments",
+      "showResolved": "Show resolved",
+      "section": "Section",
+      "subSection": "Detail",
+      "subSectionPlaceholder": "e.g. a define name or a field",
+      "body": "Comment",
+      "bodyPlaceholder": "Start a new thread…",
+      "post": "Post",
+      "reply": "Reply",
+      "replyPlaceholder": "Write a reply…",
+      "resolve": "Resolve",
+      "unresolve": "Reopen",
+      "resolvedBy": "Resolved by {{user}}",
+      "edited": "edited",
+      "edit": "Edit",
+      "save": "Save",
+      "cancel": "Cancel",
+      "none": "No comments yet.",
+      "sections": {
+        "general": "General",
+        "cql": "CQL",
+        "populations": "Populations",
+        "testCases": "Test cases",
+        "metadata": "Metadata",
+        "terminology": "Terminology"
+      }
+    }
+  },
+  "humanReadable": {
+    "title": "Human-readable document: {{name}}",
+    "download": "Download HTML"
   }
 }

@@ -98,14 +98,38 @@ public class EcqmExpressionTreeValidator {
                 // "no aggregate specified → average" semantic. Only non-null VALUES
                 // that fail normalization are user errors.
                 if (!(rawMethod instanceof String str) || str.isBlank()) continue;
-                if (com.cqlplatform.service.measure.MeasureScoreCalculator.normalizeAggregateMethod(str) == null) {
+                String canonical = com.cqlplatform.service.measure.MeasureScoreCalculator.normalizeAggregateMethod(str);
+                if (canonical == null) {
                     errors.add(String.format(
                             "populationGroups[%d].observations[%d].aggregateMethod: '%s' is not a recognized aggregate method. "
-                                    + "Supported: count, sum, average, median, minimum, maximum (aliases: avg, mean, min, max).",
+                                    + "Supported: count, sum, average, median, minimum, maximum, percentile (aliases: avg, mean, min, max).",
                             gi, oi, str));
+                    continue;
+                }
+                // PAT-264: percentile needs its percentile
+                if ("percentile".equals(canonical)) {
+                    Double p = percentileValue(obs.get("percentileValue"));
+                    if (p == null || p < 0 || p > 100) {
+                        errors.add(String.format(
+                                "populationGroups[%d].observations[%d].percentileValue: aggregate method 'percentile' needs a percentile between 0 and 100 (got '%s').",
+                                gi, oi, obs.get("percentileValue")));
+                    }
                 }
             }
         }
+    }
+
+    /** PAT-264: the artifact JSON carries the percentile as a number or a numeric string. */
+    public static Double percentileValue(Object raw) {
+        if (raw instanceof Number n) return n.doubleValue();
+        if (raw instanceof String s && !s.isBlank()) {
+            try {
+                return Double.parseDouble(s.trim());
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     // ── Tree traversal ──────────────────────────────────────────────────

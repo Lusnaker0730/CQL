@@ -96,6 +96,21 @@ body_of "$tmp/v2.raw" | jq --arg n "$renamed_name" '.name = $n' > "$tmp/rename.j
 call PUT "/measures/$v2_id" "$OWNER_TOKEN" "$(cat "$tmp/rename.json")" > "$tmp/rename.raw"
 check "rename v2 (HTTP 200)" "$(status_of "$tmp/rename.raw")" "200" "$tmp/rename.raw"
 check "v2 renamed" "$(body_of "$tmp/rename.raw" | jq -r '.name')" "$renamed_name"
+# PAT-263: the structured version diff of the lineage (the rename is a metadata change; the CQL is the same)
+call GET "/measures/version-compare?oldId=$measure_id&newId=$v2_id" "$OWNER_TOKEN" > "$tmp/diff.raw"
+check "version-compare (HTTP 200)" "$(status_of "$tmp/diff.raw")" "200"
+check "diff versions" "$(body_of "$tmp/diff.raw" | jq -r '"\(.oldVersion)->\(.newVersion)"')" "1.0.0->1.1.0"
+check "diff: CQL unchanged" "$(body_of "$tmp/diff.raw" | jq -r '.cqlChanged')" "false"
+check "diff: the rename is a name change in the identity section" "$(body_of "$tmp/diff.raw" | jq -r '[.metadata[] | select(.field == "name")] | .[0] | "\(.section):\(.kind):\(.oldValue):\(.newValue)"')" "identity:changed:SmokeMeasureSet:$renamed_name"
+check "diff: no population changes" "$(body_of "$tmp/diff.raw" | jq -r '[.groups[] | select(.kind != "unchanged")] | length')" "0"
+check "diff: legacy sentence list still there" "$(body_of "$tmp/diff.raw" | jq -r '.metadataChanges | length >= 1')" "true"
+html_status=$(curl -s -o "$tmp/diff.html" -w "%{http_code}" "$API_BASE/measures/version-compare/human-readable?oldId=$measure_id&newId=$v2_id" -H "Authorization: Bearer $OWNER_TOKEN")
+check "version-compare HTML report (HTTP 200)" "$html_status" "200"
+if grep -q "<!DOCTYPE html>" "$tmp/diff.html" && grep -q "<td>identity</td><td>name</td>" "$tmp/diff.html" && grep -q "CQL unchanged" "$tmp/diff.html"; then
+    echo "    ✓ HTML report is a document with the name change and an unchanged CQL" >&2
+else
+    echo "    ✗ HTML report content: $(head -c 300 "$tmp/diff.html")" >&2; fail=1
+fi
 call GET "/measures/$measure_id/history" "$OWNER_TOKEN" > "$tmp/history.raw"
 check "history of v1 has both versions despite the rename" "$(body_of "$tmp/history.raw" | jq -r 'length')" "2"
 check "history lists the renamed v2 first" "$(body_of "$tmp/history.raw" | jq -r '.[0].name')" "$renamed_name"

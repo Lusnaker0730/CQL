@@ -12,7 +12,6 @@ import type {
   TestCase,
   TestCaseRunResult,
   CoverageResult,
-  VersionComparison,
   BundleImportResult,
   DashboardSummary,
   BatchEvaluationRequest,
@@ -29,6 +28,10 @@ import type {
   QualityReportData,
   MeasureExportConformance,
   MeasureClauseCoverage,
+  MeasureReview,
+  MeasureVersionDiff,
+  MeasureReviewComment,
+  MeasureReviewCommentRequest,
 } from '../types'
 import { api } from './client'
 import type { MeasurePage, MeasurePageParams } from '../types'
@@ -394,9 +397,15 @@ export const measureApi = {
     return response.data
   },
 
-  compareMeasureVersions: async (oldId: number, newId: number): Promise<VersionComparison> => {
-    const response = await api.get<VersionComparison>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
+  /** PAT-263: structured diff (metadata by section, groups by id, CQL line diff) plus the legacy sentence lists. */
+  compareMeasureVersions: async (oldId: number, newId: number): Promise<MeasureVersionDiff> => {
+    const response = await api.get<MeasureVersionDiff>(`/measures/version-compare?oldId=${oldId}&newId=${newId}`)
     return response.data
+  },
+  /** PAT-263: the same comparison as a self-contained HTML report. */
+  exportVersionDiffHtml: async (oldId: number, newId: number): Promise<Blob> => {
+    const response = await api.get(`/measures/version-compare/human-readable`, { params: { oldId, newId }, responseType: 'blob' })
+    return response.data as Blob
   },
 
   // Sharing & Permissions
@@ -497,7 +506,18 @@ export const measureApi = {
   exportBundle: (id: number, format: string = 'json'): Promise<Blob> =>
     exportBlob(id, 'bundle', { format }),
   exportCql: (id: number): Promise<Blob> => exportBlob(id, 'cql'),
-  exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
+  /** ELM as JSON (default) or, PAT-261, as ELM XML. */
+  exportElm: (id: number, format: 'json' | 'xml' = 'json'): Promise<Blob> => exportBlob(id, 'elm', { format }),
+  /**
+   * PAT-261: the whole exchange package as one zip (MADiE layout). The server names the file
+   * `<Title>-v<version>-FHIR.zip`; the name travels in Content-Disposition.
+   */
+  exportPackage: async (id: number): Promise<{ blob: Blob; fileName: string | null }> => {
+    const response = await api.get(`/measures/${id}/export/package`, { responseType: 'blob' })
+    const disposition = String(response.headers?.['content-disposition'] ?? '')
+    const match = /filename="?([^";]+)"?/.exec(disposition)
+    return { blob: response.data as Blob, fileName: match ? match[1] : null }
+  },
   exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
   exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
 
@@ -507,8 +527,47 @@ export const measureApi = {
     return response.data
   },
 
-  importBundle: async (json: unknown): Promise<BundleImportResult> => {
-    const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
+  /** `asVersion` (PAT-261) replaces Measure.version before the import. */
+  importBundle: async (json: unknown, asVersion?: string): Promise<BundleImportResult> => {
+    const response = await api.post<BundleImportResult>('/measures/import/bundle', json, {
+      params: asVersion ? { asVersion } : undefined,
+    })
+    return response.data
+  },
+  /** PAT-261: a package zip (ours or MADiE's) or a Bundle JSON file, imported on the server. */
+  importPackageFile: async (file: File, asVersion?: string): Promise<BundleImportResult> => {
+    const form = new FormData()
+    form.append('file', file)
+    const response = await api.post<BundleImportResult>('/measures/import/package', form, {
+      params: asVersion ? { asVersion } : undefined,
+    })
+    return response.data
+  },
+
+  // ===== PAT-262: review (assigned reviewers, decisions, comment threads) =====
+  getReview: async (id: number): Promise<MeasureReview> => {
+    const response = await api.get<MeasureReview>(`/measures/${id}/review`)
+    return response.data
+  },
+  /** The complete set of reviewers: new names are assigned, missing ones removed. */
+  setReviewers: async (id: number, usernames: string[]): Promise<MeasureReview> => {
+    const response = await api.put<MeasureReview>(`/measures/${id}/review/reviewers`, { usernames })
+    return response.data
+  },
+  recordReviewDecision: async (id: number, decision: 'approved' | 'changes-requested', comment?: string): Promise<MeasureReview> => {
+    const response = await api.post<MeasureReview>(`/measures/${id}/review/decision`, { decision, comment })
+    return response.data
+  },
+  addReviewComment: async (id: number, request: MeasureReviewCommentRequest): Promise<MeasureReviewComment> => {
+    const response = await api.post<MeasureReviewComment>(`/measures/${id}/review/comments`, request)
+    return response.data
+  },
+  editReviewComment: async (id: number, commentId: number, body: string): Promise<MeasureReviewComment> => {
+    const response = await api.put<MeasureReviewComment>(`/measures/${id}/review/comments/${commentId}`, { body })
+    return response.data
+  },
+  resolveReviewComment: async (id: number, commentId: number, resolved: boolean): Promise<MeasureReviewComment> => {
+    const response = await api.post<MeasureReviewComment>(`/measures/${id}/review/comments/${commentId}/${resolved ? 'resolve' : 'unresolve'}`)
     return response.data
   },
 

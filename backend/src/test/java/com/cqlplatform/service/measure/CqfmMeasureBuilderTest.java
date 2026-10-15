@@ -730,4 +730,37 @@ class CqfmMeasureBuilderTest {
                 .contains("Value set Diabetes", "Library FHIRHelpers")
                 .doesNotContain("Value set HbA1c Orders");
     }
+
+    // ------------------------------------------------------------------ PAT-264 percentile observation
+
+    @Test
+    void percentileObservation_isNotAnIgAggregateMethod_soItTravelsAsThePlatformExtension_withAWarning() {
+        MeasureDefinition def = proportion().scoringType(ScoringTypeConstants.CONTINUOUS_VARIABLE)
+                .groupDefinitions(List.of(GroupDefinition.builder().groupId("group-1")
+                        .populations(List.of(pop("initial-population", "Initial Population"), pop("measure-population", "Measure Population")))
+                        .observations(List.of(ObservationDefinition.builder().criteriaExpression("Measure Observation 1")
+                                .aggregateMethod("percentile").percentileValue(90.0).populationRef("measure-population").build()))
+                        .build()))
+                .build();
+        MeasureExportConformance report = new MeasureExportConformance();
+
+        ObjectNode measure = build(def, report);
+
+        JsonNode observation = null;
+        for (JsonNode p : measure.path("group").get(0).path("population")) {
+            if ("measure-observation".equals(p.path("code").path("coding").get(0).path("code").asText())) observation = p;
+        }
+        assertThat(observation).isNotNull();
+        for (JsonNode e : observation.path("extension")) {
+            assertThat(e.path("url").asText()).as("no IG aggregate method for percentile").isNotEqualTo(QM + "cqfm-aggregateMethod");
+        }
+        JsonNode ext = null;
+        for (JsonNode e : observation.path("extension")) {
+            if (e.path("url").asText().endsWith(CqfmConstants.EXT_OBSERVATION_PERCENTILE_PATH)) ext = e;
+        }
+        assertThat(ext).as("platform percentile extension").isNotNull();
+        assertThat(ext.path("valueDecimal").asDouble()).isEqualTo(90.0);
+        assertThat(report.getIssues()).anyMatch(i -> MeasureExportConformance.WARNING.equals(i.getSeverity())
+                && i.getMessage().contains("P90") && i.getMessage().contains("not an HL7 Quality Measure IG aggregate method"));
+    }
 }

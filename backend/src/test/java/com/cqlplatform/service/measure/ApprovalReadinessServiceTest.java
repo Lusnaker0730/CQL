@@ -43,6 +43,8 @@ class ApprovalReadinessServiceTest {
     @Mock private com.cqlplatform.repository.MeasureDefinitionRepository measureRepository;
     @Mock private CqfmLibraryBuilder libraryBuilder;
     @Mock private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+    @Mock private com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository;
+    @Mock private com.cqlplatform.repository.MeasureReviewCommentRepository commentRepository;
 
     private ApprovalReadinessService service;
 
@@ -50,7 +52,8 @@ class ApprovalReadinessServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ApprovalReadinessService(testCaseRepository, cqlTranslationService, auditRepository, measureRepository, libraryBuilder, platformValueSets);
+        service = new ApprovalReadinessService(testCaseRepository, cqlTranslationService, auditRepository, measureRepository, libraryBuilder, platformValueSets,
+                reviewerRepository, commentRepository);
         service.setFourEyes(true);
         lenient().when(auditRepository.findFirstByMeasureIdAndActionOrderByCreatedAtDesc(any(), eq("SUBMIT_FOR_REVIEW")))
                 .thenReturn(Optional.empty());
@@ -293,5 +296,60 @@ class ApprovalReadinessServiceTest {
         m.setValueSetVersionMap(new java.util.LinkedHashMap<>(java.util.Map.of("https://h/ValueSet/HbA1c", "1.0.0")));
         assertThat(service.check(m, "reviewer").getWarnings()).extracting(com.cqlplatform.model.measure.ApprovalReadiness.Item::getCode)
                 .doesNotContain(com.cqlplatform.model.measure.ApprovalReadiness.TERMINOLOGY_UNPINNED);
+    }
+
+    // ------------------------------------------------------------------ PAT-262 reviewers
+
+    private static com.cqlplatform.entity.MeasureReviewerEntity rev(String name, String decision, String comment) {
+        return com.cqlplatform.entity.MeasureReviewerEntity.builder().measureId(10L).username(name).decision(decision).decisionComment(comment).build();
+    }
+
+    @Test
+    void changesRequested_blocksWhileInReview_isAWarningInDraft_andPendingReviewersWarn() {
+        cqlTranslates();
+        when(reviewerRepository.findByMeasureIdAndTenantIdOrderByAssignedAtAsc(eq(10L), any())).thenReturn(List.of(
+                rev("bob", "changes-requested", "exclusions missing"), rev("carol", "pending", null), rev("dan", "approved", null)));
+
+        MeasureDefinitionEntity inReview = measure("alice");
+        inReview.setStatus("in-review");
+        ApprovalReadiness r = service.check(inReview, "carol");
+        assertThat(r.isReady()).isFalse();
+        assertThat(codes(r.getBlockers())).containsExactly(ApprovalReadiness.REVIEW_CHANGES_REQUESTED);
+        assertThat(r.getBlockers().get(0).getItems()).containsExactly("bob: exclusions missing");
+        assertThat(codes(r.getWarnings())).contains(ApprovalReadiness.REVIEWERS_PENDING);
+        assertThat(r.getReview().getAssigned()).isEqualTo(3);
+        assertThat(r.getReview().getApproved()).isEqualTo(1);
+        assertThat(r.getReview().getChangesRequested()).isEqualTo(1);
+        assertThat(r.getReview().getPending()).isEqualTo(1);
+
+        ApprovalReadiness draft = service.check(measure("alice"), "carol");
+        assertThat(draft.isReady()).as("in draft the author must be able to resubmit").isTrue();
+        assertThat(codes(draft.getWarnings())).contains(ApprovalReadiness.REVIEW_CHANGES_REQUESTED, ApprovalReadiness.REVIEWERS_PENDING);
+    }
+
+    @Test
+    void requireAllReviewers_turnsPendingReviewersIntoABlocker_onlyWhileInReview() {
+        cqlTranslates();
+        service.setRequireAllReviewers(true);
+        when(reviewerRepository.findByMeasureIdAndTenantIdOrderByAssignedAtAsc(eq(10L), any()))
+                .thenReturn(List.of(rev("bob", "pending", null)));
+
+        MeasureDefinitionEntity inReview = measure("alice");
+        inReview.setStatus("in-review");
+        assertThat(codes(service.check(inReview, "bob").getBlockers())).containsExactly(ApprovalReadiness.REVIEWERS_PENDING);
+        assertThat(service.check(measure("alice"), "bob").isReady()).isTrue();
+        assertThat(service.check(inReview, "bob").getReview().isRequireAllReviewers()).isTrue();
+    }
+
+    @Test
+    void unresolvedCommentThreads_areAWarning() {
+        cqlTranslates();
+        when(commentRepository.countByMeasureIdAndTenantIdAndParentIdIsNullAndResolvedFalse(eq(10L), any())).thenReturn(2L);
+
+        ApprovalReadiness r = service.check(measure("alice"), "bob");
+
+        assertThat(r.isReady()).isTrue();
+        assertThat(r.getWarnings()).anyMatch(i -> ApprovalReadiness.COMMENTS_UNRESOLVED.equals(i.getCode()) && i.getCount() == 2);
+        assertThat(r.getReview().getOpenThreads()).isEqualTo(2);
     }
 }

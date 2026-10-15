@@ -276,6 +276,15 @@ public class CqfmMeasureBuilder {
                         ObjectNode e = obsExt.addObject();
                         e.put("url", CqfmConstants.EXT_AGGREGATE_METHOD);
                         e.put("valueCode", method);
+                    } else if ("percentile".equals(method)) {
+                        // PAT-264: not an IG aggregate method — a platform extension carries the percentile
+                        ObjectNode e = obsExt.addObject();
+                        e.put("url", canonical.getBase() + CqfmConstants.EXT_OBSERVATION_PERCENTILE_PATH);
+                        if (obs.getPercentileValue() != null) e.put("valueDecimal", obs.getPercentileValue());
+                        report.add(WARNING, "Measure.group[" + groupId + "].observation[" + n + "]",
+                                "Observation aggregates by percentile (P" + (obs.getPercentileValue() != null ? obs.getPercentileValue().intValue() : "?")
+                                        + "), which is not an HL7 Quality Measure IG aggregate method: the package carries it as the platform extension "
+                                        + CqfmConstants.EXT_OBSERVATION_PERCENTILE_PATH + "; receivers that only know the IG will not compute this observation.");
                     } else {
                         report.add(WARNING, "Measure.group[" + groupId + "].observation[" + n + "]",
                                 "Observation has no recognised aggregate method (sum, average, median, minimum, maximum, count).");

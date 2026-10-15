@@ -48,6 +48,10 @@ public class MeasureDefinitionService {
     private final ApprovalReadinessService readinessService;
     /** PAT-253 */
     private final MeasureSetService measureSetService;
+    /** PAT-262: assigned reviewers — a new review round resets their decisions; only they approve / reject. */
+    private final com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository;
+    /** PAT-263: version-to-version differences. */
+    private final MeasureDiffService diffService;
 
     /** Effective tenant: the caller's, or the default tenant for legacy callers with none. */
     public Long effectiveTenantId() {
@@ -587,74 +591,14 @@ public class MeasureDefinitionService {
         return saved;
     }
 
+    /** PAT-263: the structured, human-readable difference between two versions (metadata by section, groups by id, CQL line diff). */
     @Transactional(readOnly = true)
-    public Map<String, Object> compare(Long oldId, Long newId) {
+    public com.cqlplatform.model.measure.MeasureVersionDiff compare(Long oldId, Long newId) {
         MeasureDefinition oldMeasure = getById(oldId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + oldId));
         MeasureDefinition newMeasure = getById(newId)
                 .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + newId));
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("oldCql", oldMeasure.getCqlContent() != null ? oldMeasure.getCqlContent() : "");
-        result.put("newCql", newMeasure.getCqlContent() != null ? newMeasure.getCqlContent() : "");
-        result.put("oldVersion", oldMeasure.getVersion());
-        result.put("newVersion", newMeasure.getVersion());
-
-        // Enhanced: metadata changes
-        List<String> metadataChanges = new ArrayList<>();
-        diffField(metadataChanges, "Title", oldMeasure.getTitle(), newMeasure.getTitle());
-        diffField(metadataChanges, "Description", oldMeasure.getDescription(), newMeasure.getDescription());
-        diffField(metadataChanges, "Status", oldMeasure.getStatus(), newMeasure.getStatus());
-        diffField(metadataChanges, "Scoring Type", oldMeasure.getScoringType(), newMeasure.getScoringType());
-        diffField(metadataChanges, "Steward", oldMeasure.getSteward(), newMeasure.getSteward());
-        diffField(metadataChanges, "Rationale", oldMeasure.getRationale(), newMeasure.getRationale());
-        result.put("metadataChanges", metadataChanges);
-
-        // Enhanced: population changes
-        List<String> populationChanges = computePopulationChanges(oldMeasure, newMeasure);
-        result.put("populationChanges", populationChanges);
-
-        return result;
-    }
-
-    private void diffField(List<String> changes, String fieldName, String oldVal, String newVal) {
-        String o = oldVal != null ? oldVal : "";
-        String n = newVal != null ? newVal : "";
-        if (!o.equals(n)) {
-            if (o.isEmpty()) {
-                changes.add(fieldName + " added: \"" + n + "\"");
-            } else if (n.isEmpty()) {
-                changes.add(fieldName + " removed (was: \"" + o + "\")");
-            } else {
-                changes.add(fieldName + " changed: \"" + o + "\" → \"" + n + "\"");
-            }
-        }
-    }
-
-    private List<String> computePopulationChanges(MeasureDefinition oldM, MeasureDefinition newM) {
-        List<String> changes = new ArrayList<>();
-        var oldGroups = oldM.getGroupDefinitions() != null ? oldM.getGroupDefinitions() : List.<com.cqlplatform.model.measure.GroupDefinition>of();
-        var newGroups = newM.getGroupDefinitions() != null ? newM.getGroupDefinitions() : List.<com.cqlplatform.model.measure.GroupDefinition>of();
-
-        int maxGroups = Math.max(oldGroups.size(), newGroups.size());
-        for (int i = 0; i < maxGroups; i++) {
-            if (i >= oldGroups.size()) {
-                changes.add("Group " + newGroups.get(i).getGroupId() + " added");
-                continue;
-            }
-            if (i >= newGroups.size()) {
-                changes.add("Group " + oldGroups.get(i).getGroupId() + " removed");
-                continue;
-            }
-            var og = oldGroups.get(i);
-            var ng = newGroups.get(i);
-            int oldPopCount = og.getPopulations() != null ? og.getPopulations().size() : 0;
-            int newPopCount = ng.getPopulations() != null ? ng.getPopulations().size() : 0;
-            if (oldPopCount != newPopCount) {
-                changes.add(og.getGroupId() + ": population count changed " + oldPopCount + " → " + newPopCount);
-            }
-        }
-        return changes;
+        return diffService.diff(oldMeasure, newMeasure);
     }
 
     private String bumpVersion(String version, String type) {
@@ -909,8 +853,15 @@ public class MeasureDefinitionService {
         recordAudit(id, "SUBMIT_FOR_REVIEW", currentUser, "Submitted for review", oldStatus, IN_REVIEW);
         log.info("Measure {} submitted for review by {}", id, currentUser);
 
-        // Notify shared users (reviewers)
-        notificationService.notifyMeasureSubmitted(currentUser, entity.getSharedWithList(), entity.getName(), id);
+        // PAT-262: a new review round — every assigned reviewer is back to pending
+        List<String> assigned = assignedReviewers(entity);
+        if (!assigned.isEmpty()) {
+            reviewerRepository.resetDecisions(entity.getId(), entity.getTenantId());
+        }
+        // Notify shared users and assigned reviewers
+        List<String> reviewers = new ArrayList<>(entity.getSharedWithList());
+        for (String r : assigned) if (!reviewers.contains(r)) reviewers.add(r);
+        notificationService.notifyMeasureSubmitted(currentUser, reviewers, entity.getName(), id);
 
         return entityToModel(entity);
     }
@@ -1024,7 +975,42 @@ public class MeasureDefinitionService {
         }
     }
 
+    /** PAT-262: usernames of the assigned reviewers (empty when the measure uses the sharing-based rule). */
+    private List<String> assignedReviewers(MeasureDefinitionEntity entity) {
+        return reviewerRepository.findByMeasureIdAndTenantIdOrderByAssignedAtAsc(entity.getId(), entity.getTenantId())
+                .stream().map(com.cqlplatform.entity.MeasureReviewerEntity::getUsername).toList();
+    }
+
+    /**
+     * PAT-262: shares the measure (across its set) with {@code username} without the owner check —
+     * the caller has already decided who may do this (reviewer assignment by owner or admin).
+     */
+    @Transactional
+    public void ensureSharedWith(Long id, String username, String actor) {
+        MeasureDefinitionEntity entity = repository.findByIdAndTenantId(id, effectiveTenantId())
+                .orElseThrow(() -> new IllegalArgumentException("Measure not found: " + id));
+        if (username == null || username.isBlank() || entity.getSharedWithList().contains(username)
+                || username.equals(entity.getOwnerUsername())) {
+            return;
+        }
+        applyAcrossSet(entity, member -> {
+            List<String> shared = new ArrayList<>(member.getSharedWithList());
+            if (!shared.contains(username)) shared.add(username);
+            member.setSharedWithList(shared);
+            if ("private".equals(member.getAccessLevel())) member.setAccessLevel("shared");
+        });
+        recordAudit(id, "SHARE", actor, "Shared with " + username + " (assigned as reviewer)", null, null);
+    }
+
     private void checkReviewer(MeasureDefinitionEntity entity, String currentUser) {
+        // PAT-262: once reviewers are assigned, only they (or an admin) review the measure
+        List<String> assigned = assignedReviewers(entity);
+        if (!assigned.isEmpty()) {
+            if (assigned.contains(currentUser) || ownershipVerifier.isAdmin()) return;
+            throw new com.cqlplatform.exception.ApprovalNotAllowedException(
+                    "Only the assigned reviewers of measure '" + entity.getName() + "' (" + String.join(", ", assigned)
+                            + ") may approve or reject it");
+        }
         // Reviewers: sharedWith users or the owner
         boolean isOwner = entity.getOwnerUsername() == null || entity.getOwnerUsername().equals(currentUser);
         boolean isShared = entity.getSharedWithList().contains(currentUser);

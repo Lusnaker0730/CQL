@@ -150,7 +150,9 @@ public class FhirMeasureService {
                 }
                 if (g.getObservations() != null) {
                     g.getObservations().forEach(o -> sb.append("|O:").append(o.getCriteriaExpression()).append('=')
-                            .append(o.getAggregateMethod()).append('@').append(o.getPopulationRef()));
+                            .append(o.getAggregateMethod())
+                            .append(o.getPercentileValue() != null ? "#" + o.getPercentileValue() : "")   // PAT-264
+                            .append('@').append(o.getPopulationRef()));
                 }
                 if (g.getStratifiers() != null) {
                     g.getStratifiers().forEach(s -> {
@@ -223,9 +225,21 @@ public class FhirMeasureService {
             List<ObservationDefinition> observations = new ArrayList<>();
             for (JsonNode obsNode : observationNodes) {
                 String reference = extensionValue(obsNode, CqfmConstants.EXT_CRITERIA_REFERENCE, "valueString");
+                String aggregateMethod = extensionValue(obsNode, CqfmConstants.EXT_AGGREGATE_METHOD, "valueCode");
+                Double percentileValue = null;
+                if (aggregateMethod == null) {
+                    // PAT-264: a percentile observation travels as the platform extension (any sender's canonical base)
+                    for (JsonNode ext : obsNode.path("extension")) {
+                        if (ext.path("url").asText("").endsWith(CqfmConstants.EXT_OBSERVATION_PERCENTILE_PATH)) {
+                            aggregateMethod = "percentile";
+                            percentileValue = ext.hasNonNull("valueDecimal") ? ext.get("valueDecimal").asDouble() : null;
+                        }
+                    }
+                }
                 observations.add(ObservationDefinition.builder()
                         .criteriaExpression(obsNode.path("criteria").path("expression").asText(""))
-                        .aggregateMethod(extensionValue(obsNode, CqfmConstants.EXT_AGGREGATE_METHOD, "valueCode"))
+                        .aggregateMethod(aggregateMethod)
+                        .percentileValue(percentileValue)
                         .populationRef(reference != null ? typeById.getOrDefault(reference, reference) : null)
                         .description(obsNode.path("description").asText(null))
                         .build());

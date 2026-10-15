@@ -40,12 +40,20 @@ public final class CqfmConstants {
     public static final String PROFILE_CQL_LIBRARY = CQL + "cql-library";
     /** Requires a content attachment (application/elm+json). */
     public static final String PROFILE_ELM_JSON_LIBRARY = CQL + "elm-json-library";
+    /** PAT-261: claimed when the Library also carries {@code application/elm+xml}. */
+    public static final String PROFILE_ELM_XML_LIBRARY = CQL + "elm-xml-library";
 
     // ---- Extensions ----
     /** valueCode (FHIR type name); on Measure, Measure.group or Measure.group.population. */
     public static final String EXT_POPULATION_BASIS = QM + "cqfm-populationBasis";
     /** valueCode bound to measure-aggregate-method; on a measure-observation population. */
     public static final String EXT_AGGREGATE_METHOD = QM + "cqfm-aggregateMethod";
+    /**
+     * PAT-264: percentile is not in the QM IG aggregate-method value set, so a percentile observation
+     * carries this platform extension (valueDecimal = the percentile) under the installation's canonical
+     * base instead of cqfm-aggregateMethod. Import matches the path suffix, whatever the sender's base.
+     */
+    public static final String EXT_OBSERVATION_PERCENTILE_PATH = "/StructureDefinition/measure-observation-percentile";
     /** valueString = id of the population the observation is computed over. */
     public static final String EXT_CRITERIA_REFERENCE = QM + "cqfm-criteriaReference";
     /** valueCodeableConcept; on Measure or Measure.group. */

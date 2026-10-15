@@ -178,8 +178,10 @@ export default function EvaluationResultCard({ result }: EvaluationResultCardPro
                     mb: 1.5,
                     display: 'block'
                   }}>
-                  {t(`evaluationResult.aggregateMethods.${group.observationStatistics.aggregateMethod}`,
-                     group.observationStatistics.aggregateMethod)}
+                  {group.observationStatistics.aggregateMethod === 'percentile'
+                    ? t('evaluationResult.aggregateMethods.percentile', { value: group.observationStatistics.percentile ?? '?' })
+                    : t(`evaluationResult.aggregateMethods.${group.observationStatistics.aggregateMethod}`,
+                        group.observationStatistics.aggregateMethod)}
                   {group.observationStatistics.unit ? ` (${group.observationStatistics.unit})` : ''}
                 </Typography>
                 <Stack

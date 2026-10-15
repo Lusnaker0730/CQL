@@ -155,4 +155,73 @@ class FhirMeasureBundleImportServiceTest {
         verify(fhirLibraryService, never()).importFhirLibrary(any());
         assertThat(result.librariesSkipped()).isEqualTo(1);
     }
+
+    // ------------------------------------------------------------------ PAT-261 packages
+
+    private static byte[] zip(java.util.Map<String, String> entries) throws Exception {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(out, StandardCharsets.UTF_8)) {
+            for (var e : entries.entrySet()) {
+                zip.putNextEntry(new java.util.zip.ZipEntry(e.getKey()));
+                zip.write(e.getValue().getBytes(StandardCharsets.UTF_8));
+                zip.closeEntry();
+            }
+        }
+        return out.toByteArray();
+    }
+
+    @Test
+    void packageZip_importsTheTopLevelBundle_andAsVersionRewritesMeasureVersion() throws Exception {
+        String bundle = bundle(null, library("DiabetesHbA1cControl", "1.2.0", null, MAIN_CQL)).toString();
+        java.util.Map<String, String> entries = new java.util.LinkedHashMap<>();
+        entries.put("conformance.json", "{\"profiles\":[],\"issues\":[]}");
+        entries.put("resources/measure-DiabetesHbA1cControl-1.2.0.json", "{\"resourceType\":\"Measure\",\"name\":\"DiabetesHbA1cControl\"}");
+        entries.put("cql/DiabetesHbA1cControl-1.2.0.cql", MAIN_CQL);
+        entries.put("DM-A1C-v1.2.0-FHIR.json", bundle);
+        entries.put("DM-A1C-v1.2.0-FHIR.xml", "<Bundle xmlns=\"http://hl7.org/fhir\"/>");
+
+        BundleImportResult result = service.importPackage(zip(entries), "DM-A1C-v1.2.0-FHIR.zip", "1.3.0-imported");
+
+        assertThat(result.measure()).isNotNull();
+        ArgumentCaptor<JsonNode> measure = ArgumentCaptor.forClass(JsonNode.class);
+        verify(fhirMeasureService).importFhirMeasure(measure.capture(), eq(MAIN_CQL));
+        assertThat(measure.getValue().path("version").asText()).isEqualTo("1.3.0-imported");
+    }
+
+    @Test
+    void packageZip_withTheBundleOnlyInsideAFolder_stillFindsIt_andKeepsTheSendersVersionWithoutAsVersion() throws Exception {
+        String bundle = bundle(null, library("DiabetesHbA1cControl", "1.2.0", null, MAIN_CQL)).toString();
+        byte[] zip = zip(java.util.Map.of("export/nested/bundle.json", bundle, "readme.txt", "hello"));
+
+        service.importPackage(zip, "whatever.zip", "   ");
+
+        ArgumentCaptor<JsonNode> measure = ArgumentCaptor.forClass(JsonNode.class);
+        verify(fhirMeasureService).importFhirMeasure(measure.capture(), eq(MAIN_CQL));
+        assertThat(measure.getValue().path("version").asText()).isEqualTo("1.2.0");
+    }
+
+    @Test
+    void packageWithoutABundle_orEmpty_isRefused() throws Exception {
+        byte[] noBundle = zip(java.util.Map.of("resources/measure-x.json", "{\"resourceType\":\"Measure\"}", "notes.json", "not json"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importPackage(noBundle, "x.zip", null))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("no FHIR Bundle");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importPackage(new byte[0], "x.zip", null))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.importPackage("<xml/>".getBytes(StandardCharsets.UTF_8), "bundle.xml", null))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("neither a zip nor valid JSON");
+    }
+
+    @Test
+    void plainBundleJsonUpload_takesTheJsonPath() throws Exception {
+        String bundle = bundle(null, library("DiabetesHbA1cControl", "1.2.0", null, MAIN_CQL)).toString();
+
+        BundleImportResult result = service.importPackage(bundle.getBytes(StandardCharsets.UTF_8), "bundle.json", "2.0.0");
+
+        assertThat(result.measure()).isNotNull();
+        ArgumentCaptor<JsonNode> measure = ArgumentCaptor.forClass(JsonNode.class);
+        verify(fhirMeasureService).importFhirMeasure(measure.capture(), eq(MAIN_CQL));
+        assertThat(measure.getValue().path("version").asText()).isEqualTo("2.0.0");
+    }
 }

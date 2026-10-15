@@ -107,6 +107,38 @@ public class NotificationService {
         }
     }
 
+    // ===== PAT-262 review notifications =====
+
+    public void notifyReviewAssigned(String assigner, String reviewer, String measureName, Long measureId) {
+        if (reviewer == null || reviewer.equals(assigner)) return;
+        createNotification(reviewer, "MEASURE_REVIEW_ASSIGNED",
+                "You were asked to review: " + measureName,
+                assigner + " assigned you as a reviewer of \"" + measureName + "\".",
+                "/measures?measure=" + measureId);
+    }
+
+    public void notifyReviewDecision(String reviewer, String owner, String measureName, Long measureId, String decision, String comment) {
+        if (!hasRecipient(owner, "MEASURE_REVIEW_DECISION", measureId) || reviewer.equals(owner)) return;
+        createNotification(owner, "MEASURE_REVIEW_DECISION",
+                "Review decision on " + measureName + ": " + decision,
+                reviewer + " recorded \"" + decision + "\" on \"" + measureName + "\""
+                        + (comment != null && !comment.isBlank() ? ": " + comment : "."),
+                "/measures?measure=" + measureId);
+    }
+
+    /** One notification per recipient (the author is never among them). */
+    public void notifyReviewComment(String author, List<String> recipients, String measureName, Long measureId, String body) {
+        if (recipients == null) return;
+        String excerpt = body == null ? "" : (body.length() > 140 ? body.substring(0, 140) + "…" : body);
+        for (String recipient : recipients) {
+            if (recipient == null || recipient.isBlank() || recipient.equals(author)) continue;
+            createNotification(recipient, "MEASURE_COMMENT",
+                    "New review comment on " + measureName,
+                    author + ": " + excerpt,
+                    "/measures?measure=" + measureId);
+        }
+    }
+
     public void notifyMeasureApproved(String approver, String owner, String measureName, Long measureId) {
         if (!hasRecipient(owner, "MEASURE_APPROVED", measureId)) {
             return;

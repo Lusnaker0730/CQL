@@ -123,7 +123,34 @@
     "noMetadataChanges": "No metadata changes detected between versions.",
     "noPopulationChanges": "No population changes detected between versions.",
     "selectAndCompare": "Select two versions and click Compare to view differences.",
-    "loadFailed": "Failed to load version diff"
+    "loadFailed": "Failed to load version diff",
+    "identical": "Identical",
+    "cqlLines": "CQL +{{added}} / −{{removed}} lines",
+    "downloadHtml": "Download report (HTML)",
+    "section": "Section",
+    "field": "Field",
+    "change": "Change",
+    "item": "Item",
+    "group": "Group {{id}}",
+    "populations": "Populations",
+    "stratifiers": "Stratifiers",
+    "observations": "Observations",
+    "kind": {
+      "added": "Added",
+      "removed": "Removed",
+      "changed": "Changed",
+      "unchanged": "Unchanged"
+    },
+    "sections": {
+      "identity": "Identity",
+      "description": "Description",
+      "scoring": "Scoring",
+      "stewardship": "Stewardship",
+      "dates": "Dates",
+      "supplementalData": "Supplemental data",
+      "terminology": "Terminology",
+      "group": "Group"
+    }
   },
   "dependency": {
     "saveFirst": "Save a library first to view its dependency analysis.",

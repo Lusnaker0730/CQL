@@ -29,7 +29,7 @@ interface MeasureExportConformanceDialogProps {
   measureId: number
   open: boolean
   onClose: () => void
-  /** Same format keys as the export menu: 'bundle-json' | 'bundle-xml'. */
+  /** Same format keys as the export menu: 'package' (zip, PAT-261) | 'bundle-json' | 'bundle-xml'. */
   onExport: (format: string) => void
 }
 
@@ -190,8 +190,11 @@ export default function MeasureExportConformanceDialog({
         <Button onClick={() => onExport('bundle-xml')} disabled={!data}>
           {t('editor.exportFormats.fhirXml')}
         </Button>
-        <Button variant="contained" onClick={() => onExport('bundle-json')} disabled={!data}>
+        <Button onClick={() => onExport('bundle-json')} disabled={!data}>
           {t('editor.exportFormats.fhirJson')}
+        </Button>
+        <Button variant="contained" onClick={() => onExport('package')} disabled={!data}>
+          {t('editor.exportFormats.packageZip')}
         </Button>
       </DialogActions>
     </Dialog>

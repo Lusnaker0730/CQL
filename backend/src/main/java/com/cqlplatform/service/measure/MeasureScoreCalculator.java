@@ -19,7 +19,7 @@ public class MeasureScoreCalculator {
 
     /** Canonical aggregate method names accepted by {@link #calculateContinuousVariableScore}. */
     private static final Set<String> CANONICAL_AGGREGATE_METHODS =
-            Set.of("count", "sum", "average", "median", "minimum", "maximum");
+            Set.of("count", "sum", "average", "median", "minimum", "maximum", "percentile");
 
     /**
      * Normalizes an author-supplied aggregate method string to a canonical form. Accepts
@@ -125,11 +125,20 @@ public class MeasureScoreCalculator {
      * plausible results.
      */
     public Double calculateContinuousVariableScore(List<Double> values, String aggregateMethod) {
+        return calculateContinuousVariableScore(values, aggregateMethod, null);
+    }
+
+    /**
+     * PAT-264: {@code percentile} needs the percentile to compute (0–100, e.g. 90 for P90); every
+     * other method ignores {@code percentile}. A percentile method without a value scores null
+     * (logged) — the validators refuse such definitions before they get here.
+     */
+    public Double calculateContinuousVariableScore(List<Double> values, String aggregateMethod, Double percentile) {
         if (values == null || values.isEmpty()) return null;
         String method = normalizeAggregateMethod(aggregateMethod);
         if (method == null) {
             log.warn("Unknown aggregate method '{}' — returning null score. "
-                    + "Supported methods: count, sum, average, median, minimum, maximum "
+                    + "Supported methods: count, sum, average, median, minimum, maximum, percentile "
                     + "(aliases: avg, mean, min, max).", aggregateMethod);
             return null;
         }
@@ -140,8 +149,32 @@ public class MeasureScoreCalculator {
             case "maximum" -> values.stream().mapToDouble(Double::doubleValue).max().orElse(0);
             case "count" -> (double) values.size();
             case "average" -> values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            case "percentile" -> {
+                if (percentile == null) {
+                    log.warn("Aggregate method 'percentile' without a percentile value — returning null score.");
+                    yield null;
+                }
+                yield percentile(values, percentile);
+            }
             default -> null; // unreachable — normalize filters to CANONICAL_AGGREGATE_METHODS
         };
+    }
+
+    /**
+     * PAT-264: the p-th percentile by linear interpolation between the closest ranks (the
+     * "exclusive-inclusive" method of Excel PERCENTILE.INC / NIST method 7, R type 7): on the
+     * sorted values rank = p / 100 × (n − 1). p is clamped to [0, 100]; p = 50 is the median,
+     * p = 0 / 100 the minimum / maximum; a single value is every percentile.
+     */
+    static double percentile(List<Double> values, double p) {
+        List<Double> sorted = new ArrayList<>(values);
+        Collections.sort(sorted);
+        double clamped = Math.max(0, Math.min(100, p));
+        double rank = clamped / 100.0 * (sorted.size() - 1);
+        int lo = (int) Math.floor(rank);
+        int hi = (int) Math.ceil(rank);
+        if (lo == hi) return sorted.get(lo);
+        return sorted.get(lo) + (rank - lo) * (sorted.get(hi) - sorted.get(lo));
     }
 
     /**
@@ -149,6 +182,12 @@ public class MeasureScoreCalculator {
      */
     public MeasureEvaluationResult.ObservationStatistics computeObservationStats(
             List<Double> values, String aggregateMethod, String unit) {
+        return computeObservationStats(values, aggregateMethod, null, unit);
+    }
+
+    /** PAT-264: with the percentile for the {@code percentile} method (recorded on the statistics). */
+    public MeasureEvaluationResult.ObservationStatistics computeObservationStats(
+            List<Double> values, String aggregateMethod, Double percentile, String unit) {
         if (values == null || values.isEmpty()) return null;
         // Canonical form for the response — normalizes "Min" / "Avg" / "Mean" etc. so
         // downstream consumers see a stable vocabulary. Falls back to the raw lowercase
@@ -160,7 +199,8 @@ public class MeasureScoreCalculator {
         double avg = values.stream().mapToDouble(Double::doubleValue).average().orElse(0);
         return MeasureEvaluationResult.ObservationStatistics.builder()
                 .aggregateMethod(displayMethod)
-                .aggregateValue(calculateContinuousVariableScore(values, aggregateMethod))
+                .aggregateValue(calculateContinuousVariableScore(values, aggregateMethod, percentile))
+                .percentile("percentile".equals(canonical) ? percentile : null)
                 .observationCount(values.size())
                 .minimum(values.stream().mapToDouble(Double::doubleValue).min().orElse(0))
                 .maximum(values.stream().mapToDouble(Double::doubleValue).max().orElse(0))

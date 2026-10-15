@@ -63,6 +63,12 @@ class MeasureDefinitionServiceTest {
     @Mock
     private MeasureSetService measureSetService;
 
+    @Mock
+    private com.cqlplatform.repository.MeasureReviewerRepository reviewerRepository;
+
+    @Mock
+    private MeasureDiffService diffService;
+
     @InjectMocks
     private MeasureDefinitionService service;
 
@@ -1026,5 +1032,54 @@ class MeasureDefinitionServiceTest {
 
         assertThatThrownBy(() -> service.update(3L, edit, "owner"))
                 .isInstanceOf(com.cqlplatform.exception.MeasureLogicLockedException.class);
+    }
+
+    // ------------------------------------------------------------------ PAT-262 assigned reviewers
+
+    private static com.cqlplatform.entity.MeasureReviewerEntity assigned(String name) {
+        return com.cqlplatform.entity.MeasureReviewerEntity.builder().measureId(1L).username(name).decision("approved").build();
+    }
+
+    @Test
+    void approveMeasure_withAssignedReviewers_onlyTheyOrAnAdminMayApprove() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        entity.setStatus("in-review");
+        entity.setOwnerUsername("owner");
+        entity.setSharedWithList(new java.util.ArrayList<>(java.util.List.of("someone")));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(reviewerRepository.findByMeasureIdAndTenantIdOrderByAssignedAtAsc(eq(1L), any())).thenReturn(java.util.List.of(assigned("bob")));
+
+        // shared but not assigned: refused with 403 Approval Not Allowed, nothing written
+        assertThatThrownBy(() -> service.approveMeasure(1L, "someone"))
+                .isInstanceOf(com.cqlplatform.exception.ApprovalNotAllowedException.class)
+                .hasMessageContaining("bob");
+        verify(repository, never()).save(any());
+
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+        assertThat(service.approveMeasure(1L, "bob").getStatus()).isEqualTo("active");
+
+        entity.setStatus("in-review");
+        when(ownershipVerifier.isAdmin()).thenReturn(true);
+        assertThat(service.approveMeasure(1L, "someone").getStatus()).as("admins keep their override").isEqualTo("active");
+    }
+
+    @Test
+    void submitForReview_withAssignedReviewers_startsANewRound_andNotifiesThemToo() {
+        MeasureDefinitionEntity entity = createEntity(1L, "Test", "1.0.0");
+        entity.setStatus("draft");
+        entity.setOwnerUsername("owner");
+        entity.setSharedWithList(new java.util.ArrayList<>(java.util.List.of("sam")));
+        when(repository.findByIdAndTenantId(1L, 7L)).thenReturn(Optional.of(entity));
+        when(repository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(auditRepository.save(any())).thenReturn(MeasureAuditEntity.builder().build());
+        when(reviewerRepository.findByMeasureIdAndTenantIdOrderByAssignedAtAsc(eq(1L), any())).thenReturn(java.util.List.of(assigned("bob")));
+
+        service.submitForReview(1L, "owner");
+
+        verify(reviewerRepository).resetDecisions(eq(1L), any());
+        org.mockito.ArgumentCaptor<java.util.List<String>> reviewers = org.mockito.ArgumentCaptor.forClass(java.util.List.class);
+        verify(notificationService).notifyMeasureSubmitted(eq("owner"), reviewers.capture(), eq("Test"), eq(1L));
+        assertThat(reviewers.getValue()).containsExactly("sam", "bob");
     }
 }

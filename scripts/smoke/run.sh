@@ -386,6 +386,17 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             fi
             ;;
 
+        measure-review)
+            # PAT-262 assigned reviewers + decisions + comment threads: assigning shares the
+            # measure, only assigned reviewers approve, changes-requested returns the measure
+            # to draft, resubmit resets decisions. Everything lives in lib/run-measure-review.sh.
+            if bash "$SCRIPT_DIR/lib/run-measure-review.sh" "$scenario_dir" "$expected_file"; then
+                passed_scenarios+=("$name")
+            else
+                failed_scenarios+=("$name")
+            fi
+            ;;
+
         synthetic-cohort)
             # PAT-255: 120 patients from the platform's own TW Core generator (fixed seed),
             # evaluated by the seeded demo measure against an oracle computed in TypeScript.
@@ -601,6 +612,11 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             imported_id=$(jq -r '.measure.id // empty' "$pkg_tmp/import-result.json" | tr -d '\r')
             if [ -z "$imported_id" ]; then
                 echo "    ✗ import result has no .measure.id" >&2
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
+            # PAT-261: the same package as one zip goes through POST /import/package with the
+            # version override done on the server (assert-measure-package.sh checks the result).
+            if ! bash "$SCRIPT_DIR/lib/import-package.sh" "$pkg_tmp/package.zip" "${import_version}-zip" > "$pkg_tmp/import-zip-result.json"; then
                 rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
             fi
             if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$imported_id"; then
@@ -826,7 +842,7 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
             ;;
 
         *)
-            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort, composite, terminology-pin)" >&2
+            echo "    ✗ unknown scenario type '$scenario_type' (expected: ecqm, cds-hook, cql-execute, authoring-cql, measure-status-guard, test-case-expectations, measure-package, platform-value-set, clause-coverage, approval-gates, measure-set-locks, synthetic-cohort, composite, terminology-pin, measure-review)" >&2
             failed_scenarios+=("$name")
             ;;
     esac

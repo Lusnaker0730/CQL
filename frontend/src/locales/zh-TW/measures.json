@@ -142,8 +142,12 @@
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
       "exportError": "匯出失敗：{{error}}",
-      "uploadFile": "上傳檔案",
-      "orPaste": "或在下方貼上 JSON"
+      "uploadFile": "上傳檔案（.json / .zip）",
+      "orPaste": "或在下方貼上 JSON",
+      "fileSelected": "檔案：{{name}}",
+      "zipHint": "封裝 zip（本平台或 MADiE 匯出）整包匯入，伺服器會讀取裡面的 Bundle。",
+      "asVersion": "匯入為版本",
+      "asVersionHelp": "選填。取代 Measure.version，例如對方的版本號在這裡已存在時。"
     },
     "allStatuses": "全部狀態",
     "statusFilter": "狀態",
@@ -188,16 +192,20 @@
       "evaluate": "評估",
       "testCases": "測試案例",
       "reports": "報告",
-      "validate": "驗證"
+      "validate": "驗證",
+      "review": "審核"
     },
     "exportFormats": {
       "fhirJson": "FHIR Bundle (JSON)",
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "僅 CQL",
-      "elmOnly": "僅 ELM",
+      "elmOnly": "ELM (JSON)",
       "hqmfXml": "HQMF (XML)",
       "humanReadable": "人類可讀文件 (HTML)",
-      "packageCheck": "交換封裝檢查"
+      "packageCheck": "交換封裝檢查",
+      "elmXml": "ELM (XML)",
+      "packageZip": "交換封裝 (zip)",
+      "humanReadablePreview": "人類可讀文件（預覽）"
     },
     "versionMenu": {
       "createVersion": "建立版本",
@@ -240,7 +248,10 @@
         "TEST_CASE_NEVER_VALIDATED": "{{count}} 個測試案例從未做過 FHIR 驗證——請按「全部驗證」",
         "TEST_CASE_VALIDATION_ERROR": "{{count}} 個測試案例無法驗證（驗證器錯誤）——請重新驗證",
         "TEST_CASE_RUN_STALE": "{{count}} 個通過的測試案例上次執行早於指標最後修改——請重新執行",
-        "CQL_WARNINGS": "CQL 翻譯有 {{count}} 個警告"
+        "CQL_WARNINGS": "CQL 翻譯有 {{count}} 個警告",
+        "REVIEW_CHANGES_REQUESTED": "{{count}} 位審核者要求修改——重新送審前請先處理",
+        "REVIEWERS_PENDING": "{{count}} 位指定審核者尚未給出意見",
+        "COMMENTS_UNRESOLVED": "{{count}} 個審核留言串尚未解決"
       }
     }
   },
@@ -865,7 +876,8 @@
       "median": "中位數",
       "minimum": "最小值",
       "maximum": "最大值",
-      "count": "計數"
+      "count": "計數",
+      "percentile": "第 {{value}} 百分位"
     },
     "observations": {
       "count": "觀察數",
@@ -1118,7 +1130,9 @@
       "cqlExpression": "CQL 運算式",
       "aggregateMethod": "彙總方法",
       "populationReference": "族群參考",
-      "description": "描述"
+      "description": "描述",
+      "percentileValue": "百分位（0–100）",
+      "percentileHelp": "例如 90 = 第 90 百分位；在最接近的兩個觀測值之間線性插補"
     },
     "addObservation": "新增觀察",
     "aggregateMethods": {
@@ -1127,7 +1141,8 @@
       "average": "平均",
       "median": "中位數",
       "minimum": "最小值",
-      "maximum": "最大值"
+      "maximum": "最大值",
+      "percentile": "百分位數"
     }
   },
   "audit": {
@@ -1373,5 +1388,71 @@
     "openInBuilder": "在 builder 開啟",
     "measureEdited": "發布之後，邏輯或母群對應在這裡被改過。從 builder 再次發布前會先詢問是否覆寫——要保留這些修改，請先在 builder 做同樣的改動。",
     "builderChanged": "builder 有尚未發布到這個指標的變更——到 builder 發布才會生效。"
+  },
+  "review": {
+    "title": "審核",
+    "loading": "載入審核資料…",
+    "summary": {
+      "reviewers": "{{count}} 位審核者",
+      "approved": "{{count}} 同意",
+      "changesRequested": "{{count}} 要求修改",
+      "pending": "{{count}} 待審",
+      "openThreads": "{{count}} 個未解決留言串"
+    },
+    "reviewers": {
+      "title": "指定審核者",
+      "none": "尚未指定審核者——擁有者與指標分享的使用者都可審核。",
+      "add": "使用者名稱",
+      "addPlaceholder": "同事的使用者名稱",
+      "assign": "指定",
+      "remove": "移除審核者",
+      "hint": "指定審核者會同時把指標分享給對方。一旦指定了審核者，只有他們能核准或退回；作者不能擔任自己指標的審核者（四眼原則）。",
+      "decision": {
+        "pending": "待審",
+        "approved": "同意",
+        "changes-requested": "要求修改"
+      }
+    },
+    "decision": {
+      "title": "我的審核意見",
+      "commentLabel": "意見（選填）",
+      "commentPlaceholder": "你確認了什麼，或哪裡需要修改",
+      "approve": "同意",
+      "requestChanges": "要求修改",
+      "requestChangesHint": "「要求修改」會把指標退回草稿讓作者修改，你的意見會成為退回原因；「同意」只記錄你的意見，指標要由上方的「核准」鈕才會轉為啟用。",
+      "notInReview": "指標送審後才能記錄審核意見。"
+    },
+    "comments": {
+      "title": "留言",
+      "showResolved": "顯示已解決",
+      "section": "區段",
+      "subSection": "細項",
+      "subSectionPlaceholder": "例如 define 名稱或欄位",
+      "body": "留言",
+      "bodyPlaceholder": "開始新的留言串…",
+      "post": "送出",
+      "reply": "回覆",
+      "replyPlaceholder": "寫下回覆…",
+      "resolve": "標記已解決",
+      "unresolve": "重新開啟",
+      "resolvedBy": "由 {{user}} 標記已解決",
+      "edited": "已編輯",
+      "edit": "編輯",
+      "save": "儲存",
+      "cancel": "取消",
+      "none": "還沒有留言。",
+      "sections": {
+        "general": "一般",
+        "cql": "CQL",
+        "populations": "母群",
+        "testCases": "測試案例",
+        "metadata": "Metadata",
+        "terminology": "術語"
+      }
+    }
+  },
+  "humanReadable": {
+    "title": "人類可讀文件：{{name}}",
+    "download": "下載 HTML"
   }
 }

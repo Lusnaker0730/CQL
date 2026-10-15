@@ -1,0 +1,9 @@
+{
+  "name": "SmokeMeasureReview",
+  "version": "1.0.0",
+  "title": "Smoke — PAT-262 measure review (reviewers, decisions, comment threads)",
+  "description": "Raw draft MeasureDefinition (POST /api/measures). The owner assigns the seeded demo user as reviewer, a comment thread is opened / replied / resolved, demo requests changes (back to draft), the author resubmits, demo approves the decision and then the measure.",
+  "status": "draft",
+  "scoringType": "cohort",
+  "cqlContent": "library SmokeMeasureReview version '1.0.0'\n\nusing FHIR version '4.0.1'\n\ninclude FHIRHelpers version '4.0.1' called FHIRHelpers\n\nparameter \"Measurement Period\" Interval<DateTime>\n\ncontext Patient\n\ndefine \"Initial Population\":\n  AgeInYearsAt(end of \"Measurement Period\") >= 18\n"
+}

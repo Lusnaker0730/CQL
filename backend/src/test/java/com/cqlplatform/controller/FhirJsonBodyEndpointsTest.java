@@ -25,6 +25,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -60,7 +61,7 @@ class FhirJsonBodyEndpointsTest {
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void importBundle_handsTheParsedTreeToTheService() throws Exception {
-        when(bundleImportService.importBundle(any(JsonNode.class))).thenReturn(new BundleImportResult(
+        when(bundleImportService.importBundle(any(JsonNode.class), isNull())).thenReturn(new BundleImportResult(
                 MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").status("draft").build(), 1, 2, 3, 2, 1, java.util.List.of("kept local copy")));
 
         mockMvc.perform(post("/api/measures/import/bundle").contentType(MediaType.APPLICATION_JSON).content(BUNDLE))
@@ -73,14 +74,14 @@ class FhirJsonBodyEndpointsTest {
                 .andExpect(jsonPath("$.warnings[0]").value("kept local copy"));
 
         ArgumentCaptor<JsonNode> body = ArgumentCaptor.forClass(JsonNode.class);
-        verify(bundleImportService).importBundle(body.capture());
+        verify(bundleImportService).importBundle(body.capture(), isNull());
         assertThat(body.getValue().path("entry").get(0).path("resource").path("name").asText()).isEqualTo("AdultCohort");
     }
 
     @Test
     @WithMockUser(username = "admin", roles = {"ADMIN"})
     void importBundle_acceptsTheFhirJsonMediaType() throws Exception {
-        when(bundleImportService.importBundle(any(JsonNode.class))).thenReturn(new BundleImportResult(
+        when(bundleImportService.importBundle(any(JsonNode.class), isNull())).thenReturn(new BundleImportResult(
                 MeasureDefinition.builder().id(9L).name("AdultCohort").version("1.0.0").build(), 0, 0, 0, 0, 0, java.util.List.of()));
 
         mockMvc.perform(post("/api/measures/import/bundle").contentType("application/fhir+json").content(BUNDLE))

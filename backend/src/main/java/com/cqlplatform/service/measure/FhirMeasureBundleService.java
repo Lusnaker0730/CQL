@@ -52,10 +52,12 @@ public class FhirMeasureBundleService {
     private final ObjectProvider<FhirImplementationGuideService> igServiceProvider;
     /** PAT-230: this installation's own value sets — the first place a reference is looked up. */
     private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+    /** PAT-261: ELM JSON → ELM XML, so every Library ships both. */
+    private final com.cqlplatform.service.cql.ElmSerializer elmSerializer;
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    /** A bundle together with the conformance report of exactly that bundle. */
-    public record BundleExport(ObjectNode bundle, MeasureExportConformance conformance) {}
+    /** A bundle together with the conformance report of exactly that bundle and the measure it was built from. */
+    public record BundleExport(ObjectNode bundle, MeasureExportConformance conformance, MeasureDefinition definition) {}
 
     public ObjectNode exportAsBundle(Long measureId) {
         return exportWithConformance(measureId).bundle();
@@ -88,7 +90,8 @@ public class FhirMeasureBundleService {
                             definition.getDescription(), CqfmMeasureBuilder.fhirStatus(definition.getStatus()),
                             definition.getUpdatedAt() != null
                                     ? definition.getUpdatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE) : null,
-                            definition.getCqlContent(), export.elmJson()),
+                            definition.getCqlContent(), export.elmJson(),
+                            elmXml(export.elmJson(), export.libraryName(), report)),
                     export.dependencies(), export.dataRequirements());
             addEntry(entries, primary);
             for (JsonNode profile : primary.path("meta").path("profile")) {
@@ -107,7 +110,7 @@ public class FhirMeasureBundleService {
                 addValueSet(entries, vs, report);
             }
         }
-        return new BundleExport(bundle, report);
+        return new BundleExport(bundle, report, definition);
     }
 
     /** Real FHIR XML: the JSON bundle parsed and re-encoded by HAPI. */
@@ -133,6 +136,31 @@ public class FhirMeasureBundleService {
         request.setCql(definition.getCqlContent());
         CqlTranslationResponse response = translationService.translate(request);
         return response.getElmJson() != null ? response.getElmJson() : "{}";
+    }
+
+    /**
+     * PAT-261: the ELM XML twin of a library's ELM JSON. A library whose ELM cannot be
+     * re-serialised ships JSON only, and the report says so.
+     */
+    private String elmXml(String elmJson, String libraryName, MeasureExportConformance report) {
+        if (elmJson == null || elmJson.isBlank()) return null;
+        String xml = elmSerializer.toXml(elmJson);
+        if (xml == null) {
+            report.add(MeasureExportConformance.WARNING, "Library.content",
+                    "Library '" + libraryName + "' ships ELM JSON only: its ELM could not be re-serialised as XML.");
+        }
+        return xml;
+    }
+
+    /** PAT-261: the measure's ELM as XML ({@code application/elm+xml}). */
+    public String exportElmXml(Long measureId) {
+        String elmJson = exportElmOnly(measureId);
+        String xml = "{}".equals(elmJson) ? null : elmSerializer.toXml(elmJson);
+        if (xml == null) {
+            throw new com.cqlplatform.exception.ValidationException(
+                    "The measure's CQL does not translate, so there is no ELM to export");
+        }
+        return xml;
     }
 
     private void collectIncludedLibrary(Include include, ArrayNode entries, Set<String> visited,
@@ -161,7 +189,7 @@ public class FhirMeasureBundleService {
         addEntry(entries, libraryBuilder.buildLogicLibrary(
                 new LibrarySource(lib.getName(), lib.getVersion(), null, lib.getDescription(), "active",
                         lib.getUpdatedAt() != null ? lib.getUpdatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE) : null,
-                        lib.getCqlContent(), lib.getElmJson()),
+                        lib.getCqlContent(), lib.getElmJson(), elmXml(lib.getElmJson(), lib.getName(), report)),
                 deps, List.of()));
         deps.valueSets().forEach(vs -> valueSets.putIfAbsent(vs.url(), vs));
         for (Include nested : deps.includes()) {

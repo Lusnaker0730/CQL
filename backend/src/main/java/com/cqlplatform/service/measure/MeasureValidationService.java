@@ -432,7 +432,13 @@ public class MeasureValidationService {
                     if (obs.getAggregateMethod() == null || obs.getAggregateMethod().isBlank()) {
                         report.addError("POPULATIONS",
                                 groupLabel + ": Observation has no aggregate method",
-                                "groupDefinitions", "Select an aggregate method (count, sum, average, min, max, median)");
+                                "groupDefinitions", "Select an aggregate method (count, sum, average, min, max, median, percentile)");
+                    } else if ("percentile".equalsIgnoreCase(obs.getAggregateMethod().trim())
+                            && (obs.getPercentileValue() == null || obs.getPercentileValue() < 0 || obs.getPercentileValue() > 100)) {
+                        // PAT-264: the percentile method is only meaningful with its percentile
+                        report.addError("POPULATIONS",
+                                groupLabel + ": Observation uses the percentile aggregate without a percentile between 0 and 100",
+                                "groupDefinitions", "Set the percentile on the observation (e.g. 90 for P90)");
                     }
                 }
             }

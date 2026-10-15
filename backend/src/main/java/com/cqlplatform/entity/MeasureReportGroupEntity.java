@@ -66,6 +66,10 @@ public class MeasureReportGroupEntity {
     @Column(name = "obs_median")
     private Double obsMedian;
 
+    /** PAT-264: which percentile obs_aggregate_value is, for the percentile method. */
+    @Column(name = "obs_percentile")
+    private Double obsPercentile;
+
     @Column(name = "obs_unit", length = 100)
     private String obsUnit;
 
