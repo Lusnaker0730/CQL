@@ -121,6 +121,23 @@ class XxxControllerTest {
 }
 ```
 
+### Property / fuzz 測試（PAT-265）
+
+```java
+@Test
+void percentile_isBounded() {
+    Fuzz.forAll(20261030L, 500, r -> randomValues(r, 1, 40), (values, r) -> {
+        double at = MeasureScoreCalculator.percentile(values, 90);
+        assertThat(at).isBetween(Collections.min(values), Collections.max(values));
+    });
+}
+```
+
+- `testsupport/Fuzz`：每個 try 自己的 `Random(seed + i)`，失敗訊息印 seed 與產生的輸入；`-Dfuzz.seed=<seed> -Dfuzz.tries=1` 單獨重現、`-Dfuzz.tries=5000` 搜更深。不用 jqwik（綁 JUnit Platform 1.14，專案是 Platform 6.0）
+- 引擎層 fuzz 一律翻譯一次（`translateOnce`）再對多個病人 `executeWithPreTranslated(request, ctx, new PrefetchRetrieveProvider(resources, pid))`——與 `MeasureEvaluationService` 同一條路；terminology 用 `NoOpTerminologyService`（兩個 `createTerminologyProvider` overload 都回 null），程式庫只用直接 code
+- 產生器要知道自己種了什麼（oracle），斷言「不變量 + oracle」，不要斷言固定答案；`PrefetchRetrieveProvider` 的 code 過濾只比 code 不比 system，oracle 要照這條規則寫
+- 類名以 `*PropertyTest` / `*FuzzTest` 結尾（surefire 只收 `*Test`）
+
 ## 常用指令
 
 ```bash
