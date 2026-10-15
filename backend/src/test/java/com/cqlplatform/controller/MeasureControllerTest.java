@@ -50,6 +50,12 @@ class MeasureControllerTest {
     @MockitoBean
     private com.cqlplatform.service.terminology.MeasureTerminologyService terminologyService;
 
+    @MockitoBean
+    private com.cqlplatform.service.measure.MeasurePackageService packageService;
+
+    @MockitoBean
+    private com.cqlplatform.service.measure.FhirMeasureBundleImportService bundleImportService;
+
     @Test
     @WithMockUser
     void evaluateMeasure_shouldReturn200() throws Exception {
@@ -282,5 +288,52 @@ class MeasureControllerTest {
         mockMvc.perform(post("/api/measures/5/terminology/unpin").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"url\":\"https://h/ValueSet/HbA1c\"}")).andExpect(status().isOk());
         verify(terminologyService).unpin(5L, "https://h/ValueSet/HbA1c", "alice");
+    }
+
+    // ------------------------------------------------------------------ PAT-261 exchange package
+
+    @Test
+    @WithMockUser(username = "owner")
+    void exportPackage_streamsTheZipUnderThePackageFileName() throws Exception {
+        MeasureDefinition m = MeasureDefinition.builder().id(5L).name("M").version("1.0.0").ownerUsername("owner").build();
+        when(definitionService.getById(5L)).thenReturn(Optional.of(m));
+        when(packageService.exportPackage(5L)).thenReturn(new com.cqlplatform.service.measure.MeasurePackageService.MeasurePackage(
+                "M-v1.0.0-FHIR", new byte[]{'P', 'K', 3, 4}, new com.cqlplatform.model.measure.MeasureExportConformance()));
+
+        mockMvc.perform(get("/api/measures/5/export/package"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/zip"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=M-v1.0.0-FHIR.zip"))
+                .andExpect(content().bytes(new byte[]{'P', 'K', 3, 4}));
+    }
+
+    @Test
+    @WithMockUser(username = "someone-else")
+    void exportPackage_ofAPrivateMeasureOfAnotherUser_isForbidden() throws Exception {
+        when(definitionService.getById(5L)).thenReturn(Optional.of(
+                MeasureDefinition.builder().id(5L).name("M").ownerUsername("owner").accessLevel("private").build()));
+
+        mockMvc.perform(get("/api/measures/5/export/package")).andExpect(status().isForbidden());
+        verify(packageService, never()).exportPackage(any());
+    }
+
+    @Test
+    @WithMockUser
+    void importPackage_passesTheUploadAndAsVersionThrough() throws Exception {
+        when(bundleImportService.importPackage(any(), eq("pkg.zip"), eq("2.0.0"))).thenReturn(
+                new com.cqlplatform.service.measure.FhirMeasureBundleImportService.BundleImportResult(
+                        MeasureDefinition.builder().id(9L).name("Imported").version("2.0.0").build(), 1, 0, 0, 0, 0, List.of()));
+
+        mockMvc.perform(multipart("/api/measures/import/package")
+                        .file(new org.springframework.mock.web.MockMultipartFile("file", "pkg.zip", "application/zip", new byte[]{'P', 'K', 3, 4}))
+                        .param("asVersion", "2.0.0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.measure.name").value("Imported"))
+                .andExpect(jsonPath("$.measure.version").value("2.0.0"))
+                .andExpect(jsonPath("$.librariesImported").value(1));
+
+        mockMvc.perform(multipart("/api/measures/import/package")
+                        .file(new org.springframework.mock.web.MockMultipartFile("file", "empty.zip", "application/zip", new byte[0])))
+                .andExpect(status().isBadRequest());
     }
 }

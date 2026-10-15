@@ -497,7 +497,18 @@ export const measureApi = {
   exportBundle: (id: number, format: string = 'json'): Promise<Blob> =>
     exportBlob(id, 'bundle', { format }),
   exportCql: (id: number): Promise<Blob> => exportBlob(id, 'cql'),
-  exportElm: (id: number): Promise<Blob> => exportBlob(id, 'elm'),
+  /** ELM as JSON (default) or, PAT-261, as ELM XML. */
+  exportElm: (id: number, format: 'json' | 'xml' = 'json'): Promise<Blob> => exportBlob(id, 'elm', { format }),
+  /**
+   * PAT-261: the whole exchange package as one zip (MADiE layout). The server names the file
+   * `<Title>-v<version>-FHIR.zip`; the name travels in Content-Disposition.
+   */
+  exportPackage: async (id: number): Promise<{ blob: Blob; fileName: string | null }> => {
+    const response = await api.get(`/measures/${id}/export/package`, { responseType: 'blob' })
+    const disposition = String(response.headers?.['content-disposition'] ?? '')
+    const match = /filename="?([^";]+)"?/.exec(disposition)
+    return { blob: response.data as Blob, fileName: match ? match[1] : null }
+  },
   exportHqmf: (id: number): Promise<Blob> => exportBlob(id, 'hqmf'),
   exportHumanReadable: (id: number): Promise<Blob> => exportBlob(id, 'human-readable'),
 
@@ -507,8 +518,20 @@ export const measureApi = {
     return response.data
   },
 
-  importBundle: async (json: unknown): Promise<BundleImportResult> => {
-    const response = await api.post<BundleImportResult>('/measures/import/bundle', json)
+  /** `asVersion` (PAT-261) replaces Measure.version before the import. */
+  importBundle: async (json: unknown, asVersion?: string): Promise<BundleImportResult> => {
+    const response = await api.post<BundleImportResult>('/measures/import/bundle', json, {
+      params: asVersion ? { asVersion } : undefined,
+    })
+    return response.data
+  },
+  /** PAT-261: a package zip (ours or MADiE's) or a Bundle JSON file, imported on the server. */
+  importPackageFile: async (file: File, asVersion?: string): Promise<BundleImportResult> => {
+    const form = new FormData()
+    form.append('file', file)
+    const response = await api.post<BundleImportResult>('/measures/import/package', form, {
+      params: asVersion ? { asVersion } : undefined,
+    })
     return response.data
   },
 

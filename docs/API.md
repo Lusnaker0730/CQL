@@ -762,9 +762,11 @@ Okta OIDC 授權碼交換，自動 JIT 建立使用者。
 | `GET /api/measures/{id}/fhir` | 匯出為 FHIR Measure 資源 |
 | `GET /api/measures/{id}/export/bundle?format=json\|xml` | 匯出交換封裝：Measure + 主要 Library（CQL + ELM）+ CQL `include` 的相依 Library + ValueSet（PAT-229，見下） |
 | `GET /api/measures/{id}/export/conformance` | 交換封裝檢查：宣告的 profile、缺漏項目、value set 封裝狀態、是否可交換（PAT-229） |
+| `GET /api/measures/{id}/export/package` | 交換封裝 zip（PAT-261，MADiE 配置）：`<ecqmTitle>-v<version>-FHIR.{json,xml,html}`、`conformance.json`、`cql/<Library>-<version>.cql`、`resources/{measure,library}-<name>-<version>.{json,xml}`、`resources/valueset-*.json`；`Content-Disposition` 帶檔名 |
 | `GET /api/measures/{id}/export/cql` | 匯出 CQL 原始碼檔案 |
-| `GET /api/measures/{id}/export/elm` | 匯出 ELM JSON |
-| `POST /api/measures/import/bundle` | 匯入 FHIR Bundle（含 PAT-236 標準 metadata 讀回） |
+| `GET /api/measures/{id}/export/elm?format=json\|xml` | 匯出 ELM JSON（預設）或 ELM XML（PAT-261；沒有 ELM → 400） |
+| `POST /api/measures/import/bundle?asVersion=` | 匯入 FHIR Bundle（含 PAT-236 標準 metadata 讀回）；`asVersion` 在伺服器端改寫 `Measure.version`（PAT-261） |
+| `POST /api/measures/import/package?asVersion=` | 匯入交換封裝 zip（本平台或 MADiE 配置，取最上層的 Bundle JSON）或純 Bundle JSON 檔（multipart `file`；PAT-261） |
 | `GET /api/measures/page` | PAT-257：清單分頁——`search` / `department` / `status=draft,active` / `scope=all\|mine\|shared\|public` / `sort=field,asc\|desc`（預設 `updatedAt,desc`）/ `page` / `size`（1–200，預設 25），回 `{content, page, size, totalElements, totalPages}` |
 | `GET /api/measures/{id}/terminology` | PAT-260：CQL 引用的 value set 與各自的解析（`platform` / `external`、CQL 版本、釘選版本、目前解析版本與狀態、平台現有版本清單）；`pinnable` = 是否為 draft |
 | `POST /api/measures/{id}/terminology/pin` | PAT-260：釘選。body `{url, version?}` 釘一個（`version` 空 = 釘到目前解析版本）；無 body = 全部未釘選的平台 value set 釘到目前版本。非 draft → 409 `Measure Logic Locked` |
@@ -810,7 +812,7 @@ Canonical base 由 `FHIR_CANONICAL_BASE` 設定；未設定時用 `APP_BASE_URL`
 
 #### 匯入封裝
 
-`POST /api/measures/import/bundle`（body 為 FHIR Bundle JSON）回傳 `{ measure, librariesImported, librariesSkipped, valueSetsFound }`。
+`POST /api/measures/import/bundle`（body 為 FHIR Bundle JSON）回傳 `{ measure, librariesImported, librariesSkipped, valueSetsFound }`；`?asVersion=` 讓伺服器在匯入前改寫 `Measure.version`（對方的版本號在本機已存在時）。`POST /api/measures/import/package`（multipart）收同一份封裝的 zip，回傳同一個結果；zip 上限 500 個 JSON / 64 MB（PAT-261）。封裝內每個 Library 的 `content[]` 帶 `text/cql`、`application/elm+json`、`application/elm+xml` 三個附件，XML 由儲存的 ELM JSON 重新序列化而來，無法轉換時只有 JSON 並在 conformance 報 warning。
 
 - 主要 Library 依 `Measure.library` 判定：canonical URL 相符 → 名稱或 id 相符 → Bundle 內只有一個 Library。都不成立時不猜測：Library 全部存為共用 Library，指標不帶 CQL。
 - 主要 Library 的 CQL 成為指標邏輯；相依 Library 存為共用 Library，本機已有同名同版本者略過（計入 `librariesSkipped`，**不比對內容**）。

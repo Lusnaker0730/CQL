@@ -100,6 +100,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   const [importOpen, setImportOpen] = useState(false)
   const [importJson, setImportJson] = useState('')
   const [importType, setImportType] = useState<'measure' | 'bundle'>('measure')
+  // PAT-261: a package zip is sent to the server as a file; a JSON file is still read into the text box
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importAsVersion, setImportAsVersion] = useState('')
   const importFileRef = useRef<HTMLInputElement>(null)
   const [selectedMeasureIds, setSelectedMeasureIds] = useState<Set<number>>(new Set())
   const [batchDialogOpen, setBatchDialogOpen] = useState(false)
@@ -181,7 +184,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
   })
 
   const importBundleMutation = useMutation({
-    mutationFn: (json: unknown) => measureApi.importBundle(json),
+    mutationFn: (json: unknown) => measureApi.importBundle(json, importAsVersion.trim() || undefined),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['measures'] })
       setImportOpen(false)
@@ -219,7 +222,27 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
     createMutation.mutate(newMeasure as MeasureDefinition)
   }
 
+  const importPackageMutation = useMutation({
+    mutationFn: (file: File) => measureApi.importPackageFile(file, importAsVersion.trim() || undefined),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['measures'] })
+      setImportOpen(false)
+      setImportFile(null)
+      setImportJson('')
+    },
+    onError: (err) => showNotification(tCommon('mutationErrors.importFailed', { error: extractApiError(err) }), 'error'),
+  })
+
+  const closeImport = () => {
+    setImportOpen(false)
+    setImportFile(null)
+  }
+
   const handleImport = () => {
+    if (importFile) {
+      importPackageMutation.mutate(importFile)
+      return
+    }
     try {
       const parsed = JSON.parse(importJson)
       // Auto-detect Bundle vs single Measure
@@ -552,7 +575,7 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
         )}
       </Dialog>
       {/* Import Dialog */}
-      <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="md" fullWidth>
+      <Dialog open={importOpen} onClose={closeImport} maxWidth="md" fullWidth>
         <DialogTitle>{t('library.importDialog.title')}</DialogTitle>
         <DialogContent>
           <TextField
@@ -587,23 +610,46 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
             <input
               ref={importFileRef}
               type="file"
-              accept=".json,.xml"
+              accept=".json,.xml,.zip"
+              data-testid="measure-import-file"
               style={{ display: 'none' }}
               onChange={(e) => {
                 const file = e.target.files?.[0]
                 if (file) {
-                  file.text().then((text) => setImportJson(text))
+                  if (file.name.toLowerCase().endsWith('.zip')) {
+                    setImportFile(file)
+                    setImportJson('')
+                    setImportType('bundle')
+                  } else {
+                    setImportFile(null)
+                    file.text().then((text) => setImportJson(text))
+                  }
                 }
                 if (importFileRef.current) importFileRef.current.value = ''
               }}
             />
           </Stack>
+          {importFile && (
+            <Stack direction="row" spacing={1} sx={{ mb: 1, alignItems: 'center' }}>
+              <Chip label={t('library.importDialog.fileSelected', { name: importFile.name })} onDelete={() => setImportFile(null)} />
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t('library.importDialog.zipHint')}</Typography>
+            </Stack>
+          )}
+          <TextField
+            label={t('library.importDialog.asVersion')}
+            helperText={t('library.importDialog.asVersionHelp')}
+            size="small"
+            value={importAsVersion}
+            onChange={(e) => setImportAsVersion(e.target.value)}
+            sx={{ mb: 2, maxWidth: 320 }}
+          />
           <TextField
             label={importType === 'bundle' ? t('library.importDialog.bundleJson') : t('library.importDialog.measureJson')}
             fullWidth
             multiline
             rows={10}
             value={importJson}
+            disabled={importFile != null}
             onChange={(e) => setImportJson(e.target.value)}
             placeholder={importType === 'bundle'
               ? t('library.importDialog.bundlePlaceholder')
@@ -614,6 +660,9 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           )}
           {importBundleMutation.isError && (
             <Alert severity="error" sx={{ mt: 1 }}>{extractApiError(importBundleMutation.error)}</Alert>
+          )}
+          {importPackageMutation.isError && (
+            <Alert severity="error" sx={{ mt: 1 }}>{extractApiError(importPackageMutation.error)}</Alert>
           )}
           {importBundleMutation.isSuccess && (
             <Alert severity="success" sx={{ mt: 1 }}>
@@ -635,10 +684,10 @@ export default function MeasureLibrary({ onSelectMeasure }: MeasureLibraryProps)
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setImportOpen(false)}>{t('actions.cancel', { ns: 'common' })}</Button>
+          <Button onClick={closeImport}>{t('actions.cancel', { ns: 'common' })}</Button>
           <Button onClick={handleImport} variant="contained"
-            disabled={!importJson || importMutation.isPending || importBundleMutation.isPending}>
-            {(importMutation.isPending || importBundleMutation.isPending) ? t('library.importDialog.importing') : t('library.importDialog.import')}
+            disabled={(!importJson && !importFile) || importMutation.isPending || importBundleMutation.isPending || importPackageMutation.isPending}>
+            {(importMutation.isPending || importBundleMutation.isPending || importPackageMutation.isPending) ? t('library.importDialog.importing') : t('library.importDialog.import')}
           </Button>
         </DialogActions>
       </Dialog>

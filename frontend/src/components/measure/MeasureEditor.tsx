@@ -212,6 +212,17 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
           blob = await measureApi.exportElm(measure.id)
           filename = `${measure.name}-elm.json`
           break
+        case 'elm-xml':
+          blob = await measureApi.exportElm(measure.id, 'xml')
+          filename = `${measure.name}-elm.xml`
+          break
+        case 'package': {
+          // PAT-261: the server names the zip <Title>-v<version>-FHIR.zip
+          const pkg = await measureApi.exportPackage(measure.id)
+          blob = pkg.blob
+          filename = pkg.fileName ?? `${measure.name}-package.zip`
+          break
+        }
         case 'hqmf':
           blob = await measureApi.exportHqmf(measure.id)
           filename = `${measure.name}-hqmf.xml`
@@ -579,11 +590,13 @@ export default function MeasureEditor({ measure, onMeasureUpdate }: MeasureEdito
         <MenuItem onClick={() => { setExportAnchor(null); setConformanceOpen(true) }}>
           {t('editor.exportFormats.packageCheck')}
         </MenuItem>
+        <MenuItem onClick={() => handleExport('package')}>{t('editor.exportFormats.packageZip')}</MenuItem>
         <Divider />
         <MenuItem onClick={() => handleExport('bundle-json')}>{t('editor.exportFormats.fhirJson')}</MenuItem>
         <MenuItem onClick={() => handleExport('bundle-xml')}>{t('editor.exportFormats.fhirXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('cql')}>{t('editor.exportFormats.cqlOnly')}</MenuItem>
         <MenuItem onClick={() => handleExport('elm')}>{t('editor.exportFormats.elmOnly')}</MenuItem>
+        <MenuItem onClick={() => handleExport('elm-xml')}>{t('editor.exportFormats.elmXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('hqmf')}>{t('editor.exportFormats.hqmfXml')}</MenuItem>
         <MenuItem onClick={() => handleExport('human-readable')}>{t('editor.exportFormats.humanReadable')}</MenuItem>
       </Menu>

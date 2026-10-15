@@ -40,6 +40,8 @@ public final class CqfmConstants {
     public static final String PROFILE_CQL_LIBRARY = CQL + "cql-library";
     /** Requires a content attachment (application/elm+json). */
     public static final String PROFILE_ELM_JSON_LIBRARY = CQL + "elm-json-library";
+    /** PAT-261: claimed when the Library also carries {@code application/elm+xml}. */
+    public static final String PROFILE_ELM_XML_LIBRARY = CQL + "elm-xml-library";
 
     // ---- Extensions ----
     /** valueCode (FHIR type name); on Measure, Measure.group or Measure.group.population. */

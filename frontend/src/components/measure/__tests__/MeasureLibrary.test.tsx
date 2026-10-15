@@ -12,10 +12,14 @@ vi.mock('react-i18next', () => ({
 }))
 
 const getMeasurePage = vi.fn()
+const importPackageFile = vi.fn()
+const importBundle = vi.fn()
 vi.mock('../../../api', () => ({
   measureApi: {
     getMeasurePage: (...args: unknown[]) => getMeasurePage(...args),
     exportFhirMeasure: vi.fn(),
+    importPackageFile: (...args: unknown[]) => importPackageFile(...args),
+    importBundle: (...args: unknown[]) => importBundle(...args),
   },
 }))
 vi.mock('../../common/LibraryPicker', () => ({ default: () => null }))
@@ -81,3 +85,35 @@ describe('MeasureLibrary (paged list)', () => {
     await waitFor(() => expect(screen.getByRole('tab', { name: 'library.tabs.allNoCount' })).toBeInTheDocument())
   })
 })
+
+// PAT-261 — a package zip is not parsed in the browser: the file goes to POST /import/package, and the
+// optional "import as version" travels with it.
+describe('MeasureLibrary (package import)', () => {
+  beforeEach(() => {
+    getMeasurePage.mockReset()
+    getMeasurePage.mockResolvedValue(pageOf([row(1, 'Alpha')], 1))
+    importPackageFile.mockReset()
+    importBundle.mockReset()
+    importPackageFile.mockResolvedValue({ measure: row(9, 'Imported'), librariesImported: 1, librariesSkipped: 0, valueSetsFound: 0 })
+  })
+
+  it('sends a chosen .zip to the server with the version override', async () => {
+    render(<MeasureLibrary />)
+    await screen.findByText('Alpha')
+    fireEvent.click(screen.getByText('library.importFhir'))
+
+    const input = screen.getByTestId('measure-import-file') as HTMLInputElement
+    const zip = new File([new Uint8Array([0x50, 0x4b, 3, 4])], 'SMK-v1.0.0-FHIR.zip', { type: 'application/zip' })
+    fireEvent.change(input, { target: { files: [zip] } })
+    expect(await screen.findByText('library.importDialog.fileSelected')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('library.importDialog.asVersion'), { target: { value: '2.0.0' } })
+    fireEvent.click(screen.getByRole('button', { name: 'library.importDialog.import' }))
+
+    await waitFor(() => expect(importPackageFile).toHaveBeenCalledTimes(1))
+    expect(importPackageFile.mock.calls[0][0]).toBe(zip)
+    expect(importPackageFile.mock.calls[0][1]).toBe('2.0.0')
+    expect(importBundle).not.toHaveBeenCalled()
+  })
+})
+

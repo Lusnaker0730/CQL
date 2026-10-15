@@ -106,7 +106,8 @@ describe('MeasureExportConformanceDialog — PAT-229', () => {
 
     fireEvent.click(jsonButton)
     fireEvent.click(screen.getByRole('button', { name: 'editor.exportFormats.fhirXml' }))
-    expect(onExport.mock.calls).toEqual([['bundle-json'], ['bundle-xml']])
+    fireEvent.click(screen.getByRole('button', { name: 'editor.exportFormats.packageZip' }))
+    expect(onExport.mock.calls).toEqual([['bundle-json'], ['bundle-xml'], ['package']])
   })
 
   it('shows the backend message when the check itself fails', async () => {

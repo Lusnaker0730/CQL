@@ -603,6 +603,11 @@ for scenario_dir in "$SCRIPT_DIR/scenarios/"$SCENARIO_GLOB/; do
                 echo "    ✗ import result has no .measure.id" >&2
                 rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
             fi
+            # PAT-261: the same package as one zip goes through POST /import/package with the
+            # version override done on the server (assert-measure-package.sh checks the result).
+            if ! bash "$SCRIPT_DIR/lib/import-package.sh" "$pkg_tmp/package.zip" "${import_version}-zip" > "$pkg_tmp/import-zip-result.json"; then
+                rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
+            fi
             if ! bash "$SCRIPT_DIR/lib/approve-measure.sh" "$imported_id"; then
                 rm -rf "$pkg_tmp"; failed_scenarios+=("$name"); continue
             fi

@@ -68,6 +68,7 @@ class FhirMeasureBundleServiceTest {
     @Mock private FhirImplementationGuideService igService;
     @Mock private ObjectProvider<FhirImplementationGuideService> igProvider;
     @Mock private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+    @Mock private com.cqlplatform.service.cql.ElmSerializer elmSerializer;
 
     private FhirMeasureBundleService service;
     private CqfmLibraryBuilder libraryBuilder;
@@ -78,7 +79,11 @@ class FhirMeasureBundleServiceTest {
         libraryBuilder = new CqfmLibraryBuilder(canonical);
         CqfmMeasureBuilder measureBuilder = new CqfmMeasureBuilder(canonical, libraryBuilder);
         service = new FhirMeasureBundleService(fhirMeasureService, cqlLibraryService, translationService,
-                definitionService, libraryBuilder, canonical, FhirContext.forR4Cached(), vsacService, igProvider, platformValueSets);
+                definitionService, libraryBuilder, canonical, FhirContext.forR4Cached(), vsacService, igProvider, platformValueSets,
+                elmSerializer);
+        // PAT-261: the XML twin of whatever ELM JSON is handed in (the real serializer is covered by ElmSerializerTest)
+        lenient().when(elmSerializer.toXml(anyString())).thenAnswer(inv ->
+                "<library xmlns=\"urn:hl7-org:elm:r1\"><!-- " + ((String) inv.getArgument(0)).length() + " --></library>");
         lenient().when(platformValueSets.resolveForCaller(anyString(), org.mockito.ArgumentMatchers.any()))
                 .thenReturn(Optional.empty());
 
@@ -94,7 +99,7 @@ class FhirMeasureBundleServiceTest {
         ElmDependencies deps = libraryBuilder.readDependencies(MAIN_ELM);
         MeasureExportConformance report = new MeasureExportConformance();
         ObjectNode measure = measureBuilder.build(definition, "DiabetesHbA1cControl", "1.2.0", deps, List.of(), null, report);
-        when(fhirMeasureService.export(7L)).thenReturn(new MeasureExport(definition, measure, report, MAIN_ELM,
+        lenient().when(fhirMeasureService.export(7L)).thenReturn(new MeasureExport(definition, measure, report, MAIN_ELM,
                 "DiabetesHbA1cControl", "1.2.0", deps, List.of()));
 
         lenient().when(cqlLibraryService.getLibraryByNameAndVersion(anyString(), anyString())).thenReturn(Optional.empty());
@@ -136,6 +141,7 @@ class FhirMeasureBundleServiceTest {
         assertThat(StreamSupport.stream(primary.path("meta").path("profile").spliterator(), false).map(JsonNode::asText))
                 .containsExactly("http://hl7.org/fhir/uv/cql/StructureDefinition/cql-library",
                         "http://hl7.org/fhir/uv/cql/StructureDefinition/elm-json-library",
+                        "http://hl7.org/fhir/uv/cql/StructureDefinition/elm-xml-library", // PAT-261
                         "http://hl7.org/fhir/uv/crmi/StructureDefinition/crmi-shareablelibrary");
         assertThat(new String(Base64.getDecoder().decode(primary.path("content").get(0).path("data").asText()),
                 StandardCharsets.UTF_8)).startsWith("library DiabetesHbA1cControl");
@@ -191,5 +197,59 @@ class FhirMeasureBundleServiceTest {
         assertThat(xml).contains("<library value=\"" + BASE + "/Library/DiabetesHbA1cControl|1.2.0\"/>");
         // The old hand-written XML only had id / name / version / status / url per resource.
         assertThat(xml).contains("<scoring>").contains("<population id=\"group-1-numerator\">").contains("<compose>");
+    }
+
+    // ------------------------------------------------------------------ PAT-261 ELM XML
+
+    @Test
+    void everyLibraryShipsElmXmlNextToElmJson_andClaimsTheElmXmlProfile() {
+        BundleExport export = service.exportWithConformance(7L);
+
+        for (JsonNode library : resources(export.bundle(), "Library")) {
+            List<String> types = StreamSupport.stream(library.path("content").spliterator(), false)
+                    .map(c -> c.path("contentType").asText()).toList();
+            assertThat(types).as(library.path("name").asText())
+                    .containsExactly("text/cql", "application/elm+json", "application/elm+xml");
+            String xml = new String(Base64.getDecoder().decode(library.path("content").get(2).path("data").asText()), StandardCharsets.UTF_8);
+            assertThat(xml).startsWith("<library xmlns=\"urn:hl7-org:elm:r1\">");
+            assertThat(StreamSupport.stream(library.path("meta").path("profile").spliterator(), false).map(JsonNode::asText))
+                    .contains(com.cqlplatform.model.fhir.CqfmConstants.PROFILE_ELM_JSON_LIBRARY,
+                            com.cqlplatform.model.fhir.CqfmConstants.PROFILE_ELM_XML_LIBRARY);
+        }
+        assertThat(export.conformance().getLibraryProfiles()).contains(com.cqlplatform.model.fhir.CqfmConstants.PROFILE_ELM_XML_LIBRARY);
+        assertThat(export.definition().getId()).isEqualTo(7L);
+    }
+
+    @Test
+    void libraryWhoseElmCannotBecomeXml_shipsJsonOnly_andTheReportSaysWhich() {
+        when(elmSerializer.toXml(COMMON_ELM)).thenReturn(null);
+
+        BundleExport export = service.exportWithConformance(7L);
+
+        JsonNode common = resources(export.bundle(), "Library").stream()
+                .filter(l -> "HospitalCommon".equals(l.path("name").asText())).findFirst().orElseThrow();
+        assertThat(StreamSupport.stream(common.path("content").spliterator(), false).map(c -> c.path("contentType").asText()))
+                .containsExactly("text/cql", "application/elm+json");
+        assertThat(StreamSupport.stream(common.path("meta").path("profile").spliterator(), false).map(JsonNode::asText))
+                .doesNotContain(com.cqlplatform.model.fhir.CqfmConstants.PROFILE_ELM_XML_LIBRARY);
+        assertThat(export.conformance().getIssues()).anyMatch(i -> MeasureExportConformance.WARNING.equals(i.getSeverity())
+                && i.getMessage().contains("'HospitalCommon'") && i.getMessage().contains("ELM JSON only"));
+        // the primary library is unaffected
+        assertThat(resources(export.bundle(), "Library").get(0).path("content")).hasSize(3);
+    }
+
+    @Test
+    void elmXmlExport_translatesTheMeasuresCql_andRefusesWhenThereIsNoElm() {
+        MeasureDefinition withCql = MeasureDefinition.builder().id(7L).cqlContent("library X").build();
+        when(definitionService.getById(7L)).thenReturn(Optional.of(withCql));
+        when(translationService.translate(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(com.cqlplatform.model.CqlTranslationResponse.builder().success(true).elmJson(MAIN_ELM).build());
+
+        assertThat(service.exportElmXml(7L)).startsWith("<library xmlns=\"urn:hl7-org:elm:r1\">");
+
+        when(definitionService.getById(8L)).thenReturn(Optional.of(MeasureDefinition.builder().id(8L).cqlContent("  ").build()));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.exportElmXml(8L))
+                .isInstanceOf(com.cqlplatform.exception.ValidationException.class)
+                .hasMessageContaining("no ELM");
     }
 }

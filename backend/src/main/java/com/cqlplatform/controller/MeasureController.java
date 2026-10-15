@@ -63,6 +63,7 @@ public class MeasureController {
     private final MeasureValidationService validationService;
     private final FhirMeasureBundleService bundleService;
     private final FhirMeasureBundleImportService bundleImportService;
+    private final MeasurePackageService packageService;
     private final HqmfExportService hqmfExportService;
     private final HumanReadableService humanReadableService;
     private final BatchEvaluationService batchEvaluationService;
@@ -275,9 +276,18 @@ public class MeasureController {
     }
 
     @GetMapping("/{id}/export/elm")
-    @Operation(summary = "Export ELM Only", description = "Exports the ELM JSON translation of a measure's CQL")
-    public ResponseEntity<byte[]> exportElm(@PathVariable Long id) {
+    @Operation(summary = "Export ELM Only", description = "Exports the ELM translation of a measure's CQL as JSON (default) or, with format=xml, as ELM XML (PAT-261)")
+    public ResponseEntity<byte[]> exportElm(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "json") String format) {
         requireReadableMeasure(id);
+        if ("xml".equalsIgnoreCase(format)) {
+            String xml = bundleService.exportElmXml(id);
+            return ResponseEntity.ok()
+                    .header("Content-Disposition", "attachment; filename=measure-" + id + "-elm.xml")
+                    .header("Content-Type", "application/elm+xml")
+                    .body(xml.getBytes(StandardCharsets.UTF_8));
+        }
         String elm = bundleService.exportElmOnly(id);
         return ResponseEntity.ok()
                 .header("Content-Disposition", "attachment; filename=measure-" + id + "-elm.json")
@@ -285,12 +295,38 @@ public class MeasureController {
                 .body(elm.getBytes(StandardCharsets.UTF_8));
     }
 
+    @GetMapping("/{id}/export/package")
+    @Operation(summary = "Export exchange package (zip)",
+            description = "PAT-261: one zip in MADiE's layout — the Bundle as JSON and XML, the human-readable HTML, "
+                    + "the conformance report, cql/<Library>-<version>.cql for every library and resources/ with each "
+                    + "Measure / Library (JSON + XML) and ValueSet. Every Library carries CQL, ELM JSON and ELM XML")
+    public ResponseEntity<byte[]> exportPackage(@PathVariable Long id) {
+        requireReadableMeasure(id);
+        MeasurePackageService.MeasurePackage pkg = packageService.exportPackage(id);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=" + pkg.fileName() + ".zip")
+                .header("Content-Type", "application/zip")
+                .body(pkg.zip());
+    }
+
     @PostMapping("/import/bundle")
     @Operation(summary = "Import FHIR Bundle", description = "Imports a FHIR Bundle containing Measure, Library, and ValueSet resources")
     public ResponseEntity<FhirMeasureBundleImportService.BundleImportResult> importBundle(
-            @RequestBody JsonNode bundleJson) {
-        var result = bundleImportService.importBundle(bundleJson);
+            @RequestBody JsonNode bundleJson,
+            @RequestParam(required = false) String asVersion) {
+        var result = bundleImportService.importBundle(bundleJson, asVersion);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping(value = "/import/package", consumes = "multipart/form-data")
+    @Operation(summary = "Import exchange package", description = "PAT-261: imports a package zip (ours or MADiE's layout — the top-level Bundle JSON is the package) or a plain Bundle JSON file; asVersion replaces Measure.version before import")
+    public ResponseEntity<FhirMeasureBundleImportService.BundleImportResult> importPackage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(required = false) String asVersion) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new ValidationException("The upload is empty");
+        }
+        return ResponseEntity.ok(bundleImportService.importPackage(file.getBytes(), file.getOriginalFilename(), asVersion));
     }
 
     @GetMapping("/{id}/export/hqmf")

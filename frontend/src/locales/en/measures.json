@@ -142,8 +142,12 @@
       "invalidJson": "Invalid JSON format",
       "loadError": "Failed to load measure: {{error}}",
       "exportError": "Export failed: {{error}}",
-      "uploadFile": "Upload File",
-      "orPaste": "or paste JSON below"
+      "uploadFile": "Upload file (.json / .zip)",
+      "orPaste": "or paste JSON below",
+      "fileSelected": "File: {{name}}",
+      "zipHint": "A package zip (ours or MADiE's) is imported as a whole; the server reads the Bundle inside it.",
+      "asVersion": "Import as version",
+      "asVersionHelp": "Optional. Replaces Measure.version, e.g. when the sender's version number already exists here."
     },
     "allStatuses": "All statuses",
     "statusFilter": "Status",
@@ -194,10 +198,12 @@
       "fhirJson": "FHIR Bundle (JSON)",
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "CQL Only",
-      "elmOnly": "ELM Only",
+      "elmOnly": "ELM (JSON)",
       "hqmfXml": "HQMF (XML)",
       "humanReadable": "Human Readable (HTML)",
-      "packageCheck": "Exchange package check"
+      "packageCheck": "Exchange package check",
+      "elmXml": "ELM (XML)",
+      "packageZip": "Exchange package (zip)"
     },
     "versionMenu": {
       "createVersion": "Create Version",

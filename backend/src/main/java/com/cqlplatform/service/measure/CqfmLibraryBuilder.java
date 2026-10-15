@@ -49,7 +49,13 @@ public class CqfmLibraryBuilder {
 
     /** Input for {@link #buildLogicLibrary}. */
     public record LibrarySource(String name, String version, String title, String description,
-                                String status, String date, String cql, String elmJson) {}
+                                String status, String date, String cql, String elmJson, String elmXml) {
+        /** Without ELM XML (PAT-261 added it; callers that have only JSON keep working). */
+        public LibrarySource(String name, String version, String title, String description,
+                             String status, String date, String cql, String elmJson) {
+            this(name, version, title, description, status, date, cql, elmJson, null);
+        }
+    }
 
     /**
      * Reads includes / value sets / code systems / parameters from ELM JSON. A library without
@@ -109,10 +115,13 @@ public class CqfmLibraryBuilder {
         library.put("id", FhirCanonicalResolver.idPart(src.name()));
 
         boolean hasElm = src.elmJson() != null && !src.elmJson().isBlank();
+        // PAT-261: XML is derived from the JSON, so it is only ever claimed alongside it
+        boolean hasXml = hasElm && src.elmXml() != null && !src.elmXml().isBlank();
         boolean shareable = notBlank(src.title()) && notBlank(src.description());
         ArrayNode profiles = library.putObject("meta").putArray("profile");
         profiles.add(CqfmConstants.PROFILE_CQL_LIBRARY);
         if (hasElm) profiles.add(CqfmConstants.PROFILE_ELM_JSON_LIBRARY);
+        if (hasXml) profiles.add(CqfmConstants.PROFILE_ELM_XML_LIBRARY);
         if (shareable) profiles.add(CqfmConstants.PROFILE_CRMI_SHAREABLE_LIBRARY);
 
         library.put("url", canonical.libraryUrl(src.name()));
@@ -137,6 +146,11 @@ public class CqfmLibraryBuilder {
             ObjectNode elmAttachment = content.addObject();
             elmAttachment.put("contentType", "application/elm+json");
             elmAttachment.put("data", base64(src.elmJson()));
+        }
+        if (hasXml) {
+            ObjectNode xmlAttachment = content.addObject();
+            xmlAttachment.put("contentType", "application/elm+xml");
+            xmlAttachment.put("data", base64(src.elmXml()));
         }
         return library;
     }

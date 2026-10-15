@@ -116,6 +116,78 @@ else
     bad "XML export is not a full FHIR XML Bundle: $(head -c 300 "$DIR/bundle.xml")"
 fi
 
+# ── Exchange package zip + ELM XML (PAT-261) ───────────────────────────────
+ZIP_DIR="$DIR/zip"
+if [ -d "$ZIP_DIR" ]; then
+    root_json=$(ls "$ZIP_DIR"/*-FHIR.json 2>/dev/null | head -1 || true)
+    if [ -n "$root_json" ]; then
+        ok "zip has a top-level <Title>-v<version>-FHIR.json ($(basename "$root_json"))"
+        base="${root_json%.json}"
+        zip_base=$(jq -r '.package.zipBaseName // empty' "$EXPECTED" | tr -d '\r')
+        if [ -n "$zip_base" ]; then
+            if [ "$(basename "$base")" = "$zip_base" ]; then ok "zip base name is $zip_base"; else bad "zip base name is $(basename "$base"), expected $zip_base"; fi
+        fi
+        if grep -q 'filename='"$(basename "$base")"'.zip' "$DIR/package.zip.headers" 2>/dev/null; then
+            ok "Content-Disposition names the zip $(basename "$base").zip"
+        else
+            bad "Content-Disposition does not name the zip: $(grep -i disposition "$DIR/package.zip.headers" 2>/dev/null)"
+        fi
+        for ext in xml html; do
+            if [ -f "$base.$ext" ]; then ok "zip has $(basename "$base").$ext"; else bad "zip lacks $(basename "$base").$ext"; fi
+        done
+        if grep -q '<Bundle xmlns="http://hl7.org/fhir">' "$base.xml" 2>/dev/null; then ok "zip XML is a FHIR XML Bundle"; else bad "zip XML is not a FHIR XML Bundle"; fi
+        if grep -qi '<!DOCTYPE html>' "$base.html" 2>/dev/null && grep -q 'Population' "$base.html"; then ok "zip HTML is the human-readable document"; else bad "zip HTML is not the human-readable document"; fi
+        check "zip Bundle JSON carries the same entries as the Bundle export" \
+            "(.entry | length) == $(jq '.entry | length' "$BUNDLE" | tr -d '\r')" "$root_json"
+    else
+        bad "zip has no top-level *-FHIR.json: $(ls "$ZIP_DIR" | tr '\n' ' ')"
+    fi
+    if [ -f "$ZIP_DIR/conformance.json" ]; then ok "zip has conformance.json"; else bad "zip lacks conformance.json"; fi
+    while IFS=$'\t' read -r lib_name lib_version; do
+        [ -z "$lib_name" ] && continue
+        if [ -f "$ZIP_DIR/cql/$lib_name-$lib_version.cql" ]; then ok "zip has cql/$lib_name-$lib_version.cql"; else bad "zip lacks cql/$lib_name-$lib_version.cql"; fi
+        for ext in json xml; do
+            if [ -f "$ZIP_DIR/resources/library-$lib_name-$lib_version.$ext" ]; then ok "zip has resources/library-$lib_name-$lib_version.$ext"; else bad "zip lacks resources/library-$lib_name-$lib_version.$ext"; fi
+        done
+    done < <(jq -r '.entry[].resource | select(.resourceType == "Library") | [.name, (.version // "1.0.0")] | @tsv' "$BUNDLE" | tr -d '\r')
+    measure_name=$(jq -r "$M.name" "$BUNDLE" | tr -d '\r')
+    measure_version=$(jq -r "$M.version // \"1.0.0\"" "$BUNDLE" | tr -d '\r')
+    for ext in json xml; do
+        if [ -f "$ZIP_DIR/resources/measure-$measure_name-$measure_version.$ext" ]; then ok "zip has resources/measure-$measure_name-$measure_version.$ext"; else bad "zip lacks resources/measure-$measure_name-$measure_version.$ext"; fi
+    done
+    if [ -n "$primary_name" ] && head -c 400 "$ZIP_DIR/cql/$primary_name"-*.cql 2>/dev/null | grep -q "library $primary_name"; then
+        ok "zip cql/ file of the primary library is the CQL that runs"
+    else
+        bad "zip cql/ file of the primary library does not start with its library header"
+    fi
+else
+    bad "package zip was not exported / unzipped into $ZIP_DIR"
+fi
+check "every Library ships ELM XML next to ELM JSON" \
+    '[.entry[].resource | select(.resourceType == "Library") | [.content[]?.contentType] | (index("application/elm+json") != null) == (index("application/elm+xml") != null)] | all'
+check "primary Library claims elm-xml-library" \
+    '[.entry[].resource | select(.resourceType == "Library")][0].meta.profile | index("http://hl7.org/fhir/uv/cql/StructureDefinition/elm-xml-library") != null'
+decoded_xml=$(jq -r '[.entry[].resource | select(.resourceType == "Library")][0].content[] | select(.contentType == "application/elm+xml") | .data' "$BUNDLE" \
+    | tr -d '\r' | base64 -d 2>/dev/null | head -c 600 || true)
+if printf '%s' "$decoded_xml" | grep -q '<library' && printf '%s' "$decoded_xml" | grep -q "id=\"$primary_name\""; then
+    ok "primary Library's ELM XML is an ELM <library> for $primary_name"
+else
+    bad "primary Library's ELM XML is not an ELM library for $primary_name: $(printf '%s' "$decoded_xml" | head -c 160)"
+fi
+if [ -f "$DIR/elm.xml" ] && grep -q '<library' "$DIR/elm.xml" && grep -q "id=\"$primary_name\"" "$DIR/elm.xml"; then
+    ok "GET /export/elm?format=xml is the ELM XML of $primary_name"
+else
+    bad "GET /export/elm?format=xml is not the ELM XML of $primary_name: $(head -c 200 "$DIR/elm.xml" 2>/dev/null)"
+fi
+if [ -f "$DIR/import-zip-result.json" ]; then
+    zip_version="$(jq -r '.importAsVersion' "$EXPECTED" | tr -d '\r')-zip"
+    check "zip import landed as version $zip_version (server-side asVersion)" ".measure.version == \"$zip_version\"" "$DIR/import-zip-result.json"
+    check "zip import carries the CQL" '(.measure.cqlContent // "") | length > 0' "$DIR/import-zip-result.json"
+    check "zip import skipped the shared library the JSON import had already stored" '.librariesSkipped >= 1' "$DIR/import-zip-result.json"
+else
+    bad "no import-zip-result.json: the zip was not imported"
+fi
+
 # ── Conformance report ──────────────────────────────────────────────────────
 check "conformance: exchangeReady" '.exchangeReady == true' "$DIR/conformance.json"
 check "conformance: no error findings" '[.issues[] | select(.severity == "error")] | length == 0' "$DIR/conformance.json"

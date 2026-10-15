@@ -142,8 +142,12 @@
       "invalidJson": "無效的 JSON 格式",
       "loadError": "無法載入指標：{{error}}",
       "exportError": "匯出失敗：{{error}}",
-      "uploadFile": "上傳檔案",
-      "orPaste": "或在下方貼上 JSON"
+      "uploadFile": "上傳檔案（.json / .zip）",
+      "orPaste": "或在下方貼上 JSON",
+      "fileSelected": "檔案：{{name}}",
+      "zipHint": "封裝 zip（本平台或 MADiE 匯出）整包匯入，伺服器會讀取裡面的 Bundle。",
+      "asVersion": "匯入為版本",
+      "asVersionHelp": "選填。取代 Measure.version，例如對方的版本號在這裡已存在時。"
     },
     "allStatuses": "全部狀態",
     "statusFilter": "狀態",
@@ -194,10 +198,12 @@
       "fhirJson": "FHIR Bundle (JSON)",
       "fhirXml": "FHIR Bundle (XML)",
       "cqlOnly": "僅 CQL",
-      "elmOnly": "僅 ELM",
+      "elmOnly": "ELM (JSON)",
       "hqmfXml": "HQMF (XML)",
       "humanReadable": "人類可讀文件 (HTML)",
-      "packageCheck": "交換封裝檢查"
+      "packageCheck": "交換封裝檢查",
+      "elmXml": "ELM (XML)",
+      "packageZip": "交換封裝 (zip)"
     },
     "versionMenu": {
       "createVersion": "建立版本",

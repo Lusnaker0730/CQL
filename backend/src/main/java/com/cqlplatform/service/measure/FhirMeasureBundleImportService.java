@@ -1,17 +1,25 @@
 package com.cqlplatform.service.measure;
 
+import com.cqlplatform.exception.ValidationException;
 import com.cqlplatform.model.measure.MeasureDefinition;
 import com.cqlplatform.service.cql.CqlLibraryService;
 import com.cqlplatform.service.cql.FhirLibraryService;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /**
  * Imports a measure package: the Measure, the Libraries it needs, and — the part that makes the
@@ -30,6 +38,9 @@ public class FhirMeasureBundleImportService {
     private final FhirLibraryService fhirLibraryService;
     private final CqlLibraryService cqlLibraryService;
     private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+    static final int MAX_ZIP_ENTRIES = 500;
+    static final long MAX_UNCOMPRESSED_BYTES = 64L * 1024 * 1024;
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     /**
      * {@code valueSetsImported} were stored as this tenant's own (draft) value sets;
@@ -47,6 +58,61 @@ public class FhirMeasureBundleImportService {
     ) {}
 
     public BundleImportResult importBundle(JsonNode bundleJson) {
+        return importBundle(bundleJson, null);
+    }
+
+    /**
+     * PAT-261: imports an exchange package — a zip in our / MADiE's layout (the top-level Bundle
+     * JSON is the package; a Bundle nested in a folder is used when there is no top-level one) or a
+     * plain Bundle JSON file. {@code asVersion}, when given, replaces {@code Measure.version} before
+     * the import: "the next version the other organisation sent us" without editing the file.
+     */
+    public BundleImportResult importPackage(byte[] content, String fileName, String asVersion) {
+        if (content == null || content.length == 0) throw new ValidationException("The upload is empty");
+        if (!MeasurePackageService.looksLikeZip(content, fileName)) {
+            try {
+                return importBundle(MAPPER.readTree(content), asVersion);
+            } catch (IOException e) {
+                throw new ValidationException("The upload is neither a zip nor valid JSON: " + e.getMessage());
+            }
+        }
+        JsonNode rootBundle = null;
+        JsonNode nestedBundle = null;
+        int jsonFiles = 0;
+        long total = 0;
+        try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(content), StandardCharsets.UTF_8)) {
+            ZipEntry entry;
+            while ((entry = in.getNextEntry()) != null) {
+                String name = entry.getName();
+                if (entry.isDirectory() || !name.toLowerCase(Locale.ROOT).endsWith(".json")) continue;
+                if (++jsonFiles > MAX_ZIP_ENTRIES) throw new ValidationException("The zip has more than " + MAX_ZIP_ENTRIES + " JSON files");
+                byte[] bytes = in.readAllBytes();
+                total += bytes.length;
+                if (total > MAX_UNCOMPRESSED_BYTES) throw new ValidationException("The zip expands to more than 64 MB");
+                JsonNode json;
+                try {
+                    json = MAPPER.readTree(bytes);
+                } catch (IOException e) {
+                    continue; // not JSON after all; the Bundle is elsewhere
+                }
+                if (!"Bundle".equals(json.path("resourceType").asText(""))) continue;
+                if (!name.contains("/")) {
+                    if (rootBundle == null) rootBundle = json;
+                } else if (nestedBundle == null) {
+                    nestedBundle = json;
+                }
+            }
+        } catch (IOException e) {
+            throw new ValidationException("The upload is not a readable zip file: " + e.getMessage());
+        }
+        JsonNode bundle = rootBundle != null ? rootBundle : nestedBundle;
+        if (bundle == null) {
+            throw new ValidationException("The zip contains no FHIR Bundle (" + jsonFiles + " JSON files looked at)");
+        }
+        return importBundle(bundle, asVersion);
+    }
+
+    public BundleImportResult importBundle(JsonNode bundleJson, String asVersion) {
         String resourceType = bundleJson.path("resourceType").asText("");
         if (!"Bundle".equals(resourceType)) {
             throw new IllegalArgumentException("Expected FHIR Bundle resource, got: " + resourceType);
@@ -73,6 +139,9 @@ public class FhirMeasureBundleImportService {
         }
         if (measureResource == null) {
             throw new IllegalArgumentException("Bundle does not contain a Measure resource");
+        }
+        if (asVersion != null && !asVersion.isBlank() && measureResource instanceof ObjectNode measureNode) {
+            measureNode.put("version", asVersion.trim());
         }
 
         JsonNode primaryLibrary = findPrimaryLibrary(measureResource, libraryResources);
