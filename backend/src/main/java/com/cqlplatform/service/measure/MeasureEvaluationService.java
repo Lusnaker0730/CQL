@@ -135,8 +135,13 @@ public class MeasureEvaluationService {
                     log.info("Pre-translated CQL in {}ms (will reuse for all patients)",
                             translateTime.elapsedMs());
                 } catch (Throwable e) {
-                    log.error("CQL pre-translation failed: {} ({}), will translate per patient",
-                            e.getMessage(), e.getClass().getName(), e);
+                    // BUG-152: translating the same CQL once more per patient cannot succeed where the one
+                    // translation failed, and that fallback re-entered the execution pool from its own
+                    // threads (a nested submit-and-wait that starved the pool). Fail loud instead.
+                    stopTimer(sample);
+                    incrementErrorCounter();
+                    log.error("CQL pre-translation failed: {} ({})", e.getMessage(), e.getClass().getName(), e);
+                    return errorResult(context, "Measure evaluation aborted: CQL translation failed. " + e.getMessage(), e);
                 }
             } else {
                 log.warn("context.getMeasureCql() is null, skipping pre-translation");
@@ -182,6 +187,21 @@ public class MeasureEvaluationService {
             final CqlExecutionService.PreTranslatedContext pt = preTranslated;
             final java.util.Map<String, java.util.List<org.hl7.fhir.r4.model.Resource>> bd = bulkData;
             AggregationState state = executeAndAggregate(context, patients, pt, bd);
+
+            // BUG-152: a timed-out evaluation is incomplete by construction — the patients the timeout
+            // cancelled are missing from every population. That is not "a few patients failed" (PAT-140's
+            // threshold); it is no report. Say so instead of returning partial numbers as complete.
+            if (state.timedOut) {
+                stopTimer(sample);
+                incrementErrorCounter();
+                log.error("Measure evaluation timed out after {}s: {} of {} patients were not evaluated",
+                        context.getTimeoutSeconds(), state.unfinishedCount, patients.size());
+                return errorResult(context, String.format(
+                        "Measure evaluation aborted: timed out after %ds with %d of %d patients not evaluated. "
+                                + "Raise cql.execution.measure-timeout-seconds or evaluate fewer patients at a time.",
+                        context.getTimeoutSeconds(), state.unfinishedCount, patients.size()),
+                        null, state.unfinishedCount, patients.size());
+            }
 
             // PAT-112a: if ANY patient evaluation failed because of a FHIR outage,
             // abort the entire measure rather than returning a falsified denominator.
@@ -354,13 +374,17 @@ public class MeasureEvaluationService {
                 .toList();
 
         // Wait for all patients to finish (with overall timeout)
+        boolean timedOut = false;
         try {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                     .get(context.getTimeoutSeconds(), TimeUnit.SECONDS);
         } catch (Exception e) {
+            timedOut = true;
             log.warn("Measure evaluation timed out or interrupted after {}s", context.getTimeoutSeconds());
             futures.forEach(f -> f.cancel(true));
         }
+        // BUG-152: the patients the timeout left unevaluated (cancelled or still running)
+        int unfinishedCount = (int) futures.stream().filter(f -> f.isCancelled() || !f.isDone()).count();
 
         // Aggregate results sequentially (thread-safe)
         int errorCount = 0;
@@ -490,7 +514,7 @@ public class MeasureEvaluationService {
         return new AggregationState(perGroupCounts, perGroupSubjects, customExpressions, perGroupStratData,
                 errorCount, observationValues, observationValuesByGroup, fhirOutageError,
                 supplementalDataEvaluator.build(declaredSde, supplementalDistributions),
-                List.copyOf(warnings));
+                List.copyOf(warnings), timedOut, unfinishedCount);
     }
 
     /** Adds one patient's per-population contribution to a group's running counts. */
@@ -549,7 +573,13 @@ public class MeasureEvaluationService {
             }
             return cqlExecutionService.executeWithPreTranslated(execRequest, preTranslated);
         }
-        return cqlExecutionService.execute(execRequest);
+        // BUG-152: no pre-translated context — run on this thread. execute() submits to the execution
+        // pool and waits, and this method already runs on that pool: a nested submit-and-wait starves it.
+        if (bulkData != null && bulkData.containsKey(patientId)) {
+            return cqlExecutionService.executeInline(execRequest,
+                    new com.cqlplatform.service.cds.PrefetchRetrieveProvider(bulkData.get(patientId), patientId));
+        }
+        return cqlExecutionService.executeInline(execRequest, null);
     }
 
     /**
@@ -1056,7 +1086,10 @@ public class MeasureEvaluationService {
             /** PAT-234: declared SDEs / risk adjustment factors as value distributions (never null). */
             List<MeasureEvaluationResult.SupplementalDataResult> supplementalDataResults,
             /** PAT-243: evaluation-level notes for the author (never null; empty = nothing to say). */
-            List<String> warnings
+            List<String> warnings,
+            /** BUG-152: the overall timeout fired — the counts above are missing {@link #unfinishedCount} patients. */
+            boolean timedOut,
+            int unfinishedCount
     ) {}
 
     /** PAT-243: the basis of a single-group measure's group (what the primary-group builders report). */

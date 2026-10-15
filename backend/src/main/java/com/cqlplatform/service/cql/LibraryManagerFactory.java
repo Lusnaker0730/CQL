@@ -28,6 +28,19 @@ public class LibraryManagerFactory {
     private static volatile ModelManager sharedModelManager;
 
     /**
+     * BUG-152 (found by the PAT-266 concurrency run): cql-to-elm's {@link ModelManager} caches models in
+     * plain collections and detects recursion with a "loading" set, so two threads loading the same
+     * model for the first time make each other fail with "Circular model reference FHIR" — every
+     * translation that started together right after boot failed that way. First loads go through
+     * this lock; afterwards the cache is only read.
+     */
+    private static final Object MODEL_LOAD_LOCK = new Object();
+
+    /** {@code using FHIR version '4.0.1'} — the models a library declares, pre-loaded under the lock. */
+    private static final java.util.regex.Pattern USING_DECLARATION = java.util.regex.Pattern.compile(
+            "(?m)^\\s*using\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+version\\s+'([^']*)')?");
+
+    /**
      * Resolves the default tenant's id for {@link DatabaseLibrarySourceProvider}'s
      * null-TenantContext fallback (PAT-193 / #697). Static because the factory methods
      * are static; wired from the Spring-managed instance in {@link #init()}. Memoized —
@@ -47,6 +60,7 @@ public class LibraryManagerFactory {
                 Thread.currentThread().getContextClassLoader());
         sharedModelManager = new ModelManager();
         log.info("CQL ModelManager initialized successfully");
+        warmUp(sharedModelManager);
 
         final TenantRepository repo = tenantRepository;
         defaultTenantIdResolver = new java.util.function.Supplier<>() {
@@ -72,6 +86,52 @@ public class LibraryManagerFactory {
                 return id;
             }
         };
+    }
+
+    /** BUG-152: the models the platform uses, loaded before the first request can race for them. */
+    private static void warmUp(ModelManager modelManager) {
+        synchronized (MODEL_LOAD_LOCK) {
+            for (String[] model : new String[][] {{"System", null}, {"FHIR", "4.0.1"}}) {
+                try {
+                    resolve(modelManager, model[0], model[1]);
+                } catch (RuntimeException e) {
+                    log.warn("CQL model {} {} could not be pre-loaded: {}", model[0], model[1], e.getMessage());
+                }
+            }
+        }
+        log.info("CQL models pre-loaded (System, FHIR 4.0.1)");
+    }
+
+    /**
+     * BUG-152: loads the models {@code cql} declares with {@code using} into the shared
+     * {@link ModelManager} under the load lock, so a concurrent first translation never trips the
+     * manager's recursion guard. Call before {@code CqlTranslator.fromText}. A model the manager
+     * cannot load is left for the translator to report; nothing is thrown here.
+     */
+    public static void ensureModelsLoaded(String cql) {
+        ModelManager modelManager = sharedModelManager;
+        if (modelManager == null || cql == null) {
+            return;
+        }
+        java.util.regex.Matcher m = USING_DECLARATION.matcher(cql);
+        while (m.find()) {
+            synchronized (MODEL_LOAD_LOCK) {
+                try {
+                    resolve(modelManager, m.group(1), m.group(2));
+                } catch (RuntimeException e) {
+                    log.debug("CQL model {} {} not pre-loadable ({}); the translator will report it",
+                            m.group(1), m.group(2), e.getMessage());
+                }
+            }
+        }
+    }
+
+    private static void resolve(ModelManager modelManager, String id, String version) {
+        if (version == null || version.isBlank()) {
+            modelManager.resolveModel(id);
+        } else {
+            modelManager.resolveModel(id, version);
+        }
     }
 
     /**

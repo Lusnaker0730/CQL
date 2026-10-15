@@ -116,6 +116,7 @@ public class CqlTranslationService {
                     request.isValidateUnits());
             LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository, options);
 
+            LibraryManagerFactory.ensureModelsLoaded(request.getCql());   // BUG-152
             CqlTranslator translator = CqlTranslator.fromText(request.getCql(), libraryManager);
             Library library = translator.toELM();
 
@@ -175,6 +176,7 @@ public class CqlTranslationService {
     public CompiledLibrary compile(String cql) {
         try {
             LibraryManager libraryManager = LibraryManagerFactory.create(libraryRepository);
+            LibraryManagerFactory.ensureModelsLoaded(cql);   // BUG-152
             CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
 
             if (translator.getExceptions().stream()
