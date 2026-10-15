@@ -44,6 +44,14 @@ public class FhirDataProviderService {
     @Value("${cql.execution.max-patient-count:50000}")
     private int maxPatientCount;
 
+    /** BUG-151: patients per bulk-fetch search (their ids travel in the query string) and per Patient GET batch. */
+    @Value("${fhir.bulk-fetch.batch-size:100}")
+    private int bulkFetchBatchSize;
+
+    /** BUG-151: {@code _count} asked of the server per page; the server may clamp it, every page is read. */
+    @Value("${fhir.bulk-fetch.page-size:1000}")
+    private int bulkFetchPageSize;
+
     private final AtomicInteger retrieveCount = new AtomicInteger(0);
 
     public IGenericClient createClient(String fhirServerUrl) {
@@ -111,9 +119,17 @@ public class FhirDataProviderService {
     }
 
     /**
-     * Bulk-fetch resources for ALL patients in a single FHIR batch request per resource type.
-     * Returns a map of patientId → list of resources, ready for PrefetchRetrieveProvider.
-     * This is much faster than per-patient batch fetch when evaluating many patients.
+     * Bulk-fetch resources for ALL patients, one search per resource type per batch of patients,
+     * following every page. Returns a map of patientId → list of resources, ready for
+     * PrefetchRetrieveProvider. This is much faster than per-patient batch fetch when evaluating
+     * many patients.
+     *
+     * <p>BUG-151 (found by the PAT-266 load test): one request used to carry every patient id in
+     * its query string — around 370 ids overflow the server's request-line limit and HAPI answers
+     * 400, so a clinic beyond that size could not be evaluated at all ("upstream FHIR server
+     * unavailable"); and only the first page was read, so a server that clamps {@code _count} to its
+     * own maximum silently left resources out. Now the ids travel in batches of
+     * {@code fhir.bulk-fetch.batch-size} and each search is read to its last page.
      */
     @CircuitBreaker(name = "fhirServer")
     @Retry(name = "fhirServer")
@@ -126,6 +142,8 @@ public class FhirDataProviderService {
         }
 
         long start = System.currentTimeMillis();
+        List<List<String>> batches = batches(patientIds, bulkFetchBatchSize);
+        int requests = 0;
 
         // PAT-112a: do NOT swallow per-resourceType or per-patient-batch failures.
         // A failed bulk fetch previously left the result sparse with no upstream
@@ -134,84 +152,107 @@ public class FhirDataProviderService {
         // CDS invocation) propagates the exception to GlobalExceptionHandler which
         // turns it into a FHIR_UPSTREAM_UNAVAILABLE envelope (PAT-110).
         for (String resourceType : resourceTypes) {
-            // Patient resources are fetched separately via batch GET below (L161+).
+            // Patient resources are fetched separately via batch GET below.
             // Querying `Patient?subject=...` or `Patient?patient=...` is invalid (HAPI rejects
             // with HAPI-0524 — neither is a Patient search param). Callers may legitimately
             // include Patient in the retrieveTypes set; skipping here keeps the loop safe.
             if ("Patient".equals(resourceType)) {
                 continue;
             }
+            String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
+            for (List<String> batch : batches) {
+                try {
+                    Bundle page = client.search()
+                            .byUrl(bulkSearchUrl(resourceType, searchParam, batch, bulkFetchPageSize))
+                            .returnBundle(Bundle.class)
+                            .execute();
+                    while (page != null) {
+                        requests++;
+                        // PAT-112c: 200 OK with embedded OperationOutcome(severity=error|fatal)
+                        // must not be treated as valid data.
+                        FhirErrorInspector.assertNoErrors(page, "bulk fetch " + resourceType);
+                        distribute(page, result);
+                        page = page.getLink(Bundle.LINK_NEXT) != null ? client.loadPage().next(page).execute() : null;
+                    }
+                } catch (FhirServerUnavailableException e) {
+                    throw e;
+                } catch (Exception e) {
+                    log.error("Bulk fetch failed for {}: {}", resourceType, e.getMessage());
+                    throw new FhirServerUnavailableException(
+                            "Bulk fetch failed for " + resourceType + ": " + e.getMessage(), e);
+                }
+            }
+        }
+
+        // Also fetch Patient resources, a batch of GETs per batch of ids — same fail-loud rule applies.
+        for (List<String> batch : batches) {
+            Bundle patientBatch = new Bundle();
+            patientBatch.setType(Bundle.BundleType.BATCH);
+            for (String pid : batch) {
+                patientBatch.addEntry().getRequest()
+                        .setMethod(Bundle.HTTPVerb.GET)
+                        .setUrl("Patient/" + pid);
+            }
             try {
-                String searchParam = PATIENT_BASED_RESOURCES.contains(resourceType) ? "patient" : "subject";
-                String patientList = String.join(",", patientIds.stream()
-                        .map(id -> "Patient/" + id).toList());
-
-                Bundle searchResult = client.search()
-                        .byUrl(resourceType + "?" + searchParam + "=" + patientList + "&_count=5000")
-                        .returnBundle(Bundle.class)
-                        .execute();
-
-                // PAT-112c: 200 OK with embedded OperationOutcome(severity=error|fatal)
-                // must not be treated as valid data.
-                FhirErrorInspector.assertNoErrors(searchResult, "bulk fetch " + resourceType);
-
-                // Distribute resources to their patient buckets
-                if (searchResult.hasEntry()) {
-                    for (Bundle.BundleEntryComponent entry : searchResult.getEntry()) {
-                        Resource resource = entry.getResource();
-                        if (resource == null) continue;
-                        String ownerPatientId = extractPatientId(resource);
-                        if (ownerPatientId != null && result.containsKey(ownerPatientId)) {
-                            result.get(ownerPatientId).add(resource);
+                Bundle patientResponse = executeTransaction(fhirServerUrl, patientBatch);
+                requests++;
+                // PAT-112c: batch transaction responses carry per-entry outcomes; reject any
+                // fatal/error before distributing resources.
+                FhirErrorInspector.assertNoErrors(patientResponse, "bulk Patient batch");
+                if (patientResponse.hasEntry()) {
+                    for (Bundle.BundleEntryComponent entry : patientResponse.getEntry()) {
+                        if (entry.getResource() instanceof Patient patient && patient.hasId()) {
+                            String pid = patient.getIdElement().getIdPart();
+                            if (result.containsKey(pid)) {
+                                result.get(pid).add(patient);
+                            }
                         }
                     }
                 }
             } catch (FhirServerUnavailableException e) {
                 throw e;
             } catch (Exception e) {
-                log.error("Bulk fetch failed for {}: {}", resourceType, e.getMessage());
+                log.error("Bulk Patient fetch failed: {}", e.getMessage());
                 throw new FhirServerUnavailableException(
-                        "Bulk fetch failed for " + resourceType + ": " + e.getMessage(), e);
+                        "Bulk Patient fetch failed: " + e.getMessage(), e);
             }
-        }
-
-        // Also fetch Patient resources — same fail-loud rule applies.
-        Bundle patientBatch = new Bundle();
-        patientBatch.setType(Bundle.BundleType.BATCH);
-        for (String pid : patientIds) {
-            patientBatch.addEntry().getRequest()
-                    .setMethod(Bundle.HTTPVerb.GET)
-                    .setUrl("Patient/" + pid);
-        }
-        try {
-            Bundle patientResponse = executeTransaction(fhirServerUrl, patientBatch);
-            // PAT-112c: batch transaction responses carry per-entry outcomes; reject any
-            // fatal/error before distributing resources.
-            FhirErrorInspector.assertNoErrors(patientResponse, "bulk Patient batch");
-            if (patientResponse.hasEntry()) {
-                for (Bundle.BundleEntryComponent entry : patientResponse.getEntry()) {
-                    if (entry.getResource() instanceof Patient patient && patient.hasId()) {
-                        String pid = patient.getIdElement().getIdPart();
-                        if (result.containsKey(pid)) {
-                            result.get(pid).add(patient);
-                        }
-                    }
-                }
-            }
-        } catch (FhirServerUnavailableException e) {
-            throw e;
-        } catch (Exception e) {
-            log.error("Bulk Patient fetch failed: {}", e.getMessage());
-            throw new FhirServerUnavailableException(
-                    "Bulk Patient fetch failed: " + e.getMessage(), e);
         }
 
         long elapsed = System.currentTimeMillis() - start;
         int totalResources = result.values().stream().mapToInt(List::size).sum();
-        log.info("Bulk fetch complete: {} resources for {} patients in {}ms ({} resource types)",
-                totalResources, patientIds.size(), elapsed, resourceTypes.size());
+        log.info("Bulk fetch complete: {} resources for {} patients in {}ms ({} resource types, {} requests, batches of {})",
+                totalResources, patientIds.size(), elapsed, resourceTypes.size(), requests, bulkFetchBatchSize);
 
         return result;
+    }
+
+    /** BUG-151: the patient ids of one bulk-fetch request, in order. */
+    static List<List<String>> batches(List<String> ids, int batchSize) {
+        int step = Math.max(1, batchSize);
+        List<List<String>> out = new ArrayList<>();
+        for (int i = 0; i < ids.size(); i += step) {
+            out.add(List.copyOf(ids.subList(i, Math.min(ids.size(), i + step))));
+        }
+        return out;
+    }
+
+    /** BUG-151: {@code Condition?subject=Patient/a,Patient/b&_count=1000} for one batch. */
+    static String bulkSearchUrl(String resourceType, String searchParam, List<String> batch, int pageSize) {
+        String patientList = String.join(",", batch.stream().map(id -> "Patient/" + id).toList());
+        return resourceType + "?" + searchParam + "=" + patientList + "&_count=" + Math.max(1, pageSize);
+    }
+
+    /** Distributes one page's resources to their patients' buckets (resources of unknown patients are dropped). */
+    private void distribute(Bundle page, java.util.Map<String, List<Resource>> result) {
+        if (!page.hasEntry()) return;
+        for (Bundle.BundleEntryComponent entry : page.getEntry()) {
+            Resource resource = entry.getResource();
+            if (resource == null) continue;
+            String ownerPatientId = extractPatientId(resource);
+            if (ownerPatientId != null && result.containsKey(ownerPatientId)) {
+                result.get(ownerPatientId).add(resource);
+            }
+        }
     }
 
     /**
