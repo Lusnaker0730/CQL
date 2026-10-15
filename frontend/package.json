@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "gen:cohort": "node scripts/gen-cohort.cjs"
+    "gen:cohort": "node scripts/gen-cohort.cjs",
+    "gen:load-cohort": "node scripts/gen-load-cohort.cjs"
   },
   "dependencies": {
     "@emotion/react": "^11.11.0",

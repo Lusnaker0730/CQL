@@ -174,12 +174,12 @@ public class DateShiftService {
         if (FHIR_DATETIME_PATTERN.matcher(value).matches()) {
             try {
                 OffsetDateTime odt = OffsetDateTime.parse(value);
-                return odt.plus(period).toString();
+                return odt.plus(period).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);   // BUG-150: toString() drops :00 seconds
             } catch (DateTimeParseException e) {
                 // Try without offset (plain LocalDateTime)
                 try {
                     LocalDateTime ldt = LocalDateTime.parse(value);
-                    return ldt.plus(period).toString();
+                    return ldt.plus(period).format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);    // BUG-150: toString() drops :00 seconds
                 } catch (DateTimeParseException e2) {
                     // Fall through
                 }

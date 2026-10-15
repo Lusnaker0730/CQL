@@ -89,7 +89,7 @@ class MeasureEvaluationServiceTest {
                 "Denominator", true,
                 "Numerator", true
         ));
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(execResponse);
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -110,7 +110,7 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql("library Test version '1.0'");
         request.setPatientId("patient-1");
         request.setFhirServerUrl("http://localhost/fhir");
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
 
         measureService.evaluateMeasure(request);
 
@@ -130,7 +130,7 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql("library Test version '1.0'");
         request.setPatientId("patient-1");
         request.setFhirServerUrl("http://localhost/fhir");
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
 
         assertThat(measureService.evaluateMeasure(request).getStatus()).isEqualTo("complete");
     }
@@ -150,7 +150,7 @@ class MeasureEvaluationServiceTest {
                 "Denominator", true,
                 "Numerator", false
         ));
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(execResponse);
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -165,7 +165,7 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql("library Test version '1.0'");
         request.setPatientId("patient-1");
 
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of()));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of()));
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -183,7 +183,7 @@ class MeasureEvaluationServiceTest {
         request.setPeriodStart(LocalDate.of(2023, 6, 1));
         request.setPeriodEnd(LocalDate.of(2023, 12, 31));
 
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of()));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of()));
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -198,7 +198,7 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql("library Test version '1.0'");
         request.setPatientId("patient-1");
 
-        when(cqlExecutionService.execute(any())).thenThrow(new RuntimeException("Execution failed"));
+        when(cqlExecutionService.executeInline(any(), any())).thenThrow(new RuntimeException("Execution failed"));
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -232,7 +232,7 @@ class MeasureEvaluationServiceTest {
                 "Numerator", false
         ));
 
-        when(cqlExecutionService.execute(any()))
+        when(cqlExecutionService.executeInline(any(), any()))
                 .thenReturn(inIPandDenomAndNum)
                 .thenReturn(inIPandDenomAndNum)
                 .thenReturn(inIPandDenomNotNum)
@@ -255,7 +255,7 @@ class MeasureEvaluationServiceTest {
                 "Denominator", false,
                 "Numerator", false
         ));
-        when(cqlExecutionService.execute(any())).thenReturn(execResponse);
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(execResponse);
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -272,7 +272,7 @@ class MeasureEvaluationServiceTest {
         when(fhirDataProviderService.getAllPatientIds(any()))
                 .thenReturn(List.of("p1", "p2"));
 
-        when(cqlExecutionService.execute(any()))
+        when(cqlExecutionService.executeInline(any(), any()))
                 .thenThrow(new RuntimeException("p1 failed"))
                 .thenReturn(buildExecResponse(Map.of(
                         "Initial Population", true,
@@ -293,7 +293,7 @@ class MeasureEvaluationServiceTest {
         request.setPatientId("patient-1");
         request.setReportType("summary");
 
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of()));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of()));
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request);
 
@@ -317,7 +317,7 @@ class MeasureEvaluationServiceTest {
         when(fhirDataProviderService.getAllPatientIds(any()))
                 .thenReturn(List.of("p1", "p2", "p3"));
 
-        when(cqlExecutionService.execute(any()))
+        when(cqlExecutionService.executeInline(any(), any()))
                 .thenThrow(new RuntimeException("p1 failed"))
                 .thenReturn(buildExecResponse(Map.of(
                         "Initial Population", true,
@@ -349,7 +349,7 @@ class MeasureEvaluationServiceTest {
         when(fhirDataProviderService.getAllPatientIds(any()))
                 .thenReturn(List.of("p1", "p2"));
 
-        when(cqlExecutionService.execute(any()))
+        when(cqlExecutionService.executeInline(any(), any()))
                 .thenThrow(new RuntimeException("p1 failed"))
                 .thenReturn(buildExecResponse(Map.of(
                         "Initial Population", true, "Denominator", true, "Numerator", true)));
@@ -372,7 +372,7 @@ class MeasureEvaluationServiceTest {
 
         when(fhirDataProviderService.getAllPatientIds(any()))
                 .thenReturn(List.of("p1", "p2"));
-        when(cqlExecutionService.execute(any()))
+        when(cqlExecutionService.executeInline(any(), any()))
                 .thenReturn(buildExecResponse(Map.of(
                         "Initial Population", true, "Denominator", true, "Numerator", true)));
 
@@ -414,7 +414,7 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql(active.getCqlContent());
         request.setPatientId("patient-1");
         request.setFhirServerUrl("http://localhost/fhir");
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of(
                 "Initial Population", true, "Denominator", true, "Numerator", true)));
 
         MeasureEvaluationResult result = measureService.evaluateMeasure(request, 42L, active);
@@ -431,7 +431,7 @@ class MeasureEvaluationServiceTest {
                 .id(5L).name("MP").status("active").cqlContent("library Test version '1.0'")
                 .measurementPeriodStart(LocalDate.of(2024, 1, 1)).measurementPeriodEnd(LocalDate.of(2024, 12, 31))
                 .build();
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of("Initial Population", true)));
 
         MeasureEvaluationRequest request = new MeasureEvaluationRequest();
         request.setMeasureId("MP");
@@ -468,7 +468,7 @@ class MeasureEvaluationServiceTest {
     @Test
     void evaluateMeasure_episodeBasedGroup_countsEpisodesAndNamesTheBasis() {
         when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2"));
-        when(cqlExecutionService.execute(any())).thenAnswer(inv -> {
+        when(cqlExecutionService.executeInline(any(), any())).thenAnswer(inv -> {
             CqlExecutionRequest req = inv.getArgument(0);
             if ("p1".equals(req.getPatientId())) {
                 return buildExecResponse(Map.of(
@@ -500,7 +500,7 @@ class MeasureEvaluationServiceTest {
     @Test
     void evaluateMeasure_episodeBasedGroupWhoseInitialPopulationIsBoolean_countsPatientsAndWarnsOnce() {
         when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2"));
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of(
                 "Initial Population", true, "Denominator", true, "Numerator", false)));
         MeasureEvaluationRequest request = new MeasureEvaluationRequest();
         request.setMeasureId("Episodes");
@@ -528,7 +528,7 @@ class MeasureEvaluationServiceTest {
     @Test
     void evaluateMeasure_subjectListReport_listsTheSubjectsOfEveryPopulation_summaryStaysCountOnly() {
         when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2", "p3"));
-        when(cqlExecutionService.execute(any())).thenAnswer(inv -> {
+        when(cqlExecutionService.executeInline(any(), any())).thenAnswer(inv -> {
             CqlExecutionRequest req = inv.getArgument(0);
             boolean met = "p1".equals(req.getPatientId());
             boolean excluded = "p3".equals(req.getPatientId());
@@ -576,13 +576,59 @@ class MeasureEvaluationServiceTest {
         request.setMeasureCql(pinned.getCqlContent());
         request.setPatientId("patient-1");
         request.setFhirServerUrl("http://localhost/fhir");
-        when(cqlExecutionService.execute(any())).thenReturn(buildExecResponse(Map.of(
+        when(cqlExecutionService.executeInline(any(), any())).thenReturn(buildExecResponse(Map.of(
                 "Initial Population", true, "Denominator", true, "Numerator", true)));
 
         measureService.evaluateMeasure(request, 43L, pinned);
 
         org.mockito.ArgumentCaptor<CqlExecutionRequest> sent = org.mockito.ArgumentCaptor.forClass(CqlExecutionRequest.class);
-        org.mockito.Mockito.verify(cqlExecutionService).execute(sent.capture());
+        org.mockito.Mockito.verify(cqlExecutionService).executeInline(sent.capture(), any());
         assertThat(sent.getValue().getValueSetVersions()).containsEntry("https://h/ValueSet/A", "1.0.0");
+    }
+
+    // ===== BUG-152 (found by the PAT-266 concurrency run) =====
+
+    @Test
+    void evaluateMeasure_preTranslationFailure_isAnErrorNotAPerPatientRetry() {
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(cqlExecutionService.translateOnce(any()))
+                .thenThrow(new com.cqlplatform.exception.CqlExecutionException("CQL translation failed with 2 error(s): boom"));
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request);
+
+        assertThat(result.getStatus()).isEqualTo("error");
+        assertThat(result.getErrorMessage()).contains("CQL translation failed");
+        assertThat(result.getGroups()).isNull();
+        verify(cqlExecutionService, never()).executeInline(any(), any());
+        verify(cqlExecutionService, never()).execute(any());
+        verify(fhirDataProviderService, never()).getAllPatientIds(any());
+    }
+
+    @Test
+    void evaluateMeasure_timeout_isAnErrorNotAPartialReport() {
+        ReflectionTestUtils.setField(measureService, "measureTimeoutSeconds", 1);
+        MeasureEvaluationRequest request = new MeasureEvaluationRequest();
+        request.setMeasureId("test-measure");
+        request.setMeasureCql("library Test version '1.0'");
+        request.setFhirServerUrl("http://localhost/fhir");
+        when(fhirDataProviderService.getAllPatientIds(any())).thenReturn(List.of("p1", "p2", "p3"));
+        when(cqlExecutionService.executeInline(any(), any())).thenAnswer(inv -> {
+            CqlExecutionRequest sent = inv.getArgument(0);
+            if (!"p1".equals(sent.getPatientId())) {
+                Thread.sleep(5000);   // two patients outlive the 1 s measure timeout
+            }
+            return buildExecResponse(Map.of("Initial Population", true, "Denominator", true, "Numerator", true));
+        });
+
+        MeasureEvaluationResult result = measureService.evaluateMeasure(request);
+
+        assertThat(result.getStatus()).as("a timed-out evaluation is not a report").isEqualTo("error");
+        assertThat(result.getErrorMessage()).contains("timed out").contains("2 of 3");
+        assertThat(result.getErrorCount()).isEqualTo(2);
+        assertThat(result.getEvaluatedPatientCount()).isEqualTo(3);
+        assertThat(result.getGroups()).isNull();
     }
 }

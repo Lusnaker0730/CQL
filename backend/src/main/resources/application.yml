@@ -231,6 +231,13 @@ fhir:
   canonical-base: ${FHIR_CANONICAL_BASE:}
   server:
     url: ${FHIR_SERVER_URL:http://hapi-fhir:8080/fhir}
+  # BUG-151: $evaluate-measure fetches every patient's resources up front — one search per resource
+  # type per BATCH of patients (the ids travel in the query string; ~370 of them overflow the
+  # request-line limit and HAPI answers 400) and every page of each search (the server clamps _count
+  # to its own maximum; resources beyond the first page used to be silently missing).
+  bulk-fetch:
+    batch-size: ${FHIR_BULK_FETCH_BATCH_SIZE:100}
+    page-size: ${FHIR_BULK_FETCH_PAGE_SIZE:1000}
   terminology:
     url: ${FHIR_TERMINOLOGY_URL:https://tx.fhir.org/r4}
   implementation-guides:

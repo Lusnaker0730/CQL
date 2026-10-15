@@ -123,6 +123,7 @@ public class CqlExecutionService {
         // not whatever happens to sit in cql_library with the same name+version.
         LibraryManagerFactory.LibraryContext libCtx = LibraryManagerFactory.createContext(libraryRepository);
         LibraryManager libraryManager = libCtx.libraryManager;
+        LibraryManagerFactory.ensureModelsLoaded(cql);   // BUG-152
         CqlTranslator translator = CqlTranslator.fromText(cql, libraryManager);
         org.hl7.elm.r1.Library elmLibrary = translator.toELM();
 
@@ -189,6 +190,33 @@ public class CqlExecutionService {
 
     public CqlExecutionResponse execute(CqlExecutionRequest request) {
         return executeWithProvider(request, null);
+    }
+
+    /**
+     * BUG-152: executes on the caller's thread — no submit to the execution pool and no per-execution
+     * timeout. For callers that already run on that pool ({@code MeasureEvaluationService}'s per-patient
+     * tasks): {@link #execute} submits to the pool and waits, and once every pool thread waits for a
+     * pool task nothing runs until the timeouts unwind (the concurrency run saw 1 000-patient
+     * evaluations take 15 minutes that way). The caller bounds the time — the measure-level timeout
+     * cancels the task and {@link InterruptAwareRetrieveProvider} honours the interrupt.
+     */
+    public CqlExecutionResponse executeInline(CqlExecutionRequest request, RetrieveProvider prefetchProvider) {
+        if (cqlExecutionCounter != null) cqlExecutionCounter.increment();
+        Timer.Sample sample = cqlExecutionTimer != null ? Timer.start() : null;
+        long startTime = System.currentTimeMillis();
+        try {
+            CqlExecutionResponse response = doExecute(request, prefetchProvider, startTime);
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            return response;
+        } catch (CqlExecutionException e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw e;
+        } catch (Exception e) {
+            if (cqlExecutionErrorCounter != null) cqlExecutionErrorCounter.increment();
+            if (sample != null && cqlExecutionTimer != null) sample.stop(cqlExecutionTimer);
+            throw new CqlExecutionException("Execution failed: " + e.getMessage(), e);
+        }
     }
 
     public CqlExecutionResponse executeWithProvider(CqlExecutionRequest request, RetrieveProvider prefetchProvider) {
@@ -264,10 +292,12 @@ public class CqlExecutionService {
                     log.debug("Using pre-compiled ELM, skipped CQL translation");
                 } catch (Exception e) {
                     log.warn("Pre-compiled ELM deserialization failed, falling back to CQL translation: {}", e.getMessage());
+                    LibraryManagerFactory.ensureModelsLoaded(request.getCql());   // BUG-152
                     translator = CqlTranslator.fromText(request.getCql(), libraryManager);
                     elmLibrary = translator.toELM();
                 }
             } else {
+                LibraryManagerFactory.ensureModelsLoaded(request.getCql());   // BUG-152
                 translator = CqlTranslator.fromText(request.getCql(), libraryManager);
                 elmLibrary = translator.toELM();
             }
