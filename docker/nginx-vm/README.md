@@ -14,15 +14,51 @@ Cloudflare SSL mode must be **Full (strict)** so CF validates our origin cert. "
 
 | File | Purpose |
 |------|---------|
-| `twcql.com.conf` | nginx server blocks for :80 (301 redirect) and :443 (TLS + proxy to :8888) |
+| `twcql.com.conf` | nginx server blocks for :80 (301 redirect) and :443 (TLS + proxy to :8888). Both refuse (403) requests whose TCP peer is not Cloudflare / loopback, and :443 answers 404 on `/grafana/` and `/prometheus/` |
+| `update-cloudflare-ips.sh` | Generates `/etc/nginx/conf.d/cloudflare-origin.conf` from Cloudflare's published ranges: `set_real_ip_from` + `real_ip_header CF-Connecting-IP` (visitor IP restored) and the `$cf_origin` geo map the site uses to refuse direct-to-origin requests. Lives at `/usr/local/sbin/` on the VM |
+| `update-cloudflare-ips.cron` | `/etc/cron.d/update-cloudflare-ips` — runs the generator weekly (Monday 04:17); it only reloads nginx when the ranges changed and `nginx -t` passes |
 
 ## Deployment
 
 This directory is the source of truth. To update the VM:
 
 ```bash
+scp docker/nginx-vm/update-cloudflare-ips.sh root@187.77.155.248:/usr/local/sbin/update-cloudflare-ips.sh
+scp docker/nginx-vm/update-cloudflare-ips.cron root@187.77.155.248:/etc/cron.d/update-cloudflare-ips
 scp docker/nginx-vm/twcql.com.conf root@187.77.155.248:/etc/nginx/sites-available/twcql.com
-ssh root@187.77.155.248 'nginx -t && systemctl reload nginx'
+ssh root@187.77.155.248 'chmod 755 /usr/local/sbin/update-cloudflare-ips.sh && /usr/local/sbin/update-cloudflare-ips.sh --no-reload && nginx -t && systemctl reload nginx'
+```
+
+`twcql.com.conf` references `$cf_origin`, which only exists once `cloudflare-origin.conf` has been generated — run the script before `nginx -t` on a fresh host or the test fails with an unknown variable.
+
+## Cloudflare-only origin and real visitor IPs (PAT-269)
+
+Before 2026-10-23 anyone could reach the site at `https://187.77.155.248/` with `Host: twcql.com` (skipping Cloudflare's WAF, rate limiting and bot checks), and because nginx forwarded the Cloudflare edge address as the client, the backend's per-IP rate limit and `audit_log.ip_address` were keyed on Cloudflare edge IPs (172.69.x / 162.159.x / 104.x) instead of the visitor.
+
+`cloudflare-origin.conf` fixes both for every server block on the host:
+
+- `set_real_ip_from <every Cloudflare range> + 127.0.0.1 + ::1` and `real_ip_header CF-Connecting-IP` — `$remote_addr`, `X-Real-IP` and the address appended to `X-Forwarded-For` become the visitor. The backend's `ClientIpResolver` (rightmost non-private `X-Forwarded-For` entry) then resolves the visitor. Loopback is trusted so the `cloudflared` tunnel (host network) is covered.
+- `geo $realip_remote_addr $cf_origin { ... }` — 1 when the *original* TCP peer was Cloudflare or loopback. The site does `if ($cf_origin = 0) { return 403; }`. nginx's `allow` / `deny` cannot be used for this because they evaluate the address *after* the real_ip rewrite (which is the visitor, never a Cloudflare range).
+
+Verification:
+
+```bash
+curl -sk -o /dev/null -w '%{http_code}
+' -H 'Host: twcql.com' https://187.77.155.248/        # 403 (direct to origin)
+curl -s  -o /dev/null -w '%{http_code}
+' https://twcql.com/api/status                          # 200 (via Cloudflare)
+curl -sk -o /dev/null -w '%{http_code}
+' --resolve twcql.com:443:127.0.0.1 https://twcql.com/  # 200 (loopback / tunnel)
+tail -n 5 /var/log/nginx/access.log | cut -d' ' -f1                                               # visitor IPs, not 172.69.x
+```
+
+## Monitoring access (Grafana / Prometheus)
+
+The `/grafana/` and `/prometheus/` proxies were removed from `frontend/nginx.conf` in PAT-269 (they were reachable from the internet with no authentication), and this host config answers 404 on both so an older frontend image cannot re-expose them. The VM's `docker-compose.override.yml` publishes Grafana on `127.0.0.1:3000` and Prometheus on `127.0.0.1:9090`; open them through an SSH tunnel:
+
+```bash
+ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 root@187.77.155.248
+# then http://localhost:3000 (Grafana) and http://localhost:9090 (Prometheus) in a local browser
 ```
 
 ## Cloudflare Origin Certificate

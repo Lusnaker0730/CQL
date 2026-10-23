@@ -22,6 +22,11 @@ RUN npm run build
 
 # Production stage
 FROM nginxinc/nginx-unprivileged:alpine
+# PAT-269: pull in Alpine security fixes published after the base tag was built
+# (zlib CVE-2026-85091, musl CVE-2026-107891 at the time). The base image runs as uid 101.
+USER root
+RUN apk upgrade --no-cache
+USER 101
 WORKDIR /usr/share/nginx/html
 
 # Copy built assets
