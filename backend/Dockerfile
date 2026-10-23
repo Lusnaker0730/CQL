@@ -14,6 +14,9 @@ RUN mvn package -DskipTests -B
 FROM eclipse-temurin:25-jre-alpine
 WORKDIR /app
 
+# PAT-269: pull in Alpine security fixes published after the base tag was built.
+RUN apk upgrade --no-cache
+
 # Add non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 USER appuser
