@@ -47,7 +47,9 @@
         <httpcore5.version>5.4.3</httpcore5.version>
         <!-- thymeleaf 3.1.5: CVE-2026-41901 (CRITICAL) -->
         <thymeleaf.version>3.1.5.RELEASE</thymeleaf.version>
-        <spring-security.version>6.5.9</spring-security.version>
+        <!-- spring-security 6.5.11: CVE-2026-22746 (DaoAuthenticationProvider timing / user enumeration),
+             CVE-2026-22751, CVE-2026-41706, CVE-2026-47838 (PAT-269) -->
+        <spring-security.version>6.5.11</spring-security.version>
         <!-- CVE-2026-42198: client-side DoS in pgjdbc 42.7.10 (fixed 42.7.11).
              CVE-2026-54291: scram-client auth vuln in pgjdbc 42.7.11 (fixed 42.7.12). -->
         <postgresql.version>42.7.12</postgresql.version>
