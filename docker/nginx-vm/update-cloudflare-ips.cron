@@ -1,0 +1,5 @@
+# PAT-269: refresh the Cloudflare edge ranges nginx uses for real_ip + the origin allow-list.
+# Installed as /etc/cron.d/update-cloudflare-ips (no dot in the name or cron ignores it). Weekly, Monday 04:17.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/sbin:/sbin:/usr/local/bin:/usr/bin:/bin
+17 4 * * 1 root /usr/local/sbin/update-cloudflare-ips.sh >> /var/log/update-cloudflare-ips.log 2>&1
