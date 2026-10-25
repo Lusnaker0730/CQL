@@ -34,12 +34,6 @@ updates:
           - "vitest"
           - "@vitest/*"
 
-  # E2E - npm dependencies
-  - package-ecosystem: "npm"
-    directory: "/e2e"
-    schedule:
-      interval: "weekly"
-
   # Docker - base images (backend)
   - package-ecosystem: "docker"
     directory: "/backend"
