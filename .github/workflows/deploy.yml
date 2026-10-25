@@ -130,7 +130,9 @@ jobs:
     name: Notify
     runs-on: ubuntu-latest
     needs: [build-and-push, verify-migrations]
-    if: always()
+    # Skip when build-and-push was skipped (CI failed): otherwise this job alone makes the
+    # whole run show 'success' although nothing was pushed to GHCR (PAT-271).
+    if: always() && needs.build-and-push.result != 'skipped'
     steps:
       - name: Determine status
         id: status
