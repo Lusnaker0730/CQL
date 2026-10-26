@@ -1,23 +1,23 @@
 # CQL Platform — AI 開發指引
 
 > 臨床品質語言 (CQL) 視覺化編輯 + 執行平台
-> 本檔的版本與數量為 2026-09-16 實測快照；改動技術棧 / 新增目錄時請一併更新，別讓它再落後四個月。
+> 技術棧表為 2026-10-26 對照 main 的 pom / package-lock；目錄數量仍為 2026-09-16 實測快照；改動技術棧 / 新增目錄時請一併更新，別讓它再落後四個月。
 
 ## 技術棧
 
 | 層 | 技術 | 版本 |
 |----|------|------|
-| Backend | Spring Boot / Java / Maven | 4.1.0 / 25 |
+| Backend | Spring Boot / Java / Maven | 4.1.2 / 25 |
 | Frontend | React / TypeScript / Vite | 19.2 / 5.9 / 7.3 |
-| UI | Material-UI (MUI) | 9.1 |
+| UI | Material-UI (MUI) | 9.5 |
 | Editor | Monaco Editor (+ @monaco-editor/react) | 0.55 / 4.7 |
 | State | Redux Toolkit + TanStack React Query | 2.11 / 5.100 |
 | i18n | i18next + react-i18next | 25.8 / 16.5 |
 | DB | PostgreSQL 16 (prod & dev) / H2 (test only) | — |
 | Cache | Caffeine (in-process) | — |
-| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 5.3.0 / 8.12.0 |
+| CQL Engine | CQL Framework (cql-to-elm / engine) + HAPI FHIR | 5.4.0 / 8.12.1 |
 | Templates | FreeMarker (.ftl) | — |
-| Test | JUnit 5 + Mockito / Vitest + React Testing Library | — / 4.1 |
+| Test | JUnit 5 + Mockito / Vitest + React Testing Library | — / 5.0 |
 
 ## 目錄結構
 
@@ -118,7 +118,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-266 / BUG-152
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-274 / BUG-153
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
