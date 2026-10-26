@@ -3,9 +3,16 @@ name: Dependabot auto-merge
 # PAT-274：dev 依賴的 patch 更新（例如 vitest 5.0.4 → 5.0.5）在 required check 全綠後自動 squash 合併。
 # - 只處理 dependabot[bot] 開的 PR；dependency-type 必須是 direct:development、update-type 必須是 version-update:semver-patch。
 # - 這裡只是「啟用 auto-merge」：真正的合併由 GitHub 在 ruleset 的 8 個 required check 全綠後執行，沒有繞過任何 gate。
-# - Dependabot 觸發的 pull_request 預設拿到唯讀 GITHUB_TOKEN，下面的 permissions 把它提升到可寫 PR / contents；
-#   這類 run 拿不到 Actions secrets，所以只用 GITHUB_TOKEN。
 # - 其他型別（minor / major / production 依賴）一律不碰，維持人工。
+#
+# BUG-153：啟用 auto-merge 的 token 必須是 PAT，不能用 GITHUB_TOKEN。
+# - 以 GITHUB_TOKEN 啟用的合併，合併後的 push 不會觸發 main 的 CI / Smoke / Deploy（GitHub 規則：GITHUB_TOKEN 造成的事件不會
+#   產生新的 workflow run）。PAT-274 的第一支自動合併 #1084 → 5e97716a 只有 CodeQL 跑，GHCR 沒有 sha-5e97716，:latest 落後 main。
+# - 設定方式（擁有者）：建立 fine-grained PAT，只授權本 repo，權限 Contents: Read and write、Pull requests: Read and write；
+#   在另一個終端執行 `gh secret set DEPENDABOT_AUTOMERGE_TOKEN --app dependabot`（Dependabot 觸發的 run 只看得到 Dependabot secrets，
+#   不是一般的 Actions secrets）。PAT 到期要換新。
+# - secret 未設定時只印 notice、不啟用 auto-merge，不退回 GITHUB_TOKEN。
+# - GITHUB_TOKEN 只給 dependabot/fetch-metadata 讀 PR metadata 用（唯讀）。
 
 on:
   pull_request:
@@ -20,8 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
+      pull-requests: read
+    env:
+      HAS_PAT: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN != '' }}
     steps:
       - name: Dependabot metadata
         id: metadata
@@ -30,21 +39,27 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Enable auto-merge (direct:development + semver-patch only)
-        if: steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        if: env.HAS_PAT == 'true' && steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.DEPENDABOT_AUTOMERGE_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
           DEPS: ${{ steps.metadata.outputs.dependency-names }}
           FROM: ${{ steps.metadata.outputs.previous-version }}
           TO: ${{ steps.metadata.outputs.new-version }}
         run: |
-          enabled="$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')"
-          if [ "$enabled" = "true" ]; then
+          if gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null' | grep -qx true; then
             echo "auto-merge already enabled for $PR_URL"
             exit 0
           fi
           gh pr merge --auto --squash "$PR_URL"
           echo "::notice::auto-merge enabled: $DEPS $FROM -> $TO; GitHub merges once every required check passes"
+
+      - name: PAT not configured
+        if: env.HAS_PAT != 'true' && steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          DEPS: ${{ steps.metadata.outputs.dependency-names }}
+        run: |
+          echo "::notice::eligible but DEPENDABOT_AUTOMERGE_TOKEN (Dependabot secret) is not set; auto-merge NOT enabled for $DEPS (BUG-153: a GITHUB_TOKEN-enabled merge would not trigger main CI / Deploy). Setup is described at the top of this workflow."
 
       - name: Not eligible
         if: "!(steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch')"

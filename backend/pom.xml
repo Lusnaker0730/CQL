@@ -317,7 +317,7 @@
         <dependency>
             <groupId>org.glassfish.jaxb</groupId>
             <artifactId>jaxb-runtime</artifactId>
-            <version>4.0.6</version>
+            <version>4.0.9</version>
         </dependency>
 
         <!-- Jackson -->
@@ -449,7 +449,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.9.1</version>
+            <version>10.10</version>
         </dependency>
     </dependencies>
 
