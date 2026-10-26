@@ -1,0 +1,66 @@
+name: Claude Code Review
+
+# PAT-272：每個 PR 都有一輪 AI review（對照 Anthropic「How the Claude Code team does code review」）。
+# - 不是 required check：消耗訂閱額度、可能因額度 / 服務問題失敗，不應因此擋合併。
+# - secret CLAUDE_CODE_OAUTH_TOKEN 未設定（或 fork PR 拿不到 secret）時直接略過，run 仍為 success。
+# - Dependabot、draft、CHANGE_LOG backfill 的 PR 不觸發；同一 PR 的新 push 會取消還在跑的舊 review。
+# 審查清單在 repo 根目錄 REVIEW.md。
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  review:
+    name: Claude Code Review
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      !startsWith(github.event.pull_request.title, 'docs: backfill commit hashes')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    env:
+      HAS_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+    steps:
+      - name: Skip when the review token is not configured
+        if: env.HAS_TOKEN != 'true'
+        run: echo "::notice::CLAUDE_CODE_OAUTH_TOKEN 未設定，略過 AI review（PAT-272）。啟用方式見 REVIEW.md 開頭。"
+
+      - name: Checkout
+        if: env.HAS_TOKEN == 'true'
+        uses: actions/checkout@v7
+
+      - name: Review with Claude
+        if: env.HAS_TOKEN == 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          use_sticky_comment: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            你是這個 repo 的 code reviewer。請先完整讀 repo 根目錄的 REVIEW.md，依它的「審查原則」「必查清單」「輸出格式」審查這個 PR。
+
+            步驟：
+            1. `gh pr view` 讀 PR 描述與它引用的 issue，弄清楚作者想做什麼、宣稱怎麼測的。
+            2. `gh pr diff` 看完整 diff；對每個改動處，打開檔案讀前後文再下判斷，不要只看 diff 片段。
+            3. 對照 REVIEW.md 的必查清單逐條檢查；命中的列為 Important，其餘依 Nit / Pre-existing 分級。
+            4. 有明確行號的 Important 與 Nit 用 mcp__github_inline_comment__create_inline_comment 留 inline comment（確認過前後文的才帶 confirmed: true）。
+            5. 最後用 `gh pr comment` 留一則依 REVIEW.md「輸出格式」的總結；沒有 Important 也要留，讓合併者知道這輪看過了。
+
+            規則：每則留言都要附檔案與行號並引用你實際讀到的程式；拿不準就明說拿不準；不重複 CI 已經會抓的事；只留 GitHub 留言，不改程式、不開 commit；用繁體中文。
+            PR 分支已經 checkout 在目前工作目錄。
+          claude_args: |
+            --allowedTools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr checks:*),Bash(gh issue view:*)"

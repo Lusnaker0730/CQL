@@ -1,0 +1,56 @@
+name: Dependabot auto-merge
+
+# PAT-274：dev 依賴的 patch 更新（例如 vitest 5.0.4 → 5.0.5）在 required check 全綠後自動 squash 合併。
+# - 只處理 dependabot[bot] 開的 PR；dependency-type 必須是 direct:development、update-type 必須是 version-update:semver-patch。
+# - 這裡只是「啟用 auto-merge」：真正的合併由 GitHub 在 ruleset 的 8 個 required check 全綠後執行，沒有繞過任何 gate。
+# - Dependabot 觸發的 pull_request 預設拿到唯讀 GITHUB_TOKEN，下面的 permissions 把它提升到可寫 PR / contents；
+#   這類 run 拿不到 Actions secrets，所以只用 GITHUB_TOKEN。
+# - 其他型別（minor / major / production 依賴）一律不碰，維持人工。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions: {}
+
+jobs:
+  auto-merge:
+    name: Enable auto-merge for dev-dependency patch bumps
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.repository == 'Lusnaker0730/CQL'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (direct:development + semver-patch only)
+        if: steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          DEPS: ${{ steps.metadata.outputs.dependency-names }}
+          FROM: ${{ steps.metadata.outputs.previous-version }}
+          TO: ${{ steps.metadata.outputs.new-version }}
+        run: |
+          enabled="$(gh pr view "$PR_URL" --json autoMergeRequest --jq '.autoMergeRequest != null')"
+          if [ "$enabled" = "true" ]; then
+            echo "auto-merge already enabled for $PR_URL"
+            exit 0
+          fi
+          gh pr merge --auto --squash "$PR_URL"
+          echo "::notice::auto-merge enabled: $DEPS $FROM -> $TO; GitHub merges once every required check passes"
+
+      - name: Not eligible
+        if: "!(steps.metadata.outputs.dependency-type == 'direct:development' && steps.metadata.outputs.update-type == 'version-update:semver-patch')"
+        env:
+          DEPS: ${{ steps.metadata.outputs.dependency-names }}
+          DTYPE: ${{ steps.metadata.outputs.dependency-type }}
+          UTYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          echo "::notice::left for manual merge: $DEPS ($DTYPE, $UTYPE)"
