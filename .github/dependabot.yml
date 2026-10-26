@@ -17,6 +17,11 @@ updates:
         patterns:
           - "org.opencds.cqf*"
           - "info.cqframework*"
+    ignore:
+      # PAT-274：Jackson 2.x 線的 core 明釘在 2.21.x（PAT-215 / PAT-244），databind 不可單獨升；要升就 core + databind 一起另開 PAT
+      - dependency-name: "com.fasterxml.jackson.core:jackson-databind"
+      # PAT-274：Jackson 3 由 pom 的 jackson-bom.version 統一管理，單獨升 databind 會與 BOM 錯開；要升就改 jackson-bom.version
+      - dependency-name: "tools.jackson.core:jackson-databind"
 
   # Frontend - npm dependencies
   - package-ecosystem: "npm"
@@ -33,12 +38,25 @@ updates:
           - "@testing-library/*"
           - "vitest"
           - "@vitest/*"
+    ignore:
+      # PAT-274：react-i18next 17 的 peer dependency 是 i18next >= 26.2，要與 i18next 一起升並跑完整 i18n 檢查，另開 PAT
+      - dependency-name: "react-i18next"
+        update-types: ["version-update:semver-major"]
+      # PAT-274：monaco-editor 0.x 的每個 minor 都可能 breaking（0.57 重整 ESM 入口、改名 / 移除 API），編輯器核心要人工驗證 Builder / 補全 / Monarch 後再升
+      - dependency-name: "monaco-editor"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+
 
   # Docker - base images (backend)
   - package-ecosystem: "docker"
     directory: "/backend"
     schedule:
       interval: "weekly"
+    ignore:
+      # PAT-274：建置用 maven 映像的 JDK 與執行用 eclipse-temurin 的 JDK 都跟 pom 的 java.version 一起決定，不單獨跟 Dependabot 走
+      - dependency-name: "maven"
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
 
   # Docker - base images (frontend)
   - package-ecosystem: "docker"
