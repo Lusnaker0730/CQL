@@ -46,6 +46,7 @@ updates:
       - dependency-name: "monaco-editor"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
+
   # Docker - base images (backend)
   - package-ecosystem: "docker"
     directory: "/backend"
