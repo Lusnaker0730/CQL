@@ -339,7 +339,6 @@ A comprehensive Clinical Quality Language (CQL) development platform featuring C
 │   ├── prometheus-alerts.yml   # Alert rules
 │   └── scripts/                # backup-db.sh, restore-db.sh
 │
-├── e2e/                        # Playwright end-to-end tests
 ├── twcore/                     # TWCore synthetic patient data generator (Python)
 ├── TWCOREDATA/                 # Taiwan Core FHIR patient data and IG material
 ├── k8s/                        # Kubernetes manifests (incl. sealed secrets, network policies, staging)
@@ -748,7 +747,6 @@ Copy `frontend/.env.example` to `frontend/.env` and customize as needed.
 - react-helmet-async (head management)
 - Vitest 5 + React Testing Library (unit tests). SUTs use sub-path icon imports (`@mui/icons-material/Save` etc.) per PAT-161/PR #501 to avoid loading the icon barrel during vitest collection.
 - ESLint 9 (flat config) + typescript-eslint 8
-- Playwright (e2e)
 
 ## Example CQL
 
@@ -781,9 +779,6 @@ mvn test
 cd frontend
 npm test
 
-# E2E (Playwright)
-cd e2e
-npx playwright test
 ```
 
 ### Integration Smoke Test
