@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
 import { useIgValueSets } from '../../hooks/useImplementationGuide'
+import TerminologyDegradedHint from './TerminologyDegradedHint'
 import { extractApiError } from '../../utils/errorUtils'
 import { escapeCqlIdentifier, escapeCqlString } from '../../utils/cqlString'
 import type { ValueSetSearchResult, ValueSetSummary } from '../../types'
@@ -46,9 +47,10 @@ export default function ValueSetTab() {
 
   const debouncedTitle = useDebouncedValue(searchTitle, SEARCH_DEBOUNCE_GENERAL_MS)
 
-  const { data: remoteResults, isLoading: isSearchingRemote, error: remoteError } = useSearchValueSets(
+  const { data: remoteSearch, isLoading: isSearchingRemote, error: remoteError } = useSearchValueSets(
     (source === 'remote' || source === 'both') ? debouncedTitle : undefined
   )
+  const remoteResults = remoteSearch?.valueSets
   const { data: localResults, isLoading: isSearchingLocal, error: localError } = useIgValueSets(
     (source === 'local' || source === 'both') ? (debouncedTitle || undefined) : undefined
   )
@@ -166,6 +168,8 @@ export default function ValueSetTab() {
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
+      {/* PAT-275: the remote query is disabled for the local-IG source, so the hint only concerns remote / both. */}
+      <TerminologyDegradedHint search={source === 'local' ? undefined : remoteSearch} />
       {searchError && (
         <Alert severity="error">{t('valueSet.searchFailed', { error: extractApiError(searchError) })}</Alert>
       )}

@@ -14,6 +14,7 @@ import {
 import GradientButton from '../../common/GradientButton'
 import ChooseCodeDialog from './ChooseCodeDialog'
 import { useSearchValueSets } from '../../../hooks/useTerminology'
+import TerminologyDegradedHint from '../../terminology/TerminologyDegradedHint'
 import { useTwcoreCatalog } from '../../../hooks/useTwcoreCatalog'
 import type { ValueSetReference, CodeReference, ElementField } from '../../../types/authoring'
 
@@ -267,9 +268,10 @@ function AddValueSetDialog({
   const [name, setName] = useState('')
   const [twcoreFilter, setTwcoreFilter] = useState('')
 
-  const { data: searchResults, isLoading: isSearching } = useSearchValueSets(
+  const { data: valueSetSearch, isLoading: isSearching } = useSearchValueSets(
     tab === 0 ? searchQuery : undefined
   )
+  const searchResults = valueSetSearch?.valueSets
 
   const { data: twcoreCatalog, isLoading: isTwcoreLoading } = useTwcoreCatalog(
     tab === 2 ? resourceType : undefined
@@ -383,6 +385,7 @@ function AddValueSetDialog({
                 }
               }}
             />
+            <TerminologyDegradedHint search={valueSetSearch} sx={{ mb: 2 }} />
 
             {searchResults && searchResults.length > 0 ? (
               <Table size="small">

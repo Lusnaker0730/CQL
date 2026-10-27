@@ -1,5 +1,6 @@
 package com.cqlplatform.config;
 
+import com.cqlplatform.controller.FhirController;
 import jakarta.servlet.Filter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -91,7 +92,9 @@ public class WebConfig implements WebMvcConfigurer {
         config.setAllowedOriginPatterns(getAllAllowedOrigins());
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"));
         config.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin"));
-        config.setExposedHeaders(Arrays.asList("Authorization"));
+        // BUG-154 / PAT-275: the value set search flags "answered without the remote terminology server" in a
+        // response header; a cross-origin frontend only sees it when it is exposed.
+        config.setExposedHeaders(Arrays.asList("Authorization", FhirController.TERMINOLOGY_DEGRADED_HEADER));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
