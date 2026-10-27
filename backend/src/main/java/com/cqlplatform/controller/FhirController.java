@@ -1,6 +1,7 @@
 package com.cqlplatform.controller;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.cqlplatform.exception.FhirServerUnavailableException;
 import com.cqlplatform.exception.ResourceNotFoundException;
 import com.cqlplatform.model.fhir.ResourceElementMetadata;
 import com.cqlplatform.security.InputValidator;
@@ -8,6 +9,7 @@ import com.cqlplatform.service.fhir.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -21,6 +23,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/fhir")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "FHIR", description = "FHIR Resource APIs")
 public class FhirController {
 
@@ -626,9 +629,21 @@ public class FhirController {
                     "source", "platform"));
         }
 
-        List<ValueSet> valueSets = terminologyService.searchValueSets(searchTitle);
+        // BUG-154: the remote terminology server enriches this list, it is not a prerequisite for it.
+        // When it is down (tx.fhir.org refusing connections took smoke 34 and main twice in 17 h) the
+        // platform's own value sets — the ones the author's hospital maintains — must still be
+        // searchable, so the outage is logged and the list goes on without remote entries. Only the
+        // upstream-unavailable signal is absorbed; any other failure still surfaces as before.
+        List<ValueSet> valueSets;
+        try {
+            valueSets = terminologyService.searchValueSets(searchTitle);
+        } catch (FhirServerUnavailableException e) {
+            log.warn("Terminology server unavailable for ValueSet search (title='{}'); answering with {} platform value set(s) only: {}",
+                    searchTitle, platformResults.size(), e.getMessage());
+            valueSets = List.of();
+        }
 
-        // Fallback to VSAC if terminology server returned no results
+        // Fallback to VSAC if terminology server returned no results (or was unavailable)
         if (valueSets.isEmpty() && !searchTitle.isBlank()) {
             try {
                 valueSets = vsacService.searchValueSets(searchTitle);
