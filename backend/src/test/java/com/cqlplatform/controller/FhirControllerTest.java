@@ -412,7 +412,8 @@ class FhirControllerTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].source").value("platform"))
                 .andExpect(jsonPath("$[0].url").value(url))
-                .andExpect(jsonPath("$[0].status").value("active"));
+                .andExpect(jsonPath("$[0].status").value("active"))
+                .andExpect(header().string(FhirController.TERMINOLOGY_DEGRADED_HEADER, "true"));
 
         // An outage counts as "no remote results": the VSAC fallback, already failure-tolerant, still runs.
         verify(vsacService).searchValueSets("HbA1c");
@@ -439,8 +440,22 @@ class FhirControllerTest {
                 .andExpect(jsonPath("$[0].source").value("platform"))
                 .andExpect(jsonPath("$[0].url").value(shared))
                 .andExpect(jsonPath("$[1].source").value("remote"))
-                .andExpect(jsonPath("$[1].url").value("http://hl7.org/fhir/ValueSet/hba1c-remote"));
+                .andExpect(jsonPath("$[1].url").value("http://hl7.org/fhir/ValueSet/hba1c-remote"))
+                .andExpect(header().doesNotExist(FhirController.TERMINOLOGY_DEGRADED_HEADER));
 
         verify(vsacService, never()).searchValueSets(any());
+    }
+
+    @Test
+    @WithMockUser
+    void searchValueSets_remoteThrowsSomethingElse_stillFails() throws Exception {
+        when(platformValueSets.searchForCaller("HbA1c"))
+                .thenReturn(List.of(platformVs("https://hospital.example.tw/fhir/ValueSet/HbA1cOrders", "HbA1c Orders")));
+        // Only the upstream-unavailable signal is absorbed; a programming error must still surface as 500,
+        // so nobody widens the catch to Exception without this test noticing.
+        when(terminologyService.searchValueSets("HbA1c")).thenThrow(new IllegalStateException("bug in remote search"));
+
+        mockMvc.perform(get("/api/fhir/ValueSet").param("title", "HbA1c"))
+                .andExpect(status().isInternalServerError());
     }
 }

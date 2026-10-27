@@ -37,6 +37,9 @@ public class FhirController {
     private final com.cqlplatform.service.fhir.EhrConnectionService connectionService;
     private final com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
 
+    /** BUG-154: present ("true") on a value set search that was answered without the remote terminology server. */
+    public static final String TERMINOLOGY_DEGRADED_HEADER = "X-Terminology-Degraded";
+
     /**
      * PAT-212 — resolve the target for a browse/CRUD request. A connectionId is resolved through
      * the tenant-scoped EhrConnectionService.getById (a connection in another tenant reads as
@@ -635,12 +638,14 @@ public class FhirController {
         // searchable, so the outage is logged and the list goes on without remote entries. Only the
         // upstream-unavailable signal is absorbed; any other failure still surfaces as before.
         List<ValueSet> valueSets;
+        boolean remoteDegraded = false;
         try {
             valueSets = terminologyService.searchValueSets(searchTitle);
         } catch (FhirServerUnavailableException e) {
             log.warn("Terminology server unavailable for ValueSet search (title='{}'); answering with {} platform value set(s) only: {}",
                     searchTitle, platformResults.size(), e.getMessage());
             valueSets = List.of();
+            remoteDegraded = true;
         }
 
         // Fallback to VSAC if terminology server returned no results (or was unavailable)
@@ -664,6 +669,11 @@ public class FhirController {
                 .toList();
         List<Map<String, String>> merged = new java.util.ArrayList<>(platformResults);
         merged.addAll(results);
-        return ResponseEntity.ok(merged);
+        ResponseEntity.BodyBuilder response = ResponseEntity.ok();
+        if (remoteDegraded) {
+            // Lets a client — or an operator with curl — tell "no remote hits" from "remote is down".
+            response.header(TERMINOLOGY_DEGRADED_HEADER, "true");
+        }
+        return response.body(merged);
     }
 }
