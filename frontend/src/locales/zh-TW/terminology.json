@@ -36,7 +36,8 @@
     "noCodesFound": "找不到代碼。",
     "previewTruncated": "顯示前 {{shown}} / 共 {{total}} 筆",
     "chipPlatform": "本單位",
-    "remoteDegraded": "公用術語伺服器暫時無法使用，只顯示本單位的值集。"
+    "remoteDegraded": "公用術語伺服器暫時無法使用，只顯示本單位的值集。",
+    "remoteDegradedPartial": "公用術語伺服器暫時無法使用，搜尋結果可能不完整（本單位的值集加上 VSAC）。"
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG 代碼系統",

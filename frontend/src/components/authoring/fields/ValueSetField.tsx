@@ -385,7 +385,7 @@ function AddValueSetDialog({
                 }
               }}
             />
-            <TerminologyDegradedHint show={valueSetSearch?.terminologyDegraded === true} sx={{ mb: 2 }} />
+            <TerminologyDegradedHint search={valueSetSearch} sx={{ mb: 2 }} />
 
             {searchResults && searchResults.length > 0 ? (
               <Table size="small">

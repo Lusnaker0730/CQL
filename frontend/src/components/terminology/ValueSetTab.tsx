@@ -51,8 +51,6 @@ export default function ValueSetTab() {
     (source === 'remote' || source === 'both') ? debouncedTitle : undefined
   )
   const remoteResults = remoteSearch?.valueSets
-  // PAT-275: the remote query is disabled for the local-IG source, so the hint only concerns remote / both.
-  const terminologyDegraded = source !== 'local' && remoteSearch?.terminologyDegraded === true
   const { data: localResults, isLoading: isSearchingLocal, error: localError } = useIgValueSets(
     (source === 'local' || source === 'both') ? (debouncedTitle || undefined) : undefined
   )
@@ -170,7 +168,8 @@ export default function ValueSetTab() {
           </ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-      <TerminologyDegradedHint show={terminologyDegraded} />
+      {/* PAT-275: the remote query is disabled for the local-IG source, so the hint only concerns remote / both. */}
+      <TerminologyDegradedHint search={source === 'local' ? undefined : remoteSearch} />
       {searchError && (
         <Alert severity="error">{t('valueSet.searchFailed', { error: extractApiError(searchError) })}</Alert>
       )}

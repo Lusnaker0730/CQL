@@ -91,7 +91,7 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
-      <TerminologyDegradedHint show={valueSetSearch?.terminologyDegraded === true} />
+      <TerminologyDegradedHint search={valueSetSearch} />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>

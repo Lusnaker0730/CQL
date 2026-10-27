@@ -224,7 +224,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                       }
                     }}
                   />
-                  <TerminologyDegradedHint show={valueSetSearch?.terminologyDegraded === true} />
+                  <TerminologyDegradedHint search={valueSetSearch} />
 
                   {searchResults.length > 0 && (
                     <Stack spacing={0.5} sx={{ maxHeight: 250, overflow: 'auto' }}>
