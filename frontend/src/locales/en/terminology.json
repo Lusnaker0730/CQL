@@ -35,7 +35,9 @@
     "colDisplay": "Display",
     "noCodesFound": "No codes found.",
     "previewTruncated": "showing first {{shown}} of {{total}}",
-    "chipPlatform": "Ours"
+    "chipPlatform": "Ours",
+    "remoteDegraded": "The public terminology server is temporarily unavailable; only this installation's own value sets are shown.",
+    "remoteDegradedPartial": "The public terminology server is temporarily unavailable; results may be incomplete (this installation's own value sets plus VSAC)."
   },
   "codeLookup": {
     "twCoreSystems": "TW Core IG Code Systems",

@@ -1,5 +1,6 @@
 import type {
   ValueSetSearchResult,
+  ValueSetSearchResponse,
   ValueSetExpansion,
   CodeLookupResult,
   CodeSearchResult,
@@ -25,6 +26,12 @@ function connectionQuery(connectionId?: number | null): string {
   return connectionId != null ? `connectionId=${connectionId}` : ''
 }
 
+/**
+ * BUG-154 / PAT-275: the backend sets this response header to "true" when a value set search was answered
+ * without the remote terminology server (platform / VSAC results only). Axios lower-cases response header names.
+ */
+export const TERMINOLOGY_DEGRADED_HEADER = 'x-terminology-degraded'
+
 export const fhirApi = {
   search: async (resourceType: string, params?: string, connectionId?: number | null): Promise<unknown> => {
     const queryParams = new URLSearchParams()
@@ -48,10 +55,13 @@ export const fhirApi = {
     return response.data
   },
 
-  searchValueSets: async (title?: string): Promise<ValueSetSearchResult[]> => {
+  searchValueSets: async (title?: string): Promise<ValueSetSearchResponse> => {
     const params = title ? `?title=${encodeURIComponent(title)}` : ''
     const response = await api.get<ValueSetSearchResult[]>(`/fhir/ValueSet${params}`)
-    return response.data
+    return {
+      valueSets: response.data,
+      terminologyDegraded: String(response.headers?.[TERMINOLOGY_DEGRADED_HEADER] ?? '').toLowerCase() === 'true',
+    }
   },
 
   validateCode: async (system: string, code: string, valueSetUrl: string): Promise<CodeValidationResult> => {
