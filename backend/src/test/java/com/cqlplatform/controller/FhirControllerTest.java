@@ -47,6 +47,9 @@ class FhirControllerTest {
     @MockitoBean
     private com.cqlplatform.service.fhir.EhrConnectionService connectionService;
 
+    @MockitoBean
+    private com.cqlplatform.service.terminology.PlatformValueSetService platformValueSets;
+
     // ─── PAT-212: connectionId is resolved tenant-scoped ─────────────
 
     @Test
@@ -378,5 +381,81 @@ class FhirControllerTest {
         mockMvc.perform(get("/api/fhir/cache/stats"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.valueSets.size").value(10));
+    }
+
+    // ─── BUG-154: platform value sets survive a terminology-server outage ─────
+
+    private static com.cqlplatform.model.terminology.PlatformValueSet platformVs(String url, String title) {
+        var vs = new com.cqlplatform.model.terminology.PlatformValueSet();
+        vs.setId(7L);
+        vs.setUrl(url);
+        vs.setName("SmokeHbA1cOrders");
+        vs.setTitle(title);
+        vs.setVersion("1.0.0");
+        vs.setStatus(com.cqlplatform.model.terminology.PlatformValueSet.STATUS_ACTIVE);
+        return vs;
+    }
+
+    @Test
+    @WithMockUser
+    void searchValueSets_remoteTerminologyDown_stillReturnsPlatformResults() throws Exception {
+        String url = "https://hospital.example.tw/fhir/ValueSet/HbA1cOrders";
+        when(platformValueSets.searchForCaller("HbA1c")).thenReturn(List.of(platformVs(url, "HbA1c Orders")));
+        // What FhirTerminologyService throws after its retries (or its circuit-breaker fallback) give up.
+        when(terminologyService.searchValueSets("HbA1c")).thenThrow(
+                new com.cqlplatform.exception.FhirServerUnavailableException(
+                        "Terminology server unavailable: connection refused",
+                        com.cqlplatform.exception.FhirServerUnavailableException.Reason.CONNECTION_REFUSED));
+
+        mockMvc.perform(get("/api/fhir/ValueSet").param("title", "HbA1c"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].source").value("platform"))
+                .andExpect(jsonPath("$[0].url").value(url))
+                .andExpect(jsonPath("$[0].status").value("active"))
+                .andExpect(header().string(FhirController.TERMINOLOGY_DEGRADED_HEADER, "true"));
+
+        // An outage counts as "no remote results": the VSAC fallback, already failure-tolerant, still runs.
+        verify(vsacService).searchValueSets("HbA1c");
+    }
+
+    @Test
+    @WithMockUser
+    void searchValueSets_remoteTerminologyUp_platformFirstThenRemoteWithoutDuplicates() throws Exception {
+        String shared = "https://hospital.example.tw/fhir/ValueSet/HbA1cOrders";
+        when(platformValueSets.searchForCaller("HbA1c")).thenReturn(List.of(platformVs(shared, "HbA1c Orders")));
+        ValueSet duplicate = new ValueSet();
+        duplicate.setUrl(shared);
+        duplicate.setName("Dup");
+        ValueSet remote = new ValueSet();
+        remote.setId("remote-1");
+        remote.setUrl("http://hl7.org/fhir/ValueSet/hba1c-remote");
+        remote.setName("RemoteHbA1c");
+        remote.setTitle("Remote HbA1c");
+        when(terminologyService.searchValueSets("HbA1c")).thenReturn(List.of(duplicate, remote));
+
+        mockMvc.perform(get("/api/fhir/ValueSet").param("title", "HbA1c"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].source").value("platform"))
+                .andExpect(jsonPath("$[0].url").value(shared))
+                .andExpect(jsonPath("$[1].source").value("remote"))
+                .andExpect(jsonPath("$[1].url").value("http://hl7.org/fhir/ValueSet/hba1c-remote"))
+                .andExpect(header().doesNotExist(FhirController.TERMINOLOGY_DEGRADED_HEADER));
+
+        verify(vsacService, never()).searchValueSets(any());
+    }
+
+    @Test
+    @WithMockUser
+    void searchValueSets_remoteThrowsSomethingElse_stillFails() throws Exception {
+        when(platformValueSets.searchForCaller("HbA1c"))
+                .thenReturn(List.of(platformVs("https://hospital.example.tw/fhir/ValueSet/HbA1cOrders", "HbA1c Orders")));
+        // Only the upstream-unavailable signal is absorbed; a programming error must still surface as 500,
+        // so nobody widens the catch to Exception without this test noticing.
+        when(terminologyService.searchValueSets("HbA1c")).thenThrow(new IllegalStateException("bug in remote search"));
+
+        mockMvc.perform(get("/api/fhir/ValueSet").param("title", "HbA1c"))
+                .andExpect(status().isInternalServerError());
     }
 }

@@ -118,7 +118,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-274 / BUG-153
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-274 / BUG-154
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -164,6 +164,7 @@ seedCompiledLibrary(libraryManager, elmLibrary.getIdentifier(), translator.getTr
 
 ### 術語 / value set（PAT-230）
 - 解析順序：**平台自有 value set**（`value_set` 表，租戶範圍）→ 內建 TW Core IG → VSAC（URL 含 `cts.nlm.nih.gov`）→ 遠端術語伺服器
+- `GET /api/fhir/ValueSet?title=` 的搜尋在遠端術語伺服器不可用時仍回平台結果（BUG-154）：controller 只吸收 `FhirServerUnavailableException`（含 circuit breaker fallback 轉成的）、log warn 後以空清單繼續、回應加 `X-Terminology-Degraded: true` header，其他例外照拋（測試鎖住仍 500）。smoke 34 曾因 tx.fhir.org 拒連而紅——遠端是加值，不是前提
 - `FhirTerminologyService` 的 Caffeine 快取（`valueSets` / `codeValidation` / `codeLookup`…）以 **URL 為 key、全程序共用、不分租戶**。任何租戶範圍的術語資料都**不可**放進這些 `@Cacheable` 方法，要在 controller 或呼叫端先查（`FhirController` 的 `$expand` / 搜尋 / `$validate-code` 就是這樣接的）
 - 引擎的 `TerminologyProvider` 一律由 `FhirTerminologyService.createTerminologyProvider()` 取得：它每次回傳一個綁定**當下租戶**的 `PlatformTerminologyProvider`，要在 request thread（或 `TenantContext.callWith` 內）呼叫，每次評估呼叫一次
 - value set 啟用（active）後代碼即凍結，改代碼 = 建立新版本；CQL 可用 `version '…'` 釘選。Builder 產生的宣告是 `valueset "<name>": '<oid 欄位的 URL>'`——artifact JSON 的 `oid` 才是 URL，`name` 只是識別名稱
