@@ -28,6 +28,7 @@ import {
   ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
+import TerminologyDegradedHint from './TerminologyDegradedHint'
 import { useDebouncedValue } from '../../hooks/useDebouncedValue'
 import { useCopyFeedback } from '../../hooks/useCopyFeedback'
 import { extractApiError } from '../../utils/errorUtils'
@@ -47,7 +48,8 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
   const { isCopied, markCopied } = useCopyFeedback()
 
   const debouncedSearch = useDebouncedValue(search, SEARCH_DEBOUNCE_CODE_MS)
-  const { data: valueSets = [], isLoading } = useSearchValueSets(debouncedSearch)
+  const { data: valueSetSearch, isLoading } = useSearchValueSets(debouncedSearch)
+  const valueSets = valueSetSearch?.valueSets ?? []
   const expandMutation = useExpandValueSet()
 
   // Race-guard: a single expandMutation is shared across rows. Only render
@@ -89,6 +91,7 @@ export default function DrawerValueSetPanel({ onSelect }: DrawerValueSetPanelPro
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
+      <TerminologyDegradedHint show={valueSetSearch?.terminologyDegraded === true} />
       <Box sx={{ flex: 1, overflow: 'auto' }}>
         {isLoading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>

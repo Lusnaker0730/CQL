@@ -881,6 +881,13 @@ export interface ValueSetSearchResult {
   status?: string
 }
 
+/** PAT-275 — a value set search answer plus whether the remote terminology server took part (BUG-154 header). */
+export interface ValueSetSearchResponse {
+  valueSets: ValueSetSearchResult[]
+  /** true when the backend answered without the remote terminology server (`X-Terminology-Degraded: true`). */
+  terminologyDegraded: boolean
+}
+
 /** PAT-230 — one code of a platform value set. */
 export interface ValueSetConcept {
   system: string

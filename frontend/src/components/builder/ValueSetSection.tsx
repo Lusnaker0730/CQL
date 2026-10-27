@@ -20,6 +20,7 @@ import {
 import { alpha } from '@mui/material/styles'
 import { Add as AddIcon, ExpandMore, ExpandLess, Search as SearchIcon, LocalLibrary as BrowseIcon } from '@mui/icons-material'
 import { useSearchValueSets, useExpandValueSet } from '../../hooks/useTerminology'
+import TerminologyDegradedHint from '../terminology/TerminologyDegradedHint'
 import ElementListItem from './ElementListItem'
 import ConfirmDeleteDialog from '../common/ConfirmDeleteDialog'
 import SnippetPreview from './SnippetPreview'
@@ -58,9 +59,10 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [previewSnippet, setPreviewSnippet] = useState('')
 
-  const { data: searchResults = [], isLoading: isSearching } = useSearchValueSets(
+  const { data: valueSetSearch, isLoading: isSearching } = useSearchValueSets(
     browseMode === 'vsac' && debouncedSearchTerm.length >= 2 ? debouncedSearchTerm : undefined
   )
+  const searchResults = valueSetSearch?.valueSets ?? []
   const expandMutation = useExpandValueSet()
   const handleExpand = (url: string) => {
     if (expandedUrl === url) {
@@ -222,6 +224,7 @@ export default function ValueSetSection({ valueSets, onInsert, onDelete, onGoTo,
                       }
                     }}
                   />
+                  <TerminologyDegradedHint show={valueSetSearch?.terminologyDegraded === true} />
 
                   {searchResults.length > 0 && (
                     <Stack spacing={0.5} sx={{ maxHeight: 250, overflow: 'auto' }}>
