@@ -455,7 +455,7 @@ AI_CLOUD_TIMEOUT=60
 
 ## 7. Nginx 反向代理
 
-Frontend 容器內嵌的 Nginx 負責所有路由：
+Frontend 容器內的 Nginx 負責所有路由。**生效的設定檔是 `docker/nginx.conf`**（`docker-compose.yml` 以 `./nginx.conf:/etc/nginx/conf.d/default.conf:ro` 掛進容器），image 內建的 `frontend/nginx.conf` 只是沒有 compose 時的預設。改路由改 `docker/nginx.conf`，VM 上 `git pull` 後 `docker exec docker-frontend-1 nginx -t && docker exec docker-frontend-1 nginx -s reload` 即生效，不必重建 image（BUG-156）：
 
 | 路徑 | 轉發目標 | 說明 |
 |------|----------|------|
@@ -464,10 +464,10 @@ Frontend 容器內嵌的 Nginx 負責所有路由：
 | `/api/ws/notifications` | `backend:8080`（含 `Upgrade` / `Connection: upgrade`） | **PAT-167** WebSocket 通知推送 — 取代舊 SSE `/api/notifications/subscribe`。`proxy_read_timeout 86400s`；backend 每 25 秒送 protocol-level ping frame，Cloudflare WS 300s idle 視為 activity 不會砍連線。 |
 | `/api/` | `backend:8080` | 所有 REST API（逾時 180s） |
 | `/cds-services` | `backend:8080` | CDS Hooks |
-| `/grafana/` | `grafana:3000` | 監控儀表板 |
-| `/prometheus/` | `prometheus:9090` | 指標查詢 |
 | `/twcoredata/` | `taiwan-fhir-generator:5000` | 病患資料產生器 |
 | `/` | 靜態檔案 + SPA fallback | React 前端 |
+
+`/grafana/`、`/prometheus/` 自 PAT-269 / BUG-156 起不再代理（曾無認證公開到網際網路）；監控改走 SSH tunnel，見 `docker/nginx-vm/README.md`。
 
 **安全 Headers**（自動套用於所有回應）：
 - `X-Frame-Options: DENY`

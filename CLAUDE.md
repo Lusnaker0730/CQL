@@ -118,7 +118,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-275 / BUG-155
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-276 / BUG-156
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -373,6 +373,7 @@ regulatory_docs/
 
 - merge 到 main → CI 綠 → `deploy.yml` 只把 image 推到 GHCR（`:latest` + `sha-xxxxxxx`），**不會**部署到 VM
 - 上線是手動 SSH 到 VM `docker compose pull backend frontend && up -d --no-build`（見 `DEPLOYMENT_GUIDE_zh-TW.md` §3.5）；**絕不在 VM 上 `docker compose build`**（2 核，會把跑中的 backend 餓死）
+- **正式機 frontend 容器的 nginx 設定是 compose bind-mount 的 `docker/nginx.conf`，不是 image 裡的 `frontend/nginx.conf`（BUG-156）**：路由 / CSP / proxy 要改 `docker/nginx.conf`（PAT-157 CSP、resolver、`$forwarded_proto`、PAT-167 WebSocket 都只在這份）；PAT-269 改錯檔，Prometheus / Grafana 的公開 proxy 多活到第 19 次部署之後。改這份不用重建 image：VM `git pull` 後 `docker exec docker-frontend-1 nginx -t && docker exec docker-frontend-1 nginx -s reload` 即生效
 
 ## 注意事項
 
