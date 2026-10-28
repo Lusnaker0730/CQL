@@ -25,6 +25,8 @@ class CdsHooksServiceTest {
     private CdsInvocationService invocationService;
     @Mock
     private CqlTupleCardStrategy tupleStrategy;
+    @Mock
+    private com.cqlplatform.repository.TenantRepository tenantRepository;
 
     private CdsHooksService cdsHooksService;
 
@@ -416,6 +418,85 @@ class CdsHooksServiceTest {
         } finally {
             org.springframework.security.core.context.SecurityContextHolder.clearContext();
         }
+    }
+
+    // ===== BUG-155: callers without a tenant resolve to the default tenant =====
+    //
+    // Users created before multi-tenancy (V64) have app_user.tenant_id = NULL, so their JWT carries
+    // no `tenant` claim and TenantContext is null (API keys owned by them resolve the same way).
+    // Every other path in this class maps that to the `default` tenant via effectiveTenantId(); the
+    // invoke gate read the raw context and denied all of them ("Service not found") for shared
+    // services the list surface had just shown them.
+
+    private CdsHooksService serviceWithDefaultTenant(long defaultTenantId) {
+        when(tenantRepository.findByCode("default")).thenReturn(java.util.Optional.of(
+                com.cqlplatform.entity.TenantEntity.builder().id(defaultTenantId).code("default").build()));
+        return new CdsHooksService(repository, new ObjectMapper(), invocationService, tupleStrategy,
+                java.util.Optional.empty(), java.util.Optional.empty(), java.util.Optional.of(tenantRepository));
+    }
+
+    private static CdsRequest patientViewRequest() {
+        CdsRequest request = new CdsRequest();
+        CdsRequest.CdsContext ctx = new CdsRequest.CdsContext();
+        ctx.setUserId("Practitioner/1");
+        ctx.setPatientId("p1");
+        request.setContext(ctx);
+        return request;
+    }
+
+    private static CdsHooksService.CdsServiceConfig sharedServiceOwnedByAdmin(String id, Long tenantId) {
+        return CdsHooksService.CdsServiceConfig.builder()
+                .id(id).hook("patient-view")
+                .cqlContent("library T version '1.0' define X: true")
+                .ownerUsername("admin").shared(true).tenantId(tenantId)
+                .build();
+    }
+
+    @Test
+    void invokeService_callerWithoutTenant_sharedServiceInDefaultTenant_delegates() {
+        CdsHooksService service = serviceWithDefaultTenant(1L);
+        com.cqlplatform.security.TenantContext.clear(); // legacy JWT: no tenant claim
+        // setUp's caller "test-caller" is NOT the owner, so the same-tenant rule decides.
+        service.registerService(sharedServiceOwnedByAdmin("dm", 1L));
+        // lenient: only reached while the gate still denies (regression) — the fix never builds this card.
+        lenient().when(tupleStrategy.createInfoCard(eq("Service not found"), contains("dm")))
+                .thenReturn(CdsResponse.Card.builder().summary("Service not found").indicator("info").build());
+        when(invocationService.invoke(any(), any())).thenReturn(CdsResponse.builder()
+                .cards(List.of(CdsResponse.Card.builder().summary("ok").build())).build());
+
+        CdsResponse response = service.invokeService("dm", patientViewRequest());
+
+        assertThat(response.getCards()).extracting(CdsResponse.Card::getSummary).containsExactly("ok");
+        verify(invocationService).invoke(any(), any());
+    }
+
+    @Test
+    void invokeService_callerWithoutTenant_sharedServiceInOtherTenant_returnsNotFoundCard() {
+        CdsHooksService service = serviceWithDefaultTenant(1L);
+        com.cqlplatform.security.TenantContext.clear();
+        service.registerService(sharedServiceOwnedByAdmin("clinic-svc", 2L));
+        when(tupleStrategy.createInfoCard(eq("Service not found"), contains("clinic-svc")))
+                .thenReturn(CdsResponse.Card.builder().summary("Service not found").indicator("info").build());
+
+        CdsResponse response = service.invokeService("clinic-svc", patientViewRequest());
+
+        // Isolation is not relaxed: a tenant-less caller is the default tenant only.
+        assertThat(response.getCards()).extracting(CdsResponse.Card::getSummary).containsExactly("Service not found");
+        verify(invocationService, never()).invoke(any(), any());
+    }
+
+    @Test
+    void invokeService_callerWithoutTenant_noDefaultTenantResolvable_returnsNotFoundCard() {
+        // setUp's instance has no TenantRepository, so effectiveTenantId() stays null: still denied.
+        com.cqlplatform.security.TenantContext.clear();
+        cdsHooksService.registerService(sharedServiceOwnedByAdmin("dm", 1L));
+        when(tupleStrategy.createInfoCard(eq("Service not found"), contains("dm")))
+                .thenReturn(CdsResponse.Card.builder().summary("Service not found").indicator("info").build());
+
+        CdsResponse response = cdsHooksService.invokeService("dm", patientViewRequest());
+
+        assertThat(response.getCards()).extracting(CdsResponse.Card::getSummary).containsExactly("Service not found");
+        verify(invocationService, never()).invoke(any(), any());
     }
 
     // ===== Tenant boundary (BUG-137 / BUG-139) =====

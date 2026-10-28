@@ -403,8 +403,14 @@ public class CdsHooksService {
             // created. The shared→same-tenant rule below still gates non-owner callers.
             allowed = true;
         } else if (Boolean.TRUE.equals(config.getShared())) {
-            // Same-tenant caller. TenantContext is set by the API-key auth path (PAT-198).
-            Long callerTenant = com.cqlplatform.security.TenantContext.getCurrentTenantId();
+            // Same-tenant caller. BUG-155: resolve the caller's tenant with effectiveTenantId()
+            // like every other path in this class. A legacy user (app_user.tenant_id NULL, so the
+            // JWT has no `tenant` claim and TenantContext is null; API keys owned by such a user
+            // resolve the same way) belongs to the `default` tenant. Reading the raw TenantContext
+            // here denied every non-owner legacy caller: the list surface showed them the service
+            // (effective tenant), the invoke gate did not. A caller whose tenant still resolves
+            // to null (no default tenant) stays denied.
+            Long callerTenant = effectiveTenantId();
             allowed = config.getTenantId() == null
                     || (callerTenant != null && callerTenant.equals(config.getTenantId()));
         } else {
