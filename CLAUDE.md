@@ -118,7 +118,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - Commit 格式: `feat|fix|docs|refactor: 描述 (#PAT-NNN)`（或 `(#BUG-NNN)`）
 - 每次 commit 後更新 `docs/CHANGE_LOG.md`（表格格式，繁體中文）；純文件同步的 `docs:` commit 慣例上不加列
 - **commit 欄位留空**（結尾 `| |`）——PR merge 後 `changelog-backfill.yml` workflow 會自動填入 hash
-- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-275 / BUG-154
+- ID 格式: `PAT-###`（功能/修補）、`BUG-###`（修復）；目前最新 PAT-275 / BUG-155
 - 本機手動回填：`scripts/changelog/fill-hash.sh --commit`（跑 `.github/scripts/changelog-backfill.py`）
 - PR 是 **squash merge**；本機分支 merge 後會看起來永遠 1 ahead / 1 behind，別誤判
 
@@ -134,6 +134,7 @@ cd frontend && python scripts/check-i18n-sync.py   # en / zh-TW key 同步檢查
 - 平台操作員限定的操作（全平台使用者管理、稽核清除、IndicatorCatalog 全域表）用 `PlatformOperatorGuard.require()`；擁有者檢查用 `OwnershipVerifier`
 - 新增含租戶資料的表：migration 加 `tenant_id`（NOT NULL + 回填），rollback 腳本對應
 - CDS 服務有 in-memory registry（`CdsHooksService.serviceConfigs`），任何改 DB 的路徑都必須同步 put / remove，否則 `invokeService` 讀舊值到重啟為止（BUG-142）
+- **授權判斷裡的「呼叫者租戶」也要走 `effectiveTenantId()`，不要直接拿 `TenantContext.getCurrentTenantId()` 去比對（BUG-155）**：正式機 27 個帳號有 26 個是多租戶（V64）之前建的、`app_user.tenant_id` 為 NULL，JWT 沒有 `tenant` claim、API key 也解不到租戶。`invokeService` 的「shared 服務限同租戶」直接比 raw 值，把所有非擁有者的舊帳號都擋成「Service not found」，而清單端點用 effective 值卻列得出來——被擋與不存在刻意同一張卡，只有 log 的 `CDS invoke denied for service X (caller=Y)` 分得出來
 
 ### Backend 模式
 - **量耗時用 `util/Stopwatch`（`System.nanoTime()`），不要 `System.currentTimeMillis()` 相減**（BUG-145）：牆上時鐘在執行期間會被 NTP / VM 校時往回調，相減會得到負值。`measure_report.evaluation_duration_ms` 有 CHECK `>= 0`，負值曾讓整份評估報表被資料庫拒絕，而評估 API 照樣回 200。會被**儲存**的耗時尤其要用單調時鐘
