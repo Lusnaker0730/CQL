@@ -113,6 +113,16 @@
                 <artifactId>libthrift</artifactId>
                 <version>0.24.0</version>
             </dependency>
+            <!-- PAT-276: guava 33.2.1-jre -> 33.7.2-jre: CVE-2026-102554 / GHSA-xxph-c9ww-hj94 (HIGH).
+                 CompactHashMap / CompactHashSet / MapMakerInternalMap readObject() trusts the element count in the
+                 stream and eagerly allocates arrays that size (uncontrolled memory allocation). Transitive via
+                 hapi-fhir-base 8.12.1; the platform never Java-deserializes untrusted streams, but a fixed version
+                 exists and Trivy gates on it. Spring Boot's BOM does not manage guava, so this is a plain override. -->
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>33.7.2-jre</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
