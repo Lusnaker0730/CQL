@@ -20,7 +20,7 @@
   - `Pre-existing`：這次 diff 旁邊的既有問題，不是這個 PR 造成的，只提醒不要求本 PR 修。
 - **一輪講完**。把所有 Important 一次列出，不要分多輪慢慢補；沒有 Important 就明說「沒有阻擋項」。
 - **不重複 CI 會抓的事**：ESLint / tsc / i18n key 同步 / Monarch token 漂移 / rollback 數量 / Trivy / GitGuardian 都有自動檢查，除非 diff 顯示作者刻意繞過它們。
-- **只用 GitHub 留言輸出**（inline comment + 一則總結），不改程式、不開 commit。
+- **只用 GitHub 留言輸出**（一則總結 + 只對 Important 留 inline comment），不改程式、不開 commit。
 - 用**繁體中文**，程式識別字保留原文。
 
 ## 必查清單（命中任一即 `Important`）
@@ -94,4 +94,6 @@
 - ...
 ```
 
-inline comment 只給有明確行號的 Important 與 Nit，開頭同樣標級別。沒有 Important 時仍要留總結，讓合併者知道這輪看過了。
+inline comment **只給有明確行號的 Important**，開頭同樣標級別；Nit 與 Pre-existing 只寫在總結留言，**不留 inline**。沒有 Important 時仍要留總結，讓合併者知道這輪看過了。
+
+為什麼 Nit 不留 inline：main 的 ruleset 開了 review thread resolution，每一則 inline comment 都是一個要 resolve 的 thread，而每次 push 都會重跑 review——Nit 留成 inline 等於每一輪都用「不擋合併」的意見擋住合併（PR 1112、PR 1114 各被擋了兩輪）。Important 留 inline 正是要這個擋門效果。
