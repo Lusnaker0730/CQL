@@ -54,7 +54,7 @@ tail -n 5 /var/log/nginx/access.log | cut -d' ' -f1                             
 
 ## Monitoring access (Grafana / Prometheus)
 
-The `/grafana/` and `/prometheus/` proxies were removed from `frontend/nginx.conf` in PAT-269 (they were reachable from the internet with no authentication), and this host config answers 404 on both so an older frontend image cannot re-expose them. The VM's `docker-compose.override.yml` publishes Grafana on `127.0.0.1:3000` and Prometheus on `127.0.0.1:9090`; open them through an SSH tunnel:
+The `/grafana/` and `/prometheus/` proxies were removed from `frontend/nginx.conf` (the image default) in PAT-269 and from `docker/nginx.conf` (the file `docker-compose.yml` actually bind-mounts into the frontend container, so the one production runs) in BUG-156; they were reachable from the internet with no authentication. This host config answers 404 on both so an older frontend image or compose file cannot re-expose them. The VM's `docker-compose.override.yml` publishes Grafana on `127.0.0.1:3000` and Prometheus on `127.0.0.1:9090`; open them through an SSH tunnel:
 
 ```bash
 ssh -N -L 3000:127.0.0.1:3000 -L 9090:127.0.0.1:9090 root@187.77.155.248
